@@ -161,3 +161,19 @@ test('popup consumes its own hotkeys, preserves Escape and releases walking keyu
   f.view.update(100,true);f.view.request();assert.equal(f.sounds,1);
   assert.equal(f.view.isOpen(),false);
 });
+
+test('legacy inbox senders display current names without changing stored messages',()=>{
+  const storage=memoryStorage();
+  const entry={id:'legacy-note',kind:'mission',missionId:1,sender:'학년부장 · 교실 담당',
+    subject:'기존 쪽지 제목',lines:['기존 첫 문장','기존 둘째 문장'],reply:'기존 답장',receivedAt:1,acknowledgedAt:null};
+  const saved=JSON.stringify({version:1,entries:[entry]});storage.setItem(MESSENGER_STORAGE_KEY,saved);
+  const f=fixture({storage});f.view.update(0,true);
+  assert.equal(f.field('sender').textContent,'나수합(학년부장)');
+  assert.equal(f.field('subject').textContent,entry.subject);
+  assert.equal(f.field('line-one').textContent,entry.lines[0]);
+  f.view.openArchive();
+  assert.match(f.archive.querySelector('[data-history="meta"]').textContent,/^나수합\(학년부장\) ·/);
+  assert.match(f.archive.querySelector('.messenger-history-time').textContent,/^나수합\(학년부장\) ·/);
+  assert.equal(storage.getItem(MESSENGER_STORAGE_KEY),saved);
+  assert.equal(f.view.historyCount(),1);f.view.dispose();
+});

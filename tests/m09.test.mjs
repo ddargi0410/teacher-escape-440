@@ -109,3 +109,18 @@ test('full readable terms travel inside falling cards, with all three controls v
     }finally{game?.destroy();h.restore();}
   }
 });
+
+
+test('cafeteria answer feedback appears once, outside the tray and buttons',()=>{
+  const h=harness(),fails=[];let game;
+  try{
+    game=start({container:h.container,data:data(),onFail:p=>fails.push(p)});h.step(.6);
+    h.buttons().find(b=>b.attrs['aria-label'].startsWith('2번')).onclick();h.step(2.4);
+    assert.equal(fails.length,1);
+    const root=h.container.children[0],tip=root.children.find(n=>n.className.startsWith('arcade-feedback-tip'));
+    assert.equal(tip.textContent,`! ${fails[0].tip}`);
+    assert.equal(root.children.filter(n=>n.className.startsWith('arcade-feedback')).length,1);
+    assert.ok(!h.context.draws.some(d=>d.text===fails[0].tip));
+    assert.ok(!h.context.draws.some(d=>d.text==='3칸 식판'));
+  }finally{game?.destroy();h.restore();}
+});

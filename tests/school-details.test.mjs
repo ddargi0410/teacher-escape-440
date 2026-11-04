@@ -7,6 +7,19 @@ import {pointBlocked} from '../crowd.js';
 const noop=()=>{};
 globalThis.document={createElement:()=>({width:0,height:0,getContext:()=>new Proxy({},{get:()=>noop,set:()=>true})})};
 
+test('first-floor arrival is clear of the entrance canopy and connected to the stairs',()=>{
+  const world=createWorld(new THREE.Scene());world.setFloor(1);
+  const spawn=world.spawn(1);
+  assert.ok(Math.abs(spawn.x)>3.6+.35,'player starts beside the canopy footprint');
+  // Walk around the existing corridor pillar before turning toward the stairs.
+  const route=[spawn,{x:spawn.x,z:4.7},{x:0,z:4.7}];
+  for(let i=1;i<route.length;i++)for(let step=0;step<=60;step++){
+    const t=step/60,a=route[i-1],b=route[i];
+    assert.equal(pointBlocked({x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t},world.colliders,.35),false);
+  }
+  for(let floor=2;floor<=5;floor++)assert.deepEqual(world.spawn(floor),{x:0,y:(floor-1)*4,z:6.5});
+});
+
 test('school detail surfaces are shared, opaque and supported by the software renderer',()=>{
   const world=createWorld(new THREE.Scene()),textures=new Map();
   world.root.traverse(object=>{

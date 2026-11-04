@@ -30,7 +30,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
   function select(index){if(suppressClick){suppressClick=false;return;}if(model.phase!=='edit'||model.fixed.has(chips[index].fix))return;selected=index;stage.announce(`${chips[index].label} 선택. AI 입력칸을 누르세요.`);}
   function connect(){if(model.connect()){sound('click');stage.announce('입력 소스 연결. 이제 웹 화면 세 부분을 하나씩 고쳐요.');}}
   function save(){report(model.save());}
-  function point(event){const r=stage.root.getBoundingClientRect();return{x:(event.clientX-r.left)*stage.width/r.width,y:(event.clientY-r.top)*stage.height/r.height};}
+  function point(event){const r=stage.canvas.getBoundingClientRect();return{x:(event.clientX-r.left)*stage.width/r.width,y:(event.clientY-r.top)*stage.height/r.height};}
   function down(event){suppressClick=false;if(document.hidden||paused||model.phase!=='edit'||!layout)return;const p=point(event),index=layout.chips.findIndex(box=>hit(p,box));if(index<0||model.fixed.has(chips[index].fix))return;drag={index,start:p,point:p,moved:false};}
   function move(event){if(!drag||paused)return;const p=point(event);drag.point=p;if(Math.hypot(p.x-drag.start.x,p.y-drag.start.y)>8){drag.moved=true;stage.root.setPointerCapture?.(event.pointerId);}}
   function up(event){if(!drag||paused)return;const p=point(event),was=drag;drag=null;if(was.moved){suppressClick=true;if(layout&&hit(p,layout.input))apply(was.index);else selected=was.index;}}
@@ -42,7 +42,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     const W=stage.width,H=stage.height,font=clamp(Math.min(W/800,H/650)*26,20,28),narrow=W<560,buttons=[];
     report(model.tick(clockDt));staticLeft=Math.max(0,staticLeft-clockDt);tipLeft=Math.max(0,tipLeft-clockDt);
     if(model.phase==='success'){finish+=clockDt;if(finish>.9&&!won){won=true;onWin({fixed:[...model.fixed],saved:true,equipmentChecked:true,mistakes:model.mistakes,seconds:Math.round(model.elapsed)});}}
-    ctx.fillStyle='#e7e9df';ctx.fillRect(0,0,W,H);text(ctx,'ON AIR 10초 전',22,36,font,C.green,'left');text(ctx,`${Math.max(0,Math.ceil(duration-model.elapsed))}s`,W-22,36,Math.max(16,font*.8),C.green,'right');
+    ctx.fillStyle='#e7e9df';ctx.fillRect(0,0,W,H);text(ctx,`${Math.max(0,Math.ceil(duration-model.elapsed))}s`,W-22,36,Math.max(16,font*.8),C.green,'right');
     fitText(ctx,model.phase==='source'?'🔌 행사 당일! 먼저 입력 소스 확인':'☝ 수정 칩을 하나씩 AI 입력칸으로',W/2,71,W-30,Math.max(16,font*.75),C.green);
     const monitor={x:W*.08,y:H*.17,w:W*.84,h:H*.36};rounded(ctx,monitor.x-8,monitor.y-8,monitor.w+16,monitor.h+27,18,'#3b514b');
     const fixed=model.fixed;

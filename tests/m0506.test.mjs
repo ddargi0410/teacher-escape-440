@@ -4,6 +4,7 @@ import {start as bugs,judgeReportDrop} from '../minigames/m05.js';
 import {start as science,swipeHitsBubble,judgeScienceAction} from '../minigames/m06.js';
 import {getStage2Arcade} from '../minigames/stage2-content.js';
 import {MISSIONS} from '../missions-data.js';
+import {wrapLines} from '../minigames/shared.js';
 
 // Small deterministic canvas/event harness. Tests drive actual controls and
 // animation time; no private game state is patched to manufacture a victory.
@@ -109,4 +110,27 @@ test('leaving wrong statements alone cannot win; pause and hidden tabs do not co
     h.step(95,100);assert.equal(wins.length,0);assert.equal(fails.filter(f=>f.reason==='timeout').length,1);const count=fails.length;h.step(10);assert.equal(fails.length,count);
     click(h,/AI 작업 습관 다시 검증하기/);assert.ok(h.context.draws.some(d=>d.text==='✓ 0/9'));assert.ok(button(h,/틀린 문장 자르기/));
   }finally{game?.destroy();h.restore();}
+});
+
+
+test('science answer feedback appears once above the playfield, never again in canvas',()=>{
+  const h=harness(),fails=[];let game;
+  try{
+    game=science({container:h.container,data:data(6),onFail:p=>fails.push(p)});h.step(.1);
+    click(h,/맞는 문장 학습지로 보내기/);
+    assert.equal(fails.length,1);
+    const root=h.container.children[0],tip=root.children.find(n=>n.className.startsWith('arcade-feedback-tip'));
+    assert.equal(tip.textContent,`! ${fails[0].tip}`);
+    assert.equal(root.children.filter(n=>n.className.startsWith('arcade-feedback')).length,1);
+    assert.ok(root.children.find(n=>n.className==='arcade-playfield').children.includes(h.canvas()));
+    assert.ok(!h.context.draws.some(d=>d.text===fails[0].tip||d.text==='╱ 잘라야 해요'));
+    assert.ok(!h.context.draws.some(d=>d.text===data(6).arcade.title));
+  }finally{game?.destroy();h.restore();}
+});
+
+test('canvas Korean wrapping preserves words and explicit paragraph boundaries',()=>{
+  const ctx={measureText:s=>({width:[...s].length*10})};
+  assert.deepEqual(wrapLines(ctx,'화살표로 교문을 열어요',60).map(s=>s.trim()),['화살표로','교문을','열어요']);
+  assert.deepEqual(wrapLines(ctx,'화살표\n교문',20),['화살표','교문']);
+  assert.deepEqual(wrapLines(ctx,'개인정보보호',20),['개인정보보호']);
 });

@@ -74,3 +74,18 @@ test('screening active time freezes while paused or hidden; timeout is one event
   try{game=screening({container:h.container,data:data(7),onFail:v=>fails.push(v)});h.step();game.pause();h.step(100);assert.equal(fails.length,0);game.resume();h.doc.hidden=true;h.step(100);assert.equal(fails.length,0);h.doc.hidden=false;h.step(92);assert.equal(fails.filter(f=>f.reason==='timeout').length,1);h.step(10);assert.equal(fails.filter(f=>f.reason==='timeout').length,1);h.button(/다시 검색/).onclick();h.step();assert.ok(h.button(/^←/));assert.ok(h.context.draws.some(d=>d.text==='✓ 0/11'));
   }finally{game?.destroy();h.restore();}
 });
+
+
+test('administration answers use a single feedback row and preserve only bin highlighting',()=>{
+  const h=harness(),d=data(7),fails=[];let game;
+  try{
+    game=screening({container:h.container,data:d,onFail:p=>fails.push(p)});h.step();
+    h.button(d.arcade.items[0].action==='pass'?/^→/:/^←/).onclick();h.step();
+    assert.equal(fails.length,1);
+    const root=h.root(),tip=root.children.find(n=>n.className.startsWith('arcade-feedback-tip'));
+    assert.equal(tip.textContent,`! ${fails[0].tip}`);
+    assert.equal(root.children.filter(n=>n.className.startsWith('arcade-feedback')).length,1);
+    assert.ok(!h.context.draws.some(d=>d.text===fails[0].tip));
+    assert.ok(!h.context.draws.some(d=>d.text==='개인정보 검색대'));
+  }finally{game?.destroy();h.restore();}
+});

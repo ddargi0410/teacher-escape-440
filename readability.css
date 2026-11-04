@@ -1,4 +1,5 @@
 /* Comfortable text sizes for teachers reading on school PCs and tablets. */
+*,*::before,*::after {word-break:keep-all;}
 .panel {width:min(780px,100%);padding:32px;}
 .panel.wide {width:min(1040px,100%);}
 .panel h2 {font-size:clamp(27px,3vw,36px);line-height:1.4;letter-spacing:-.6px;}
@@ -49,7 +50,7 @@
 #tutorial b {font-size:19px;}
 #tutorial p {font-size:16px;line-height:1.7;color:#465637;}
 #tutorial .tutorial-label,#tutorial button,#tutorial>div {font-size:14px;}
-#toast {font-size:18px;max-width:min(680px,92vw);line-height:1.6;}
+#toast {top:12px;font-size:18px;max-width:min(680px,92vw);line-height:1.6;}
 .character-bubble {font-size:clamp(16px,1.4vw,20px);line-height:1.5;white-space:normal;text-align:center;}
 .end-stats strong {font-size:27px;}
 @media(max-width:800px){
@@ -72,7 +73,7 @@
   #interaction b {white-space:normal;font-size:17px;}
   #interact-button {font-size:16px;}
   .hud-tools span,.hud-tools b {font-size:14px;}
-  #toast {top:215px;font-size:17px;}
+  #toast {top:8px;font-size:17px;}
   .controls-table {grid-template-columns:112px 1fr;font-size:16px;gap:12px;}
 }
 @media(max-width:480px){

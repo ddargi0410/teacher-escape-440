@@ -1,4 +1,4 @@
-import {createCanvasStage,COLORS as C,clamp,rounded,text,fitText} from './shared.js';
+import {createCanvasStage,COLORS as C,clamp,rounded,text,fitText,wrapLines} from './shared.js';
 
 const KINDS=['html','css','js'];
 const LABELS=['HTML','CSS','JS'];
@@ -44,7 +44,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
   let counts={html:0,css:0,js:0};const missedBonus=[],clearedBonus=new Set();
   const say=message=>{tip=message;tipTime=2;stage.announce(message);};
   function reset(){overtime=false;elapsed=0;tray=.5;item=null;coreIndex=0;bonusIndex=0;next=.35;phase='core';mode='play';tip='';tipTime=0;reveal=-1;revealTime=0;splash=0;winSent=false;mistakes=0;bonusCount=0;points=0;counts={html:0,css:0,js:0};missedBonus.length=0;clearedBonus.clear();stage.announce('HTML·CSS·JS를 두 개씩, 보너스 세 개!');}
-  function feedback(ok,message){stage.flash(ok?'good':'bad',message);say(message);data.runtime?.playSound?.(ok?'click':'error');}
+  function feedback(ok,message){tip='';tipTime=0;stage.flash(ok?'good':'bad',message);data.runtime?.playSound?.(ok?'click':'error');}
   function spawn(){
     let food,answer;
     if(phase==='core'){food=overtime?foods.find(f=>counts[f.kind]<2)||coreOrder[coreIndex%coreOrder.length]:coreOrder[coreIndex%coreOrder.length];coreIndex++;answer=KINDS.indexOf(food.kind);}
@@ -74,10 +74,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
   }
   stage.onPointer(p=>{if(mode==='play'&&(p.type==='pointerdown'||p.type==='pointermove'))tray=trayPointerPosition(p.x,stage.width,stage.height)/stage.width;});
   stage.onKey(k=>{if(mode==='retry'&&(k==='enter'||k===' '))reset();else if(['1','2','3'].includes(k))align(+k-1);});
-  function labelLines(value,maxWidth,size){
-    const chars=[...String(value)],lines=[];let line='';ctx.font=`700 ${size}px system-ui, sans-serif`;
-    for(const char of chars){if(line&&ctx.measureText(line+char).width>maxWidth){lines.push(line);line=char;}else line+=char;}if(line)lines.push(line);return lines;
-  }
+  function labelLines(value,maxWidth,size){return wrapLines(ctx,value,maxWidth,size);}
   function drawTray(W,H,g,t){
     const x=tray*W,top=g.y;
     ctx.fillStyle='#203a3522';ctx.beginPath();ctx.ellipse(x,top+g.height,g.width*.56,13,0,0,Math.PI*2);ctx.fill();
@@ -87,7 +84,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
       rounded(ctx,left,top,g.compartment-8,g.height,10,highlight?C.lime:i===0?'#f8e6b7':i===1?'#dfd0ea':'#c5e2da',highlight?C.green:'#8aa294');
       if(phase==='bonus'&&item){
         const size=W<600?18:22,lines=labelLines(item.food.options[i],g.compartment-22,size);
-        lines.forEach((line,j)=>text(ctx,line,left+(g.compartment-8)/2,top+134+(j-(lines.length-1)/2)*(size+2),size,C.green));
+        lines.forEach((line,j)=>fitText(ctx,line.trimEnd(),left+(g.compartment-8)/2,top+134+(j-(lines.length-1)/2)*(size+2),g.compartment-22,size,C.green));
       }else{text(ctx,LABELS[i],left+(g.compartment-8)/2,top+121,W<600?22:26,C.green);text(ctx,NAMES[i],left+(g.compartment-8)/2,top+146,W<600?18:20,C.green);}
       if(splash>0)for(let j=0;j<3;j++){ctx.fillStyle=C.orange;ctx.beginPath();ctx.arc(x+(i-1)*g.compartment+(j-1)*10,top-8-(.7-splash)*50+Math.sin(j*3)*9,3,0,Math.PI*2);ctx.fill();}
     }
@@ -113,7 +110,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     for(let x=0;x<W;x+=72){ctx.beginPath();ctx.moveTo(x,150);ctx.lineTo(x,H-90);ctx.stroke();}
     for(let y=150;y<H-90;y+=65){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
     ctx.fillStyle='#baa285';ctx.fillRect(0,H-77,W,77);
-    text(ctx,'3칸 식판',20,35,small?26:32,C.green,'left');text(ctx,relaxed?'천천히':`${Math.max(0,Math.ceil(LENGTH-elapsed))}s`,W-76,35,relaxed?18:24,C.green,'right');
+    text(ctx,relaxed?'천천히':`${Math.max(0,Math.ceil(LENGTH-elapsed))}s`,W-76,35,relaxed?18:24,C.green,'right');
     text(ctx,'← → 이동 · 아래 버튼으로 칸 맞추기',W/2,71,small?17:21,C.green);
     const progress=KINDS.map((kind,i)=>`${LABELS[i]} ${Math.min(counts[kind],2)}/2`).join('   ');
     fitText(ctx,`${progress}  ·  ★ ${Math.min(bonusCount,3)}/3`,W/2,102,W-24,small?16:20,C.green);
@@ -126,7 +123,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
         rounded(ctx,-w/2,-h/2,w,h,Math.min(16,w/3),item.bonus?'#f2d08e':C.paper,item.bonus?'#9b6d2d':'#90aa92');
         text(ctx,item.food.icon||'★',0,-30,22,C.green);
         const size=small?20:24,lines=labelLines(item.food.label,w-20,size);
-        lines.forEach((line,j)=>text(ctx,line,0,12+(j-(lines.length-1)/2)*(size+4),size,C.green));
+        lines.forEach((line,j)=>fitText(ctx,line,0,12+(j-(lines.length-1)/2)*(size+4),w-20,size,C.green));
         ctx.restore();
         const options=item.bonus?item.food.options:LABELS;
         stage.setButtons(options.map((option,i)=>({id:`align-${i}`,label:`${i+1}번 칸 맞추기 · ${option}`,x:W*i/3,y:H-70,w:W/3,h:70,onClick:()=>align(i)})));
@@ -141,7 +138,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
         const option=phase==='bonus'&&item?item.food.options[i]:`${LABELS[i]} · ${NAMES[i]}`;
         rounded(ctx,W*i/3+4,H-68,W/3-8,64,10,C.paper,C.green);
         const lines=labelLines(`${i+1} ${option}`,W/3-22,small?17:20);
-        lines.forEach((line,j)=>text(ctx,line,W*(i+.5)/3,H-36+(j-(lines.length-1)/2)*21,small?17:20,C.green));
+        lines.forEach((line,j)=>fitText(ctx,line.trimEnd(),W*(i+.5)/3,H-36+(j-(lines.length-1)/2)*21,W/3-22,small?17:20,C.green));
       }
     }else{
       const y=Math.max(220,H*.4);text(ctx,mode==='won'?'✓':'↻',W/2,y,70,mode==='won'?C.green:C.orange);text(ctx,mode==='won'?'퇴식 완료!':'반찬 한 번 더?',W/2,y+68,small?28:36,C.green);

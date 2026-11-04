@@ -141,7 +141,7 @@ export function createCrowd({floors,questObjects,teacher,mesh,geo,mat,random=Mat
     a.model.visible=true;animateCharacter(a.model,0,0);
   }
   function useAction(kind,position,floor=lastFloor){
-    if(!actionsEnabled||!position||floor!==lastFloor||!floors.has(floor)||!['talk','bonk'].includes(kind))return {ok:false,reason:'empty'};
+    if(!actionsEnabled||!position||floor!==lastFloor||!floors.has(floor)||!['talk','whistle'].includes(kind))return {ok:false,reason:'empty'};
     if(actionCooldown>0)return {ok:false,reason:'cooldown'};
     const range=kind==='talk'?3.5:2.4;
     const target=actors.filter(a=>a.floor===floor&&!a.defeated&&(a.kind==='child'||a.kind==='parent'))
@@ -153,7 +153,7 @@ export function createCrowd({floors,questObjects,teacher,mesh,geo,mat,random=Mat
     target.respawnRemaining=20+Math.max(0,Math.min(1,Number(random())||0))*15;
     target.model.visible=false;animateCharacter(target.model,0,0);
     return {ok:true,actor:target.model,targetKind:target.kind,kind,
-      text:kind==='talk'?'한 분씩, 차례대로 말씀하세요.':'뿅! 잠깐 쉬고 오세요!',
+      text:kind==='talk'?'한 분씩, 차례대로 말씀하세요.':target.kind==='child'?'삐익! 복도에서는 천천히 걸어요.':'삐익! 한 분씩 차례대로요.',
       response:'잠깐 진정하고 올게요!',respawnIn:target.respawnRemaining};
   }
   function update(dt,{position,floor,enabled=true,onEvent}={}){

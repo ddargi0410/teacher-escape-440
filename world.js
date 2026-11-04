@@ -554,7 +554,8 @@ export function createWorld(scene) {
     },
     get interactables(){return currentFloor===null?[]:floors.get(currentFloor).interactables;},
     get bounds(){return currentFloor===1?{minX:-25.7,maxX:25.7,minZ:-7.7,maxZ:26}:{minX:-13.6,maxX:13.6,minZ:-7.7,maxZ:7.7};},
-    spawn(floor){return {x:0,y:(floor-1)*4,z:6.5};},
+    // The first-floor entrance canopy spans x=-3.6..3.6; start beside it.
+    spawn(floor){return {x:floor===1?-5:0,y:(floor-1)*4,z:6.5};},
     createTeacher(color='#e6bf83',identity={}){const holder=new THREE.Group();return teacher(holder,0,0,0,color,false,identity);},
     setFloor,setCompleted,
     openGate(){gateOpen=true;},

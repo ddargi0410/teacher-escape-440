@@ -52,7 +52,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     // Coffee-station backsplash and the long vending machine mouth.
     ctx.fillStyle='#e7e1c8';ctx.fillRect(0,H*.19,W,H*.59);
     ctx.strokeStyle='#d9d4bc';ctx.lineWidth=1;for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,H*.19);ctx.lineTo(x,H*.78);ctx.stroke();}for(let y=H*.19;y<H*.78;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-    text(ctx,'믹스커피 카드 캐치',24,38,clamp(font*1.15,19,28),C.green,'left');
+
     text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-22,38,Math.max(16,font*.9),C.green,'right');
     text(ctx,'↔ 머그컵으로 필요한 카드만 받기',W/2,72,clamp(Math.max(16,font*.8),16,20),C.green);
     const slotW=Math.min((W-28)/5,150),slotStart=(W-slotW*5)/2;

@@ -1,6 +1,7 @@
 import {MISSIONS} from './missions-data.js';
 import {createReminderScheduler} from './messenger-scheduler.js';
 import {createMessengerHistory} from './messenger-history.js';
+import {displaySender} from './messenger-data.js';
 
 /** A local school-messenger prop. No real messages are sent or received. */
 export function createSchoolMessenger({getState,onLocate,onSound,onArchiveChange,onHistoryChange,storage,random,now}) {
@@ -85,7 +86,7 @@ export function createSchoolMessenger({getState,onLocate,onSound,onArchiveChange
       rendered=message;
       if(!pending){pending=history.receive(message);notifyHistory();onSound?.();}
       const state=getState();
-      field('sender').textContent=`${message.sender} (교직원)`;
+      field('sender').textContent=displaySender(message.sender);
       field('recipient').textContent=`${String(state.name||'퇴근희망 교사')} (1명)`;
       field('subject').textContent=message.subject;
       field('line-one').textContent=message.lines?.[0]||'';
@@ -93,7 +94,7 @@ export function createSchoolMessenger({getState,onLocate,onSound,onArchiveChange
       field('status').textContent=message.missionId?'업무 독촉 · 받은 쪽지함에 보관됨':'교직원 수다 · 받은 쪽지함에 보관됨';
       box.dataset.missionId=message.missionId?String(message.missionId):'';
       for(const button of box.querySelectorAll('[data-note="locate"], [data-note="go"]'))button.hidden=!message.missionId;
-      announcement.textContent=`${message.sender}의 쪽지. ${message.subject}`;
+      announcement.textContent=`${displaySender(message.sender)}의 쪽지. ${message.subject}`;
     }
     field('task').textContent=taskLabel(message);
     if(!allowed||!archive.hidden){hide();return;}
@@ -118,7 +119,7 @@ export function createSchoolMessenger({getState,onLocate,onSound,onArchiveChange
     archive.querySelector('.messenger-history-detail').hidden=!entry;
     if(!entry)return;
     detail('subject').textContent=entry.subject;
-    detail('meta').textContent=`${entry.sender} · ${dateLabel(entry.receivedAt)} · ${entry.acknowledgedAt===null?'확인 전':'확인함'}`;
+    detail('meta').textContent=`${displaySender(entry.sender)} · ${dateLabel(entry.receivedAt)} · ${entry.acknowledgedAt===null?'확인 전':'확인함'}`;
     detail('task').textContent=taskLabel(entry);
     detail('one').textContent=entry.lines[0]||'';detail('two').textContent=entry.lines[1]||'';
     detail('reply').textContent=entry.acknowledgedAt===null?'':`내 속마음: ${entry.reply}`;
@@ -140,7 +141,7 @@ export function createSchoolMessenger({getState,onLocate,onSound,onArchiveChange
       row.innerHTML='<span class="messenger-history-label"></span><strong class="messenger-history-subject"></strong><small class="messenger-history-time"></small>';
       row.querySelector('.messenger-history-label').textContent=`${entry.kind==='banter'?'☕ 수다':'📋 업무'} · ${entry.acknowledgedAt===null?'확인 전':'확인함'}`;
       row.querySelector('.messenger-history-subject').textContent=entry.subject;
-      row.querySelector('.messenger-history-time').textContent=`${entry.sender} · ${dateLabel(entry.receivedAt)}`;
+      row.querySelector('.messenger-history-time').textContent=`${displaySender(entry.sender)} · ${dateLabel(entry.receivedAt)}`;
       row.onclick=()=>{selectedId=entry.id;renderDetail();};list.append(row);
     }
     archive.querySelector('.messenger-archive-summary').textContent=`받은 쪽지 ${entries.length}통 · 최근 60통 자동 보관 · 게임 속 가상 쪽지예요`;

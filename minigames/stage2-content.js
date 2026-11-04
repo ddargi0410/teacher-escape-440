@@ -8,9 +8,9 @@ const base=(title,instruction,icon,duration=90)=>({title,instruction,icon,durati
 function library(mission){
   const steps=[
     ['scope','목표 정하기','◎','scope'],
-    ['draft','초안 받기','✎','review'],
-    ['review','내용 검토','✓','review'],
-    ['build','작게 제작','▧','build'],
+    ['draft','기획안 받기','✎','review'],
+    ['review','기획안 검토','✓','review'],
+    ['build','뼈대만 만들기','▧','build'],
     ['test','직접 시험','☝','test'],
     ['repair','수정 재시험','↻','test'],
     ['publish','배포 확인','↗','publish']
@@ -19,7 +19,7 @@ function library(mission){
   books.push({id:'everything',label:'한꺼번에 전부',icon:'⚡',order:-1,trap:true,sourceId:null,originalText:'검토 없이 로그인·순위표·통계를 한 번에 완성한다.'});
   return {...base('제작 순서 책 꽂기','책을 주워 순서대로 꽂기 · 함정은 반납!','⌨'),books,order:steps.map(s=>s[0]),
     tip:'목표 → 검토 → 작은 제작 → 확인!',trapTip:'검토 없이 한꺼번에 만들지 않아요.',
-    details:[detail('도서관의 일곱 권',steps.map(s=>s[1]).join(' → '),'원래 다섯 단계의 흐름을 손으로 나누어 익힙니다. 문항 검토는 초안 받기와 교과서 대조로, 테스트는 직접 시험하기와 수정 후 재시험으로 나눴어요. 실제 제작에서는 확인과 수정을 여러 번 반복합니다. 배포 뒤에는 다른 기기에서 공유 링크도 열어 봅니다.')]
+    details:[detail('도서관의 일곱 권',steps.map(s=>s[1]).join(' → '),'원래 다섯 단계의 흐름을 손으로 나누어 익힙니다. 문항 검토는 기획안 받기와 교과서 대조로, 테스트는 직접 시험하기와 수정 후 재시험으로 나눴어요. 실제 제작에서는 확인과 수정을 여러 번 반복합니다. 배포 뒤에는 다른 기기에서 공유 링크도 열어 봅니다.')]
   };
 }
 

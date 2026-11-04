@@ -89,7 +89,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
       if(elapsed>=duration&&mode!=='success'){mode='timeout';drag=null;selected=null;fail('timeout','증거 네 칸으로 다시 잡아봐요.');}
     }else if(mode==='success'){finish+=clockDt;if(finish>.8&&!won){won=true;onWin({caught:completed,seconds:Math.round(elapsed),mistakes});}}
     ctx.fillStyle='#dce6df';ctx.fillRect(0,0,W,H);
-    text(ctx,cfg.title||'버그 잡기',22,36,clamp(font*1.15,19,28),C.green,'left');text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-22,36,Math.max(16,font*.9),C.green,'right');
+    text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-22,36,Math.max(16,font*.9),C.green,'right');
     fitText(ctx,mode==='report'||mode==='burst'?bugs[completed].report||bugs[completed].label:'☝ 모니터의 벌레를 잡아요',W/2,72,W-32,Math.max(16,font*.8),C.green);
     text(ctx,`✓ ${completed}/${bugs.length}`,24,106,font,C.green,'left');fitText(ctx,mode==='report'||mode==='burst'?bugs[completed].errorText||'오류 메시지 없음':'BUG HUNT · 정보 담당 구조대',W-24,106,W*.72,Math.max(16,font*.75),C.green,'right');
     if(mode==='hunt'){

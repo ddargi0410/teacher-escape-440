@@ -12,6 +12,7 @@ test('reminder copy uses short fictional content for every mission',()=>{
     assert.equal(m.lines.length,2);
     for(const line of m.lines)assert.ok([...line].length<=30,line);
     assert.ok(m.sender&&m.subject&&m.reply);
+    assert.match(m.sender,/^[가-힣]{3}\([가-힣 ]+\)$/);
   }
   assert.match(REMINDERS[8][0].lines.join(' '),/행사 당일/);
 });
@@ -120,4 +121,11 @@ test('unrelated copy stays short and cannot masquerade as a new mission',()=>{
     for(const line of message.lines)assert.ok([...line].length<=30,line);
     assert.ok(message.sender&&message.subject&&message.reply);
   }
+});
+
+test('banter senders use fictional name(position) and consistent staff identities',()=>{
+  for(const message of BANTER)assert.match(message.sender,/^[가-힣]{3}\([가-힣 ]+\)$/);
+  assert.equal(REMINDERS[1][0].sender,REMINDERS[2][0].sender);
+  assert.equal(REMINDERS[1][1].sender,BANTER[0].sender);
+  assert.equal(REMINDERS[8][1].sender,BANTER[5].sender);
 });

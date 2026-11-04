@@ -15,6 +15,18 @@ test('five meaningful shields are sufficient; format and output stay distinct',(
   assert.equal(evaluateBossPrompt('퀴즈').checks.find(c=>c.id==='output').passed,false);
   assert.equal(evaluateBossPrompt('너는 개발자야. 초등학교 5학년 생태계').passed,false);
 });
+for(const phrase of ['글자는 크게','글씨를 크게','10분 안에','5분','쉽게','해설','틀리면 이유를 보여줘']){
+  test(`natural condition activates only the constraints shield: ${phrase}`,()=>{
+    const isolated=evaluateBossPrompt(phrase);
+    assert.deepEqual(isolated.checks.filter(check=>check.passed).map(check=>check.id),['constraints']);
+    const draft='너는 과학 개발자야. 초등 5학년의 생태계 퀴즈를 만들어 줘.';
+    assert.equal(evaluateBossPrompt(draft).passed,false);
+    const result=evaluateBossPrompt(`${draft} ${phrase}`);
+    assert.equal(result.count,5);
+    assert.equal(result.passed,true);
+    assert.equal(result.checks.find(check=>check.id==='output').passed,false);
+  });
+}
 test('no minimum or maximum length; current draft re-evaluated rather than sticky success',()=>{
   assert.ok(five.length<120);assert.equal(evaluateBossPrompt(five).passed,true);
   const long=all+' 확인한 내용은 유지해 줘.'.repeat(1000);assert.ok(long.length>6000);assert.equal(evaluateBossPrompt(long).count,6);

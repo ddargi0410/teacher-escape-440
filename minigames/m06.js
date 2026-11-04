@@ -1,4 +1,4 @@
-import {createCanvasStage,COLORS as C,clamp,rounded,text,fitText,wrapText} from './shared.js';
+import {createCanvasStage,COLORS as C,clamp,rounded,text,fitText,wrapText,wrapLines} from './shared.js';
 
 /** A fast swipe may skip the bubble between events, so test the whole segment. */
 export function swipeHitsBubble(a,b,box){
@@ -12,14 +12,14 @@ export function swipeHitsBubble(a,b,box){
 }
 export function judgeScienceAction(statement,action){return !!statement&&(action==='slice'?statement.wrong===true:action==='keep'&&statement.wrong===false);}
 
-function wrap(ctx,value,width,size){ctx.font=`700 ${size}px system-ui, sans-serif`;const result=[];let line='';for(const ch of String(value)){if(line&&ctx.measureText(line+ch).width>width){result.push(line);line=ch;}else line+=ch;}if(line)result.push(line);return result;}
+function wrap(ctx,value,width,size){return wrapLines(ctx,value,width,size);}
 
 export function start({container,data,onWin=()=>{},onFail=()=>{}}){
   const cfg=data.arcade;
   if(cfg?.statements?.length!==9||cfg.statements.some(s=>typeof s.wrong!=='boolean'))throw new Error('m06 requires nine vibe-coding statements.');
   const statements=cfg.statements,stage=createCanvasStage(container,{label:cfg.title||'틀린 작업 습관 썰기'}),ctx=stage.ctx,duration=Math.min(90,cfg.duration||90);
   const flight=6.2;
-  let elapsed=0,queue=[],current=-1,age=0,mode='play',feedback=0,finish=0,won=false,mistakes=0,cleared=new Set(),tip='',tipTime=0,cracked=0,trail=[],pointer=null,bubble=null,slicePieces=false,correctLast=false,disposed=false,paused=false;
+  let elapsed=0,queue=[],current=-1,age=0,mode='play',feedback=0,finish=0,won=false,mistakes=0,cleared=new Set(),tip='',tipTime=0,tipIsHint=false,cracked=0,trail=[],pointer=null,bubble=null,slicePieces=false,correctLast=false,disposed=false,paused=false;
   const sound=name=>data.runtime?.playSound?.(name);
   function next(){
     if(!queue.length){mode='success';finish=0;stage.announce('아홉 문장 검증 완료!');sound('success');return;}
@@ -28,7 +28,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
   function reset(){elapsed=0;queue=statements.map((_,i)=>i);current=-1;age=0;feedback=0;finish=0;won=false;mistakes=0;cleared=new Set();tip='';tipTime=0;cracked=0;trail=[];pointer=null;bubble=null;slicePieces=false;next();}
   function decide(action){
     if(mode!=='play'||current<0)return;
-    correctLast=judgeScienceAction(statements[current],action);mode='feedback';feedback=0;slicePieces=action==='slice';pointer=null;
+    tipIsHint=false;correctLast=judgeScienceAction(statements[current],action);mode='feedback';feedback=0;slicePieces=action==='slice';pointer=null;
     if(correctLast){cleared.add(current);stage.flash('good',action==='slice'?'틀린 문장을 잘랐어요.':'맞는 문장을 담았어요.');sound('click');tip='';}
     else{queue.push(current);mistakes++;cracked=action==='slice'?1.8:0;tip=statements[current].tip||'틀린 문장만 잘라 주세요.';tipTime=2;stage.flash('bad',tip);sound('error');onFail({reason:action==='slice'?'cut-correct-statement':'kept-wrong-statement',sourceIndex:statements[current].sourceIndex,tip});}
   }
@@ -62,7 +62,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     const pieces=slicePieces&&mode==='feedback'?[-1,1]:[0];
     for(const half of pieces){ctx.save();const shift=half?half*feedback*100:0;ctx.translate(shift,half?feedback*38:0);if(half){ctx.beginPath();ctx.rect(half<0?box.x-200:box.x+box.w/2,box.y-80,half<0?box.w/2+200:box.w/2+200,box.h+180);ctx.clip();}
       ctx.shadowColor='#3c87742b';ctx.shadowBlur=18;rounded(ctx,box.x,box.y,box.w,box.h,Math.min(45,box.h*.35),fill,border);ctx.shadowBlur=0;
-      box.wrapped.forEach((line,i)=>text(ctx,line,box.x+box.w/2,box.y+box.h/2+(i-(box.wrapped.length-1)/2)*box.font*1.28,box.font,C.green));
+      box.wrapped.forEach((line,i)=>fitText(ctx,line.trimEnd(),box.x+box.w/2,box.y+box.h/2+(i-(box.wrapped.length-1)/2)*box.font*1.28,box.w-42,box.font,C.green));
       ctx.strokeStyle='#ffffffaa';ctx.lineWidth=3;ctx.beginPath();ctx.arc(box.x+26,box.y+22,9,Math.PI,Math.PI*1.6);ctx.stroke();ctx.restore();}
   }
   stage.loop((dt,t,clockDt)=>{
@@ -76,7 +76,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     }else if(mode==='success'){finish+=clockDt;if(finish>1&&!won){won=true;onWin({verified:cleared.size,seconds:Math.round(elapsed),mistakes});}}
     ctx.fillStyle='#e5eee6';ctx.fillRect(0,0,W,H);
     ctx.fillStyle='#dae6dc';for(let x=0;x<W;x+=80){ctx.fillRect(x,124,1,H-215);}for(let y=124;y<H-90;y+=65)ctx.fillRect(0,y,W,1);
-    text(ctx,cfg.title||'틀린 작업 습관 썰기',22,36,clamp(font*1.15,20,28),C.green,'left');text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-22,36,Math.max(16,font*.9),C.green,'right');
+    text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-22,36,Math.max(16,font*.9),C.green,'right');
     wrapText(ctx,'틀린 작업 습관은 자르기 · 맞으면 담기',W/2,73,W-30,{size:18,color:C.green});text(ctx,`✓ ${cleared.size}/9`,24,106,font,C.green,'left');
     const meterW=Math.min(180,W*.42);rounded(ctx,W-24-meterW,100,meterW,8,4,'#c3d5c7');rounded(ctx,W-24-meterW,100,meterW*cleared.size/9,8,4,C.green);
     const bench=H-135;ctx.fillStyle='#aa9474';ctx.fillRect(0,bench+24,W,H-bench-24);ctx.fillStyle='#c7b493';ctx.fillRect(0,bench+19,W,8);
@@ -92,8 +92,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
         rounded(ctx,cut.x,cut.y,cut.w,cut.h,14,C.paper,C.orange);rounded(ctx,keep.x,keep.y,keep.w,keep.h,14,C.paper,C.green);
         text(ctx,'╱ 자르기 [X]',cut.x+bw/2,y+24,Math.max(16,font*.8),C.red);text(ctx,'↓ 담기 [O]',keep.x+bw/2,y+24,Math.max(16,font*.8),C.green);
         buttons.push({id:'slice',label:'틀린 문장 자르기',...cut,onClick:()=>decide('slice')},{id:'keep',label:'맞는 문장 학습지로 보내기',...keep,onClick:()=>decide('keep')});
-      }else if(tipTime>0)fitText(ctx,tip,W/2,H-43,W-30,Math.max(16,font*.8),C.red);
-      if(mode==='feedback'&&!correctLast)text(ctx,statements[current].wrong?'╱ 잘라야 해요':'✓ 담아야 해요',W/2,150,Math.max(16,font*.8),C.red);
+      }else if(tipIsHint&&tipTime>0)fitText(ctx,tip,W/2,H-43,W-30,Math.max(16,font*.8),C.red);
     }else if(mode==='success'){
       text(ctx,'✓ 아홉 문장 검증 완료!',W/2,H*.4,font*1.3,C.green);text(ctx,'AI 결과는 실행하고 확인해요!',W/2,H*.51,font,C.green);
     }else{
@@ -103,5 +102,5 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     stage.setButtons(buttons);
   });
   reset();
-  return{pause(){paused=true;pointer=null;trail=[];stage.pause();},resume(){paused=false;stage.resume();},hint(){tip='AI에게 구체적으로 요청하고 직접 확인!' ;tipTime=2.5;stage.announce(tip);},destroy(){if(disposed)return;disposed=true;pointer=null;trail=[];stage.canvas.removeEventListener('pointercancel',cancelStroke);window.removeEventListener('blur',cancelStroke);stage.destroy();}};
+  return{pause(){paused=true;pointer=null;trail=[];stage.pause();},resume(){paused=false;stage.resume();},hint(){tipIsHint=true;tip='AI에게 구체적으로 요청하고 직접 확인!' ;tipTime=2.5;stage.announce(tip);},destroy(){if(disposed)return;disposed=true;pointer=null;trail=[];stage.canvas.removeEventListener('pointercancel',cancelStroke);window.removeEventListener('blur',cancelStroke);stage.destroy();}};
 }

@@ -19,7 +19,7 @@ export function evaluateBossPrompt(value) {
     audience:/(?:초등(?:학교|학생)?\s*(?:[1-6일이삼사오육]\s*학년)?|[1-6일이삼사오육]\s*학년\s*(?:학생|어린이)?)/,
     topic:/(?:생태|생물|환경|먹이\s*(?:관계|사슬|그물)|생산자|소비자|분해자|식물|동물|학교\s*숲)/,
     format:/(?:퀴즈|미니\s*게임|게임|도감|관찰\s*(?:일지|기록)|학습지|시뮬레이션|탐사\s*(?:앱|대)|카드\s*(?:뉴스|자료)?|웹\s*(?:앱|자료|사이트)|수업\s*자료|웹\s*활동|생물\s*카드|카드(?:를)?[^.!?]{0,30}(?:배치|놓|연결)|화살표(?:로)?\s*연결)/,
-    constraints:/(?:태블릿|\bPC\b|모바일|브라우저|설치|로그인|개인정보|실명|저작권|라이선스|출처|큰\s*글[씨자]|\d+\s*문항|재시작|다시\s*시작|오답\s*(?:해설|피드백|설명))/i,
+    constraints:/(?:태블릿|\bPC\b|모바일|브라우저|설치|로그인|개인정보|실명|저작권|라이선스|출처|큰\s*글[씨자]|글[씨자](?:는|를|가|을)?\s*크게|\d+\s*(?:문항|분)|쉽게|해설|재시작|다시\s*시작|오답\s*(?:피드백|설명)|(?:틀리면|오답이면)\s*이유(?:를)?\s*(?:보여|알려))/i,
     output:/(?:\bHTML\b|\bCSS\b|\bJavaScript\b|자바스크립트|파일|실행\s*코드|소스\s*코드|코드를|배포|다운로드|링크|페이지)/i
   };
   const checks=SHIELDS.map(rule=>({...rule,passed:tests[rule.id].test(text)}));
@@ -75,7 +75,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}) {
 @media(max-height:560px) and (min-width:761px){.m10-boss .m10-editor{top:12px;bottom:12px}.m10-boss .m10-heading{top:12px;padding:12px}.m10-boss h2{font-size:26px}.m10-boss textarea{min-height:140px}}
 </style>
 <div class="m10-scene"><canvas aria-label="다가오는 교장선생님과 여섯 방패, 닫힌 교문"></canvas><button class="m10-bubble" aria-label="교장 말풍선 건너뛰기"></button><div class="m10-burst" aria-hidden="true">⬟</div><div class="m10-meter"><div class="m10-meter-label"><span>훈화 게이지</span><span class="m10-time"></span></div><div class="m10-track" role="progressbar" aria-label="훈화 게이지" aria-valuemin="0" aria-valuemax="100"><div class="m10-fill"></div></div></div></div>
-<header class="m10-heading"><span class="m10-eyebrow">FINAL MISSION · 16:29</span><h2>4시 29분의 남자</h2><p class="m10-instruction">요청문으로 방패 5개를 켜고 퇴근!</p></header>
+<header class="m10-heading"><span class="m10-eyebrow">FINAL MISSION · 16:29</span><p class="m10-instruction">요청문으로 방패 5개를 켜고 퇴근!</p></header>
 <div class="m10-editor"><p class="m10-task"><strong>5학년 먹이사슬 활동 만들기</strong>생물을 순서대로 놓고 화살표로 연결하는 <b>HTML 수업자료</b>를 AI에게 부탁하세요.</p><button class="m10-hint-button" aria-label="입력이 막힐 때 힌트 보기">💡 무엇을 쓰지? 힌트 보기</button><label class="m10-write-label" for="m10-prompt">AI에게 할 부탁 <span class="m10-count">0 / 6</span></label><textarea id="m10-prompt" aria-label="5학년 먹이사슬 활동 제작 프롬프트" aria-describedby="m10-prompt-help" placeholder="예: 너는 과학 자료 개발자야. 초등 5학년이 생물 카드를 놓고 먹이사슬을 연결하는 게임을 만들어 줘.&#10;&#10;큰 글씨, 오답 설명, HTML 파일처럼 필요한 조건도 이어 써 보세요." spellcheck="false"></textarea><div class="m10-shields" aria-label="프롬프트 방패 체크리스트"></div><p class="m10-tip" id="m10-prompt-help" role="status" aria-live="polite">완벽한 문장이 아니어도 괜찮아요. 6개 중 5개면 통과!</p><button class="m10-leave" disabled>오늘은 퇴근하겠습니다</button><button class="m10-retry" hidden>↻ 쓴 글 그대로 다시 도전</button></div>
 <div class="m10-hints" hidden><section class="m10-hint-sheet" role="dialog" aria-modal="true" aria-labelledby="m10-hint-title"><div class="m10-hint-progress"></div><h3 id="m10-hint-title"></h3><p class="m10-hint-copy"></p><div class="m10-hint-actions"><button class="m10-hint-next">다음 힌트</button><button class="m10-hint-insert" hidden>예시를 입력칸에 넣기</button><button class="m10-hint-close">직접 써 보기</button></div></section></div><div class="m10-sr" role="status" aria-live="polite"></div>`;
   container.appendChild(root);

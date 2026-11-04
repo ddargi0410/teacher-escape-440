@@ -10,10 +10,10 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
   const cfg=data.arcade||{},items=cfg.items;
   if(!Array.isArray(items)||items.length!==11||items.some(i=>!ACTIONS.some(a=>a.id===i.action)))throw new Error('m07 requires eleven classified objects.');
   const stage=createCanvasStage(container,{label:'개인정보 검색대'}),ctx=stage.ctx,duration=Math.min(90,cfg.duration||90);
-  let model=createSearchModel(items),elapsed=0,travel=0,mode='play',reveal=0,result=null,tip='',won=false,finish=0;
+  let model=createSearchModel(items),elapsed=0,travel=0,mode='play',reveal=0,result=null,tip='',tipIsHint=false,won=false,finish=0;
   const sound=name=>data.runtime?.playSound?.(name);
   function reset(){model=createSearchModel(items);elapsed=0;travel=0;mode='play';reveal=0;result=null;tip='';finish=0;stage.announce('컨베이어의 물건을 세 갈래로 분류하세요.');}
-  function choose(action){if(mode!=='play')return;result=model.choose(action);travel=0;mode='reveal';reveal=result.correct?.65:1.25;tip=result.correct?(action==='alias'?'원본 대신 완전히 가상인 예시!':''):(result.item.tip||'초록빛 분류함을 기억해요.');
+  function choose(action){if(mode!=='play')return;tipIsHint=false;result=model.choose(action);travel=0;mode='reveal';reveal=result.correct?.65:1.25;tip=result.correct?(action==='alias'?'원본 대신 완전히 가상인 예시!':''):(result.item.tip||'초록빛 분류함을 기억해요.');
     stage.flash(result.correct?'good':'bad',tip||'분류 완료');sound(result.correct?'click':'error');
     if(!result.correct)onFail({reason:action?'wrong-bin':'missed-item',item:result.item.id,tip});
   }
@@ -27,7 +27,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
       else{reveal-=clockDt;if(reveal<=0){if(model.done){mode='success';finish=0;stage.announce('11개 모두 검색 완료!');}else{mode='play';result=null;stage.announce(`${model.current.label} 분류`);}}}
       if(elapsed>=duration&&mode!=='success')timeout();
     }else if(mode==='success'){finish+=clockDt;if(finish>.9&&!won){won=true;onWin({classified:model.cleared,mistakes:model.mistakes,seconds:Math.round(elapsed)});}}
-    ctx.fillStyle=C.cream;ctx.fillRect(0,0,W,H);text(ctx,'개인정보 검색대',22,36,font,C.green,'left');text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-22,36,Math.max(16,font*.8),C.green,'right');
+    ctx.fillStyle=C.cream;ctx.fillRect(0,0,W,H);text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-22,36,Math.max(16,font*.8),C.green,'right');
     fitText(ctx,'↔ 통과 · ↓ 가상 대체 · → 압수',W/2,72,W-30,Math.max(16,font*.75),C.green);text(ctx,`✓ ${model.cleared}/11`,24,110,Math.max(16,font*.85),C.green,'left');
     // A scanning arch and moving rollers make the decision a physical sorting job.
     rounded(ctx,W*.37,H*.21,W*.28,H*.39,18,'#9ab4aa');rounded(ctx,W*.41,H*.25,W*.20,H*.31,12,'#2b4c45');
@@ -49,7 +49,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
       text(ctx,correctBin?'✓':action.icon,x+boxW/2,boxY+boxH*.28,font*1.15,C.green);wrapText(ctx,action.label,x+boxW/2,boxY+boxH*.67,boxW-12,{size:18,color:C.green,lineHeight:22});
       if(mode==='play')buttons.push({id:action.id,label:`${action.icon} ${action.label}`,x,y:boxY,w:boxW,h:boxH,onClick:()=>choose(action.id)});
     });
-    if(mode==='reveal'&&tip)fitText(ctx,tip,W/2,H*.65,W-30,Math.max(16,font*.8),result.correct?C.green:C.red);
+    if(mode==='reveal'&&tipIsHint&&tip)fitText(ctx,tip,W/2,H*.65,W-30,Math.max(16,font*.8),result.correct?C.green:C.red);
     else if(mode==='play')wrapText(ctx,'실제 자료는 보내지 않고 가상 예시로!',W/2,H*.65,W-30,{size:18,color:C.green});
     if(mode==='success'){rounded(ctx,W*.12,H*.29,W*.76,H*.30,24,C.paper);text(ctx,'✓ 검색 완료',W/2,H*.40,font*1.5,C.green);text(ctx,'개인정보는 두고, 퇴근은 함께.',W/2,H*.50,Math.max(16,font*.8),C.green);}
     if(mode==='timeout'){
@@ -58,5 +58,5 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     }
     stage.setButtons(buttons);
   });
-  return{destroy:()=>stage.destroy(),pause:()=>stage.pause(),resume:()=>stage.resume(),hint(){tip='실제 명단·상담 기록은 압수!';stage.announce(tip);if(mode==='play'){result={item:model.current,correct:false};mode='reveal';reveal=1.5;}}};
+  return{destroy:()=>stage.destroy(),pause:()=>stage.pause(),resume:()=>stage.resume(),hint(){tipIsHint=true;tip='실제 명단·상담 기록은 압수!';stage.announce(tip);if(mode==='play'){result={item:model.current,correct:false};mode='reveal';reveal=1.5;}}};
 }

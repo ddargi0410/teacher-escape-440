@@ -22,32 +22,34 @@ test('both corridor actions remove their target immediately and enforce a shared
   assert.equal(hit.ok,true);assert.equal(hit.actor,child.model);assert.equal(hit.targetKind,'child');
   assert.equal(child.defeated,true);assert.equal(child.model.visible,false);
   assert.ok(child.respawnRemaining>=20&&child.respawnRemaining<=35);
-  assert.deepEqual(world.useCorridorAction('bonk',parent.model.position),{ok:false,reason:'cooldown'});
+  assert.deepEqual(world.useCorridorAction('whistle',parent.model.position),{ok:false,reason:'cooldown'});
   tick(world,1.3,player);
-  const second=world.useCorridorAction('bonk',parent.model.position);
+  const second=world.useCorridorAction('whistle',parent.model.position);
   assert.equal(second.ok,true);assert.equal(second.actor,parent.model);
   assert.equal(parent.defeated,true);assert.equal(parent.model.visible,false);
-  assert.match(second.text,/뿅/);
+  assert.match(second.text,/삐익/);
+  assert.equal(second.kind,'whistle');
 });
 
-test('talk reaches farther than bonk while mission teachers, principal and vice are never targets',()=>{
+test('talk reaches farther than whistle while mission teachers, principal and vice are never targets',()=>{
   const {world,child}=setup();
   for(const a of world.characters.filter(a=>a.floor===5&&(a.kind==='child'||a.kind==='parent')))a.model.position.set(10,0,7.1);
   child.model.position.set(0,0,4.05);
   const player={x:0,z:7.05};
-  assert.deepEqual(world.useCorridorAction('bonk',player),{ok:false,reason:'empty'});
+  assert.deepEqual(world.useCorridorAction('whistle',player),{ok:false,reason:'empty'});
   assert.equal(world.useCorridorAction('talk',player).actor,child.model);
   tick(world,1.3,player);
   const npc=world.getNPC(1);
   assert.deepEqual(world.useCorridorAction('talk',npc.position),{ok:false,reason:'empty'});
   const principal=world.characters.find(a=>a.kind==='principal');
-  assert.deepEqual(world.useCorridorAction('bonk',principal.model.position),{ok:false,reason:'empty'});
+  assert.deepEqual(world.useCorridorAction('whistle',principal.model.position),{ok:false,reason:'empty'});
   assert.equal(npc.visible,true);assert.equal(principal.model.visible,true);
 });
 
 test('defeated children cannot stumble the player and only respawn after active time on their floor',()=>{
   const {world,player,child}=setup(),events=[];
-  world.useCorridorAction('bonk',player);
+  const cue=world.useCorridorAction('whistle',player);
+  assert.equal(cue.text,'삐익! 복도에서는 천천히 걸어요.');
   const remaining=child.respawnRemaining;
   tick(world,40,player,5,false,e=>events.push(e));
   assert.equal(child.respawnRemaining,remaining);
@@ -84,7 +86,7 @@ test('paused scenes and quiet annexes cannot be used to attack unrelated charact
   const nurse={x:20,y:0,z:2.5};
   world.updateCrowd(.05,{position:nurse,floor:1,enabled:true});
   assert.deepEqual(world.useCorridorAction('talk',nurse),{ok:false,reason:'empty'});
-  assert.deepEqual(world.useCorridorAction('bonk',{x:-20,z:1.2}),{ok:false,reason:'empty'});
+  assert.deepEqual(world.useCorridorAction('whistle',{x:-20,z:1.2}),{ok:false,reason:'empty'});
 });
 
 test('a real hiding pillar blocks a corridor action, and reset clears defeated state',()=>{

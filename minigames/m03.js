@@ -41,7 +41,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
       if(elapsed>=duration&&mode!=='success')timeout();
     }else if(mode==='success'){finished+=clockDt;if(finished>1.8&&!won){won=true;onWin({answered:completed,missed,seconds:Math.round(elapsed),mistakes});}}
     ctx.fillStyle=C.cream;ctx.fillRect(0,0,W,H);
-    text(ctx,'민원 전화 두더지',24,36,clamp(font*1.12,20,28),C.green,'left');text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-22,36,Math.max(16,font*.9),C.green,'right');
+    text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-22,36,Math.max(16,font*.9),C.green,'right');
     text(ctx,'☎ 전화 받고, 구체적인 요청 고르기',W/2,70,clamp(Math.max(16,font*.78),16,20),C.green);
     text(ctx,`✓ ${completed}/${calls.length}`,28,106,font,C.green,'left');text(ctx,`부재중 ${missed}통`,W-25,106,Math.max(16,font*.8),missed?C.red:C.green,'right');
     // An open desktop, not a quiz dialog: phones, paper slips and timer live in place.
