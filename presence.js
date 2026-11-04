@@ -84,7 +84,7 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
   }
   function makePeer(data) {
     const hash=[...data.id].reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,0);
-    const model=world.createTeacher(COLORS[hash%COLORS.length]);
+      const model=world.createTeacher(COLORS[hash%COLORS.length],{id:'peer-'+data.id,role:'teacher'});
     model.name='online-teacher';model.position.set(data.x,data.y,data.z);model.rotation.y=data.yaw;scene.add(model);
     const label=doc.createElement('div');label.className='presence-label';
     const greeting=doc.createElement('span');greeting.className='presence-greeting';greeting.hidden=true;

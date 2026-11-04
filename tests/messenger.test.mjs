@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {REMINDERS} from '../messenger-data.js';
+import {REMINDERS,BANTER} from '../messenger-data.js';
 import {createReminderScheduler} from '../messenger-scheduler.js';
 
 const create=()=>createReminderScheduler({random:()=>0});
@@ -32,8 +32,9 @@ test('completed targets and locked final mission are skipped',()=>{
 
 test('only the final mission is nagged once first nine are complete',()=>{
   const s=create(),nine=[1,2,3,4,5,6,7,8,9];
-  assert.equal(play(s,18,nine).missionId,10);
-  assert.equal(s.tick(100,{enabled:true,completed:[...nine,10],finished:true}),null);
+  const message=play(s,18,nine);assert.equal(message.missionId,10);
+  assert.equal(s.tick(100,{enabled:true,completed:[...nine,10],finished:true}),message);
+  s.dismiss();
   assert.equal(s.request({completed:[...nine,10],finished:true}),null);
 });
 
@@ -64,10 +65,12 @@ test('explicit snooze cannot be bypassed by a vice request',()=>{
   assert.equal(play(s,1).missionId,2);
 });
 
-test('newly completed target is removed even while hidden and cannot reappear',()=>{
-  const s=create();assert.equal(play(s,18).missionId,1);
-  assert.equal(s.tick(10,{enabled:false,completed:[1]}),null);
-  assert.equal(s.current,null);
+test('received target remains until acknowledgment even if completed while hidden',()=>{
+  const s=create(),message=play(s,18);assert.equal(message.missionId,1);
+  assert.equal(s.tick(10000,{enabled:false,completed:[1]}),message);
+  assert.equal(play(s,10000,[1]),message);
+  assert.equal(s.request({completed:[1]}),message);
+  s.dismiss();
   assert.equal(play(s,34,[1]),null);
   assert.equal(play(s,1,[1]).missionId,2);
 });
@@ -95,4 +98,26 @@ test('finished game stays silent and reset clears cooldown and variant history',
 test('invalid frame deltas never make the timer fire or poison future updates',()=>{
   const s=create();for(const delta of [NaN,Infinity,-3])assert.equal(play(s,delta),null);
   assert.equal(play(s,18).missionId,1);
+});
+
+test('random staffroom banter alternates with useful unresolved reminders',()=>{
+  const s=createReminderScheduler({random:()=>.99}),completed=[1,2,3,4,5,6,7,8];
+  const first=play(s,26,completed);
+  assert.equal(first.kind,'mission');assert.equal(first.missionId,9);
+  s.dismiss();const chat=play(s,60,completed);
+  assert.equal(chat.kind,'banter');assert.equal(chat.missionId,null);
+  assert.ok(BANTER.some(item=>item.subject===chat.subject));
+  assert.equal(s.request({completed}),chat,'a vice request must not overwrite a received chat');
+  assert.equal(play(s,100000,completed),chat,'reading never creates or replaces another message');
+  s.dismiss();const next=play(s,60,completed);
+  assert.equal(next.kind,'mission');assert.equal(next.missionId,9);
+});
+
+test('unrelated copy stays short and cannot masquerade as a new mission',()=>{
+  assert.ok(BANTER.length>=6);
+  for(const message of BANTER){
+    assert.equal(message.missionId,undefined);assert.equal(message.lines.length,2);
+    for(const line of message.lines)assert.ok([...line].length<=30,line);
+    assert.ok(message.sender&&message.subject&&message.reply);
+  }
 });

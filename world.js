@@ -1,6 +1,8 @@
 import * as THREE from './vendor/three.module.js';
 import {createCrowd,animateCharacter} from './crowd.js';
 import {createSchoolDetails} from './school-details.js';
+import {roomFrontWallSegments} from './stairs.js';
+import {characterAppearance} from './character-appearance.js';
 
 // A small, entirely procedural school. No downloaded models or textures.
 const COLORS = {
@@ -94,23 +96,71 @@ export function createWorld(scene) {
       for(let i=0;i<8;i++){const h=.38+(i%3)*.09;box(parent,x-w/2+.2+i*(w-.3)/8,y+.2+row*.7+h/2,z+.33,.16,h,.25,bookColors[(i+row)%5]);}
     }
   }
-  function teacher(parent,x,y,z,color='#e3bb82',principal=false) {
+  function teacher(parent,x,y,z,color='#e3bb82',principal=false,identity={}) {
     const g=new THREE.Group();g.position.set(x,y,z);parent.add(g);
+    const appearance=characterAppearance(identity.id,identity.role||(principal?'principal':'teacher'),color);
+    // Vary the visible body only. Actor scales, movement and collision radii stay
+    // unchanged, and all animated limbs retain their original pivot references.
+    const body=new THREE.Group();body.name='character-body';body.scale.set(appearance.build,appearance.height,1);g.add(body);
     const legs=[],arms=[];
-    for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.14,.66,0);g.add(leg);box(leg,0,-.26,0,.2,.52,.22,'#3f5655');box(leg,0,-.56,.06,.23,.14,.36,'#354641');legs.push(leg);}
-    box(g,0,1.03,0,.62,.7,.34,color);box(g,0,1.06,.18,.16,.58,.02,'#f3e4ca');
-    for(const side of [-1,1]){const arm=new THREE.Group();arm.position.set(side*.4,1.35,0);g.add(arm);arm.rotation.z=-side*.12;box(arm,0,-.29,0,.2,.6,.25,color);ball(arm,0,-.61,.02,.12,COLORS.skin);arms.push(arm);}
-    cyl(g,0,1.5,0,.1,.1,.2,COLORS.skin,8);ball(g,0,1.82,0,.39,COLORS.skin,[.95,1,.88]);
-    ball(g,0,2.01,-.04,.36,principal?'#6e726b':'#57453b',[1,.67,.92]);
-    if(!principal)ball(g,-.24,1.79,-.11,.2,'#57453b',[.7,1.6,1]);
-    for(const side of [-1,1])box(g,side*.125,1.85,.33,.045,.055,.03,'#344b48');
-    box(g,0,1.66,.34,.12,.024,.02,'#a66f57');
-    if(principal){box(g,0,1.2,.2,.07,.35,.03,'#c67c60');for(const side of [-1,1]){const glasses=mesh(g,geo('TorusGeometry',.095,.012,5,12),mat('#495c56'),side*.125,1.84,.37);glasses.rotation.z=.08;}box(g,0,1.84,.37,.09,.015,.02,'#495c56');}
-    else {box(g,-.21,1.13,.19,.1,.17,.02,'#6c9d90');}
-    g.userData.legs=legs;g.userData.arms=arms;return g;
+    for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.14,.66,0);body.add(leg);box(leg,0,-.26,0,.2,.52,.22,appearance.pants);box(leg,0,-.56,.06,.23,.14,.36,'#354641');legs.push(leg);}
+    box(body,0,1.03,0,.62,.7,.34,appearance.top);
+    if(appearance.outfit!=='sweater')box(body,0,1.06,.18,appearance.outfit==='vest'?.25:.16,.58,.02,appearance.trim);
+    else box(body,0,1.18,.18,.58,.075,.02,appearance.trim);
+    for(const side of [-1,1]){const arm=new THREE.Group();arm.position.set(side*.4,1.35,0);body.add(arm);arm.rotation.z=-side*.12;box(arm,0,-.29,0,.2,.6,.25,appearance.outfit==='vest'?appearance.trim:appearance.top);ball(arm,0,-.61,.02,.12,appearance.skin);arms.push(arm);}
+    cyl(body,0,1.5,0,.1,.1,.2,appearance.skin,8);ball(body,0,1.82,0,.39,appearance.skin,[.95,1,.88]);
+    const haircut=new THREE.Group();haircut.name='hair-'+appearance.haircut;body.add(haircut);
+    // Tiny hair tufts need fewer facets than the face. Keep the larger cap smooth.
+    function tuft(x,y,z,r,scale=[1,1,1]){const part=mesh(haircut,geo('IcosahedronGeometry',r,0),mat(appearance.hair),x,y,z);part.scale.set(...scale);return part;}
+    ball(haircut,0,2.04,-.04,.36,appearance.hair,[1,appearance.haircut==='crop'?.48:.65,.92]);
+    if(appearance.haircut==='bob')for(const side of [-1,1])tuft(side*.27,1.79,-.11,.2,[.65,1.5,1]);
+    if(appearance.haircut==='ponytail')tuft(0,1.7,-.36,.21,[.8,1.6,.85]);
+    if(appearance.haircut==='bun')tuft(0,2.25,-.17,.17);
+    if(appearance.haircut==='curly')for(const side of [-1,0,1])tuft(side*.23,2.08+(.07*(1-Math.abs(side))),-.015,.2);
+    if(appearance.haircut==='sweep'){const fringe=box(haircut,.07,2.04,.22,.42,.16,.2,appearance.hair);fringe.rotation.z=.2;}
+    for(const side of [-1,1])box(body,side*.125,1.85,.33,.045,.055,.03,'#344b48');
+    box(body,0,1.66,.34,.12,.024,.02,'#a66f57');
+    if(appearance.glasses){
+      const glassesGroup=new THREE.Group();glassesGroup.name='glasses-'+appearance.glasses;body.add(glassesGroup);
+      for(const side of [-1,1]){
+        if(appearance.glasses==='round')mesh(glassesGroup,geo('TorusGeometry',.095,.012,5,12),mat('#495c56'),side*.125,1.84,.37);
+        else{for(const dy of [-.075,.075])box(glassesGroup,side*.125,1.84+dy,.37,.19,.018,.025,'#495c56');for(const dx of [-.09,.09])box(glassesGroup,side*.125+dx,1.84,.37,.018,.15,.025,'#495c56');}
+      }
+      box(glassesGroup,0,1.84,.37,.075,.015,.02,'#495c56');
+    }
+    if(appearance.tie)box(body,0,1.2,.2,.07,.35,.03,appearance.tie);
+    else if(appearance.role!=='child')box(body,-.21,1.13,.19,.1,.17,.02,'#6c9d90');
+    if(appearance.role==='child'){box(body,0,1.06,-.24,.45,.5,.18,'#5b7181');for(const side of [-1,1])box(body,side*.2,1.15,.19,.045,.42,.035,'#5b7181');}
+    // Merge only fixed sibling meshes. Arms/legs remain separate pivot groups,
+    // so walking, greeting and bed poses keep their original animation contract.
+    // Cached geometry also prevents new resources accumulating on peer rejoin.
+    function combineFixed(group){
+      const byMaterial=new Map();
+      for(const part of group.children)if(part.isMesh){const parts=byMaterial.get(part.material)||[];parts.push(part);byMaterial.set(part.material,parts);}
+      for(const [material,parts]of byMaterial){
+        if(parts.length<2)continue;
+        for(const part of parts)part.updateMatrix();
+        const key='character-fixed:'+parts.map(part=>part.geometry.uuid+':'+part.matrix.elements.join(',')).join('|');
+        let combined=geometries.get(key);
+        if(!combined){
+          const transformed=parts.map(part=>{const geometry=part.geometry.index?part.geometry.toNonIndexed():part.geometry.clone();return geometry.applyMatrix4(part.matrix);});
+          combined=new THREE.BufferGeometry();
+          for(const attribute of ['position','normal','uv']){
+            const itemSize=transformed[0].attributes[attribute].itemSize,length=transformed.reduce((sum,geometry)=>sum+geometry.attributes[attribute].array.length,0);
+            const values=new Float32Array(length);let offset=0;
+            for(const geometry of transformed){values.set(geometry.attributes[attribute].array,offset);offset+=geometry.attributes[attribute].array.length;}
+            combined.setAttribute(attribute,new THREE.BufferAttribute(values,itemSize));
+          }
+          combined.computeBoundingSphere();geometries.set(key,combined);transformed.forEach(geometry=>geometry.dispose());
+        }
+        mesh(group,combined,material,0,0,0);parts.forEach(part=>group.remove(part));
+      }
+    }
+    combineFixed(body);combineFixed(haircut);for(const child of body.children)if(child.name.startsWith('glasses-'))combineFixed(child);
+    g.userData.appearance=appearance;g.userData.headHeight=(appearance.haircut==='bun'?2.55:2.4)*appearance.height;g.userData.legs=legs;g.userData.arms=arms;return g;
   }
   function quest(parent,id,x,y,z,color,label,npcColor) {
-    const npc=teacher(parent,x,y,z,npcColor,id===10);
+    const npc=teacher(parent,x,y,z,npcColor,id===10,{id:'mission-npc-'+id,role:id===10?'principal':'teacher'});
     const ring=mesh(parent,geo('TorusGeometry',.78,.055,5,28),mat(color,{emissive:color,emissiveIntensity:.16}),x,y+.035,z,false);ring.rotation.x=Math.PI/2;
     const crystal=mesh(parent,geo('OctahedronGeometry',.22),mat(color,{emissive:color,emissiveIntensity:.3}),x,y+2.65,z,false);
     const number=badge(parent,String(id).padStart(2,'0'),x,y+3.23,z,color,.75);
@@ -208,8 +258,9 @@ export function createWorld(scene) {
     }
     box(inside,0,.06,4.95,27.4,.09,5.7,'#d4d6b7');
     box(inside,0,.12,4.95,.14,.02,5.7,'#f8edcb');
-    box(inside,0,1.4,-2.7,.25,2.8,10.2,COLORS.trim);
-    collide(colliders,0,-2.7,.3,10.2);collide(colliders,0,-8,28,.3);
+    // The room divider stops behind the stair landing, never through the steps.
+    box(inside,0,1.4,-5.15,.25,2.8,5.3,COLORS.trim);
+    collide(colliders,0,-5.15,.3,5.3);collide(colliders,0,-8,28,.3);
     for(const side of [-1,1]){
       if(floor===1){collide(colliders,side*13.9,-2.5,.25,11);collide(colliders,side*13.9,7.2,.25,1.6);}
       else collide(colliders,side*13.9,0,.25,16);
@@ -219,15 +270,16 @@ export function createWorld(scene) {
     // Real hiding places: geometry and sight/movement collisions stay aligned.
     for(const x of [-4,4]){box(inside,x,1.45,6.05,.7,2.9,.7,COLORS.mint);collide(colliders,x,6.05,.7,.7);}
     bookshelf(inside,-12.3,0,6.8,1.35);collide(colliders,-12.3,6.8,1.35,.8);
-    // A central, two-flight staircase. The approach remains in the corridor;
-    // each E interaction travels one storey, never through an elevator.
-    box(inside,0,.15,3.45,3.1,.12,1.3,'#c6c9bc');
+    // Open central staircase with a full-width entry and a clear rear landing.
+    // Use E at the landing to choose the adjacent floor.
+    box(inside,0,.15,3.45,4,.12,1.3,'#c6c9bc');
+    for(let step=0;step<10;step++){
+      const h=.15+step*.22,z=2.4-step*.38;
+      box(inside,0,h/2,z,3.35,h,.4,'#d6d8ca');
+      box(inside,0,h+.015,z+.17,3.35,.025,.045,'#858f80');
+    }
+    box(inside,0,2.13/2,-1.79,3.35,2.13,1.14,'#d6d8ca');
     for(const direction of [-1,1]){
-      for(let step=0;step<10;step++){
-        const h=.15+step*.22,z=2.4-step*.38;
-        box(inside,direction*.9,h/2,z,1.55,h,.4,'#d6d8ca');
-        box(inside,direction*.9,h+.015,z+.17,1.55,.025,.045,'#858f80');
-      }
       for(let n=0;n<6;n++){
         const z=2.55-n*.7,y=.65+n*.4;
         box(inside,direction*1.68,y,z,.055,1.1,.055,'#789184');
@@ -235,15 +287,17 @@ export function createWorld(scene) {
       const rail=box(inside,direction*1.68,2, .5,.07,.07,4.35,'#5a7767');rail.rotation.x=.52;
     }
     badge(inside,'↗',0,1.6,4.3,'#f5dd93',.82);
-    sign(inside,'중앙계단',0,.64,4.65,2,.45,'#355347','#e9eddd');
+    const stairLabel=sign(inside,'E · 층 이동',0,.225,3.65,2.5,.55,'#355347','#e9eddd');stairLabel.rotation.x=-Math.PI/2;
     interactables.push({id:'central-stairs',kind:'stairs',x:0,y:base,z:4.7,label:'중앙계단 · 한 층씩 이동',floor});
     for(const [side,room] of ROOMS[floor].entries()){
       const cx=side===0?-7:7;
       box(inside,cx,.04,-2.75,13.25,.12,9.7,room.color);
       box(inside,cx,1.4,-7.69,13.35,2.8,.12,'#ebdfc2');
       // Wide room door at x=±7. Transoms and side walls outline it.
-      box(inside,cx-4.3,1.24,2.5,4.5,2.48,.18,COLORS.trim);collide(colliders,cx-4.3,2.5,4.5,.2);
-      box(inside,cx+4.3,1.24,2.5,4.5,2.48,.18,COLORS.trim);collide(colliders,cx+4.3,2.5,4.5,.2);
+      for(const wall of roomFrontWallSegments(cx)){
+        box(inside,wall.x,1.24,2.5,wall.w,2.48,.18,COLORS.trim);
+        collide(colliders,wall.x,2.5,wall.w,.2);
+      }
       box(inside,cx,2.58,2.5,4.2,.2,.24,COLORS.mint);
       sign(inside,room.name,cx,2.52,2.68,3.2,.44,'#fff9e9','#345e4c');
       plant(inside,cx+(side===0?-5.3:5.3),.15,1.1,.85);
@@ -501,7 +555,7 @@ export function createWorld(scene) {
     get interactables(){return currentFloor===null?[]:floors.get(currentFloor).interactables;},
     get bounds(){return currentFloor===1?{minX:-25.7,maxX:25.7,minZ:-7.7,maxZ:26}:{minX:-13.6,maxX:13.6,minZ:-7.7,maxZ:7.7};},
     spawn(floor){return {x:0,y:(floor-1)*4,z:6.5};},
-    createTeacher(color='#e6bf83'){const holder=new THREE.Group();return teacher(holder,0,0,0,color);},
+    createTeacher(color='#e6bf83',identity={}){const holder=new THREE.Group();return teacher(holder,0,0,0,color,false,identity);},
     setFloor,setCompleted,
     openGate(){gateOpen=true;},
     reset(){

@@ -38,7 +38,7 @@ const onlineNickname=`퇴근동료${Math.floor(1000+Math.random()*9000)}`;
 const channelUI=createChannelUI({container:$('#channels-overlay'),onSelect:selectChannel,onClose:()=>{wantsChannelRest=false;player?.setActive(mode==='play'&&!busy());},onRefresh:()=>channels?.refresh(),onSolo:()=>{channels?.stop();channelUI.close();},onReconnect:reconnectChannels});
 const learning=createLearningRoom({container:$('#learning-overlay'),onClose:()=>{player?.setActive(mode==='play'&&overlay.hidden);},onLearned:()=>{state.beginnerLearned=true;$('#learning-button').textContent='🌱 배움터 ✓';persist();toast('기초 체험 완료 · 이제 미션에서 써먹어 봐요.')}});
 const rest=createRestRoom({audio,getBed:id=>world?.getBed(id),onEnter:(bed,posture)=>{clearEncounter();messenger.suspend();restView=player.firstPerson;player.setView(false);player.setActive(false);player.teleport(bed.bedPose);world.setRestPose(teacher,bed.id,posture);restingBed=bed;},onPosture:(bed,posture)=>{world.setRestPose(teacher,bed.id,posture);},onLeave:bed=>{world?.clearRestPose(teacher);restingBed=null;if(player){player.teleport(bed.exitPoint);player.setView(restView);player.setActive(mode==='play'&&overlay.hidden);}}});
-const messenger=createSchoolMessenger({getState:()=>state,onLocate:id=>{if(!busy())travelToMission(id)},onSound:()=>audio.play('notify')});
+const messenger=createSchoolMessenger({getState:()=>state,onLocate:id=>{if(!busy())jumpToMission(id)},onSound:()=>audio.play('notify'),onArchiveChange:open=>player?.setActive(!open&&!busy()),onHistoryChange:count=>{$('#messenger-count').textContent=String(count)}});
 const arcade=createMinigameRunner({container:$('#minigame-overlay'),onSuccess:recordSuccess,onFailure:missionFailure,onDraft:text=>{state.bossDraft=text;persist();},onClose:finishMissionView});
 function missionFailure(id,payload){state.penalty=Math.min(360,state.penalty+5);persist();audio.play('error');updateHUD();}
 function recordSuccess(id,payload){
@@ -62,7 +62,7 @@ function showGreetingFeedback(message){clearTimeout(greetingFeedbackTimer);const
 function sendGreeting(type){if(mode!=='play')return;if(presence?.greet(type))showGreetingFeedback('인사를 보내는 중…');else showGreetingFeedback(presence?.isConnected()?'잠깐만요! 2초마다 보낼 수 있어요.':'채널에 연결되면 인사할 수 있어요.');}
 function greetingSent({type}){if(mode!=='play')return;const messages={wave:'👋 인사를 보냈어요!',cheer:'🙌 응원을 보냈어요!',thanks:'💚 감사 인사를 보냈어요!'};if(messages[type])showGreetingFeedback(messages[type]);}
 function persist(){saveGame(state)}
-function busy(){return !overlay.hidden||missions.isOpen()||arcade.isOpen()||!!encounter||learning.isOpen()||rest.isOpen()||channelUI.isOpen()||mode!=='play'||document.hidden}
+function busy(){return !overlay.hidden||missions.isOpen()||arcade.isOpen()||!!encounter||learning.isOpen()||rest.isOpen()||channelUI.isOpen()||messenger.isArchiveOpen()||mode!=='play'||document.hidden}
 const missions=createMissionUI({container:$('#mission-overlay'),getDraft:()=>state.bossDraft,getRelaxed:()=>state.settings.relaxed,
  onDraft:text=>{state.bossDraft=text;persist()},
  onFailure:missionFailure,
@@ -93,7 +93,7 @@ function opening(){
 function start(resume=true){
  pendingDestination=null;
  if(resume)state=loadGame()||state;
- rest.close();learning.close();channelUI.close();channels?.stop();messenger.reset();
+ rest.close();learning.close();channelUI.close();channels?.stop();messenger.reset({clearHistory:!resume});
  clearEncounter();world.resetCrowd?.();if(!state.finished)world.reset?.();player.setView(false);player.resetCamera();$('#tutorial-title').textContent='W A S D로 걸어 보세요';$('#tutorial-text').textContent='빛나는 표식이 오늘 처리할 업무입니다.';
  mode='play';$('#home').hidden=true;$('#hud').hidden=false;document.body.classList.add('playing');world.setCompleted(state.completed);world.setFloor(state.floor);player.setFloor(state.floor);teacher.visible=true;applyQuality();audio.setEnabled(state.settings.sound);updateSound();updateHUD();persist();
  if(state.finished)showCertificate();
@@ -126,6 +126,13 @@ function interact(){if(busy())return;updateInteraction();if(nearest?.kind==='sta
 function showMap(){showPanel('map',`${closeButton}<div class="eyebrow">SCHOOL MAP · 중앙계단 안내</div><h2 id="panel-title">업무 동선은 짧을수록 좋습니다.</h2><p>같은 층은 방 입구로 안내해요. 다른 층은 중앙계단으로 한 층씩 이동합니다. 도착 후 표식에서 E를 누르세요.</p><div class="campus-room-list"><button data-room="learning-room">🌱 배움터 <small>선택 · 기초부터 3분</small></button><button data-room="nurse-room">✚ 보건실 <small>미션 없음 · 잠깐 쉬기</small></button></div><div class="mission-list">${MISSIONS.map(m=>`<button class="mission-row ${state.completed.includes(m.id)?'done':''} ${m.id===10?'boss':''}" data-go="${m.id}"><span class="number">${String(m.id).padStart(2,'0')}</span><div><h3>${esc(getArcadeData(m).arcade?.title||m.shortTitle||m.title)}</h3><p class="mission-learning">${esc(getMissionBriefing(m).learn)}</p><small>${m.floor}F · ${esc(m.room)}</small></div><span class="status">${state.completed.includes(m.id)?'✓ 결재':m.id===10&&state.completed.length<9?'잠김':'→'}</span></button>`).join('')}</div><div class="notice">10번 업무는 1–9번을 모두 완료하면 열립니다. 길을 잃어도 걱정 마세요. 계단 안내에는 벌칙이 없습니다.</div>`,true);
  $$('[data-go]').forEach(b=>b.onclick=()=>travelToMission(+b.dataset.go));$$('[data-room]').forEach(b=>b.onclick=()=>travelToRoom(b.dataset.room))}
 function travelToMission(id){const m=MISSIONS.find(m=>m.id===id);if(!m)return;if(m.floor!==state.floor)return routeViaStairs({kind:'mission',id,label:m.room,floor:m.floor});const item=world.interactables.find(i=>i.missionId===id);if(item)player.teleport({x:item.x,y:item.y,z:item.z+2.2});closePanel();toast(`${m.room} 도착 · 가까운 표식에서 E를 눌러 주세요.`)}
+// The messenger is an explicit shortcut, including messages from other floors.
+function jumpToMission(id){
+ const mission=MISSIONS.find(m=>m.id===id);if(!mission)return;
+ pendingDestination=null;
+ if(mission.floor!==state.floor)changeFloor(mission.floor);
+ travelToMission(id);
+}
 
 function repel(kind){if(busy())return;const hit=world.useCorridorAction?.(kind,player.position);if(!hit?.ok){if(hit?.reason!=='cooldown')toast('가까운 복도 방해꾼에게 써 보세요.');return}const anchor=world.getCharacterAnchor(hit.actor);feedback.speak(anchor,hit.text);audio.play(kind==='bonk'?'success':'click');const burst=document.createElement('span');burst.className='corridor-burst';burst.textContent=kind==='bonk'?'뿅! ✦':'차례대로! ✧';document.body.append(burst);setTimeout(()=>burst.remove(),750);}
 function lieDown(id){const occupied=presence?.getOccupiedBeds?.()||[];const inUse=occupied.find(b=>b.bedId===id);if(inUse){const free=[1,2,3,4,5].map(n=>'bed-'+n).find(b=>!occupied.some(p=>p.bedId===b));if(!free){wantsChannelRest=true;showTogether();toast('침대가 모두 쉬는 중이에요. 빈 채널로 옮겨 볼까요?');return}toast(`${inUse.nickname} 선생님 옆 빈 침대로 갈게요.`);id=free;}rest.open(id)}
@@ -214,7 +221,7 @@ function loop(ms){requestAnimationFrame(loop);const elapsedDt=Math.min(1,(ms-(fr
   const active=!busy();player.setActive(active);player.update(dt,active);
   if(restingBed){const distance=Math.max(22,8.2/(Math.tan(camera.fov*Math.PI/360)*camera.aspect));camera.position.set(23,1+Math.sin(.62)*distance,-4+Math.cos(.62)*distance);camera.lookAt(20.1,.65,-4.2);}
   world.updateCrowd(dt,{position:player.position,floor:state.floor,enabled:active,onEvent:onCrowdEvent});
-  if(active&&!encounter){npcSpeechClock-=elapsedDt;const near=world.interactables.find(i=>i.missionId&&Math.hypot(player.position.x-i.x,player.position.z-i.z)<2.6);if(near&&(lastSpokenNPC!==near.missionId||npcSpeechClock<=0)){lastSpokenNPC=near.missionId;npcSpeechClock=14;feedback.speak(()=>world.getNPCAnchor(near.missionId),NPC_LINES[near.missionId]||['퇴근 전에 이것만요!']);}}if(!document.hidden&&overlay.hidden&&!rest.isOpen()&&!learning.isOpen()&&!channelUI.isOpen()&&(!arcade.isOpen()||arcade.isPlaying())){state.elapsed+=elapsedDt;$('#playtime').textContent=time(state.elapsed);$('#departure').textContent=departure();saveClock+=dt;if(saveClock>4){persist();saveClock=0}}
+  if(active&&!encounter){npcSpeechClock-=elapsedDt;const near=world.interactables.find(i=>i.missionId&&Math.hypot(player.position.x-i.x,player.position.z-i.z)<2.6);if(near&&(lastSpokenNPC!==near.missionId||npcSpeechClock<=0)){lastSpokenNPC=near.missionId;npcSpeechClock=14;feedback.speak(()=>world.getNPCAnchor(near.missionId),NPC_LINES[near.missionId]||['퇴근 전에 이것만요!']);}}if(!document.hidden&&overlay.hidden&&!rest.isOpen()&&!learning.isOpen()&&!channelUI.isOpen()&&!messenger.isArchiveOpen()&&(!arcade.isOpen()||arcade.isPlaying())){state.elapsed+=elapsedDt;$('#playtime').textContent=time(state.elapsed);$('#departure').textContent=departure();saveClock+=dt;if(saveClock>4){persist();saveClock=0}}
   if(tutorialTime>0&&active){tutorialTime-=elapsedDt;$('#tutorial-time').textContent=Math.ceil(tutorialTime)+'초';if(tutorialTime<20){$('#tutorial-title').textContent='화면을 드래그해 둘러보세요';$('#tutorial-text').textContent='빛나는 업무 표식에 가까이 가서 E를 눌러 보세요.'}if(tutorialTime<10){$('#tutorial-title').textContent='길을 잃으면 M · 힌트는 H';$('#tutorial-text').textContent='지도에서 바로 이동할 수 있어요. 모은 카드는 J로 다시 봅니다.'}if(tutorialTime<=0)$('#tutorial').hidden=true}updateInteraction();
  }else if(mode==='ending'){
   endingTime+=elapsedDt;const p=Math.min(1,endingTime/5);world.car.position.x=7+p*30;camera.position.set(31+p*8,15,37);camera.lookAt(8+p*16,2,20);if(endingTime>5.5)showCertificate();
@@ -225,6 +232,7 @@ function loop(ms){requestAnimationFrame(loop);const elapsedDt=Math.min(1,(ms-(fr
  world.update(dt,t,state.completed);if(!arcade.isOpen())renderer.render(scene,camera);feedback?.update(elapsedDt,mode==='play'&&overlay.hidden&&!missions.isOpen()&&!arcade.isOpen()&&!document.hidden);
  messenger.update(elapsedDt,!busy()&&tutorialTime<=0&&!state.finished);
 }
+$('#messenger-button').onclick=()=>{if(!busy())messenger.openArchive()};
 $('#talk-button').onclick=()=>repel('talk');$('#bonk-button').onclick=()=>repel('bonk');
 $('#learning-button').onclick=()=>{if(!busy()){if(travelToRoom('learning-room'))openLearning()}};$('#nurse-button').onclick=()=>{if(!busy())travelToRoom('nurse-room')};$('#together-button').onclick=showTogether;$('#social-channel-button').onclick=showTogether;$$('[data-greet]').forEach(b=>b.onclick=()=>sendGreeting(b.dataset.greet));
 $('#start').onclick=newGame;$('#continue-game').onclick=()=>start(true);$('#home-guide').onclick=guide;$('#pause-button').onclick=pause;$('#map-button').onclick=()=>{if(!busy())showMap()};$('#bag-button').onclick=()=>{if(!busy())bag()};$('#hint-button').onclick=hint;$('#interact-button').onclick=interact;$('#touch-interact').onclick=interact;$('#tutorial-skip').onclick=()=>{tutorialTime=0;$('#tutorial').hidden=true};
@@ -232,7 +240,7 @@ $$('.sound-toggle').forEach(b=>b.onclick=()=>{state.settings.sound=!state.settin
 window.addEventListener('keydown',e=>{
  const input=e.target.closest?.('input,textarea,select,[contenteditable=true]');
  if(e.key==='Tab'&&(!overlay.hidden||missions.isOpen()||arcade.isOpen())){const root=arcade.isOpen()?$('#minigame-overlay'):missions.isOpen()?$('#mission-overlay'):overlay;const focusable=[...root.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea,select,[tabindex="0"]')].filter(x=>x.offsetParent!==null);if(focusable.length){const first=focusable[0],last=focusable.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}
- if(e.code==='Escape'){if(channelUI.isOpen()){channelUI.close();return}if(rest.isOpen()){rest.close();return}if(learning.isOpen()){learning.close();return}if(arcade.isOpen()){arcade.close();return}if(missions.isOpen()){missions.close();activeMission=null;if(!state.finished)player.setActive(true)}else if(!overlay.hidden&&overlayKind!=='certificate'&&overlayKind!=='opening')closePanel();else if(messenger.isOpen())messenger.dismiss();else pause();return}
+ if(e.code==='Escape'){if(messenger.isArchiveOpen()){messenger.closeArchive();return}if(channelUI.isOpen()){channelUI.close();return}if(rest.isOpen()){rest.close();return}if(learning.isOpen()){learning.close();return}if(arcade.isOpen()){arcade.close();return}if(missions.isOpen()){missions.close();activeMission=null;if(!state.finished)player.setActive(true)}else if(!overlay.hidden&&overlayKind!=='certificate'&&overlayKind!=='opening')closePanel();else pause();return}
  if(input||e.repeat)return;
  if(!input&&e.code==='KeyH'&&mode==='play'){e.preventDefault();hint();return}
  if(busy())return;

@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import {roomFrontWallSegments} from './stairs.js';
 
 // Static Korean-school details. Reused textures/materials are baked only once;
 // world.js merges the opaque geometry with each floor's existing scenery.
@@ -52,12 +53,14 @@ export function createSchoolDetails({box,cyl,mesh,geo,mat,collide}) {
     // Low window sills remain visible in the playable cutaway; the path stays open.
     for(const x of [-8,8]){box(inside,x,.44,7.84,11.6,.86,.1,cream);box(inside,x,.89,7.84,11.6,.08,.18,'#c5ccb8');}
     for(const [index,room]of rooms.entries()){
-      const cx=index===0?-7:7;
-      for(const side of [-1,1]){
+      const cx=index===0?-7:7,outward=index===0?-1:1;
+      const walls=roomFrontWallSegments(cx);
+      for(const [wallIndex,side] of [-1,1].entries()){
+        const wall=walls[wallIndex];
         // Korean classroom walls are painted darker below the handrail.
-        box(inside,cx+side*4.3,.55,2.615,4.5,1.1,.035,green);
-        box(inside,cx+side*4.3,.12,2.65,4.5,.15,.06,'#5d796a');
-        box(inside,cx+side*4.3,1.12,2.67,4.5,.07,.09,'#a7b49f');
+        box(inside,wall.x,.55,2.615,wall.w,1.1,.035,green);
+        box(inside,wall.x,.12,2.65,wall.w,.15,.06,'#5d796a');
+        box(inside,wall.x,1.12,2.67,wall.w,.07,.09,'#a7b49f');
         // Sliding glazed door panels are parked against the solid wall, leaving
         // the existing four-metre doorway and every authored route untouched.
         const dx=cx+side*2.94;
@@ -68,8 +71,8 @@ export function createSchoolDetails({box,cyl,mesh,geo,mat,collide}) {
         box(inside,dx-side*.57,1.16,2.77,.045,.34,.06,'#596f64');
         box(inside,dx,2.47,2.65,1.7,.06,.09,silver);
         // A recessed shoe cabinet stays behind the standing corridor route.
-        if(side<0){
-          const sx=cx-4.97;
+        if(side===outward){
+          const sx=cx+outward*4.97;
           box(inside,sx,.47,2.58,2.28,.87,.32,wood);
           box(inside,sx,.48,2.75,2.08,.68,.025,'#4d5e50');
           for(let row=0;row<2;row++)for(let col=0;col<4;col++){
@@ -86,8 +89,8 @@ export function createSchoolDetails({box,cyl,mesh,geo,mat,collide}) {
       for(const dx of [-2.04,-.68,.68,2.04])box(inside,cx+dx,2.94,2.57,.05,.49,.04,silver);
       box(inside,cx,3.2,2.55,4.16,.06,.07,silver);
       const roomNumber=room.kind==='classroom'?'6학년 4반':`${floor}층 · ${index+1}호실`;
-      plaque(inside,`room-number-${floor}-${index}`,room.name,roomNumber,cx+4.78,2.91,2.7,2.9,.62);
-      panel(inside,'school-noticeboard',cx+4.83,1.94,2.72,2.67,1.18,(c,W,H)=>{
+      plaque(inside,`room-number-${floor}-${index}`,room.name,roomNumber,cx+outward*4.78,2.91,2.7,2.9,.62);
+      panel(inside,'school-noticeboard',cx+outward*4.83,1.94,2.72,2.67,1.18,(c,W,H)=>{
         c.fillStyle=wood;c.fillRect(0,0,W,H);c.fillStyle='#b9c6a4';c.fillRect(16,16,W-32,H-32);
         words(c,'알 림 마 당',W/2,57,45);
         const labels=['학교 소식','환경 교육','이번 주 급식'];
@@ -96,24 +99,23 @@ export function createSchoolDetails({box,cyl,mesh,geo,mat,collide}) {
           c.fillStyle='#8f9b89';for(let line=0;line<3;line++)c.fillRect(x+32,275+line*20,145-line*17,5);
           c.fillStyle='#b37056';c.beginPath();c.arc(x+106,102,7,0,Math.PI*2);c.fill();}
       });
-      clock(inside,cx-4.82,2.08,2.71);
+      clock(inside,outward*3.55,2.08,2.71);
       // Green lower panels on the room's rear wall reinforce the familiar palette.
       box(inside,cx,.46,-7.6,13.25,.9,.035,'#acc0a5');
       box(inside,cx,.07,-7.56,13.25,.12,.05,'#7c937e');
     }
-    // A recessed extinguisher cabinet at the end of the corridor.
-    box(inside,12.94,.72,2.65,.44,1.02,.22,'#e4ddd0');
-    cyl(inside,12.94,.58,2.8,.12,.12,.5,'#b65c48',8);
-    box(inside,12.94,.91,2.8,.18,.07,.08,'#3b5148');
-    plaque(inside,'fire-extinguisher','소화기','FIRE',12.94,1.31,2.81,.58,.34);
-    collide(colliders,12.94,2.65,.46,.28,false);
-    // The cleaning-tools cupboard is shallow and recessed into a solid wall.
-    box(inside,-1.14,1.0,2.6,.82,1.88,.22,'#c8d1bb');
-    box(inside,-1.14,1.0,2.73,.73,1.76,.025,'#dfe3d1');
-    box(inside,-.89,1.0,2.77,.04,.24,.05,'#617d6b');
-    plaque(inside,'cleaning-cupboard','청소도구','사용 후 제자리',-1.14,1.45,2.77,.63,.36);
-    collide(colliders,-1.14,2.6,.84,.3,false);
-    plaque(inside,`floor-wayfinding-${floor}`,`${floor}층`,floor===1?'현관 · 배움터 · 보건실':'복도에서는 천천히',.03,2.93,2.78,2.3,.66);
+    // Utility cabinets sit on the remaining walls, outside the open stair mouth.
+    box(inside,2.65,.72,2.65,.44,1.02,.22,'#e4ddd0');
+    cyl(inside,2.65,.58,2.8,.12,.12,.5,'#b65c48',8);
+    box(inside,2.65,.91,2.8,.18,.07,.08,'#3b5148');
+    plaque(inside,'fire-extinguisher','소화기','FIRE',2.65,1.31,2.81,.58,.34);
+    collide(colliders,2.65,2.65,.46,.28,false);
+    box(inside,-2.65,1.0,2.6,.82,1.88,.22,'#c8d1bb');
+    box(inside,-2.65,1.0,2.73,.73,1.76,.025,'#dfe3d1');
+    box(inside,-2.4,1.0,2.77,.04,.24,.05,'#617d6b');
+    plaque(inside,'cleaning-cupboard','청소도구','사용 후 제자리',-2.65,1.45,2.77,.63,.36);
+    collide(colliders,-2.65,2.6,.84,.3,false);
+    plaque(inside,`floor-wayfinding-${floor}`,`${floor}층 중앙계단`,'E · 위층 / 아래층 이동',0,2.93,2.78,3.7,.66);
     // The central exterior glazing has visible floor landings and handrails.
     box(front,0,.35,8.3,3.7,.12,.4,'#bdc7b6');
     box(front,0,1.23,8.31,3.5,.06,.04,silver);

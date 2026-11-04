@@ -14,22 +14,24 @@ export function trayCompartment(dropX,trayX,trayWidth){
 }
 export function trayComplete(counts,bonusCount){return KINDS.every(k=>(counts[k]||0)>=2)&&bonusCount>=3;}
 export function trayGeometry(width,height){
-  const trayWidth=Math.min(550,width*.54),edge=12;
-  return {width:trayWidth,compartment:trayWidth/3,y:height-178,height:104,min:trayWidth/2+edge,max:width-trayWidth/2-edge};
+  // Keep a genuinely readable receiving bin even on a narrow phone. The other
+  // bins may slide beyond the viewport; every bin can still meet the drop lane.
+  const trayWidth=Math.min(1020,Math.max(510,width*.88)),compartment=trayWidth/3;
+  return {width:trayWidth,compartment,y:height-250,height:160,min:width*.465-compartment,max:width*.535+compartment};
 }
 
-// The term is read on the large serving board; only this small food token falls.
-// Its entire silhouette fits inside a compartment, including on a 320px screen.
+// The complete term travels inside the card. Leave room around the whole card,
+// not only its centre, when it lands in a compartment.
 export function fallingFoodGeometry(width,height,progress,lane=.5){
-  const g=trayGeometry(width,height),w=Math.min(128,g.compartment-22),h=Math.min(54,w*1.1);
-  const start=Math.min(224,g.y-70),end=g.y+h/2+6;
+  const g=trayGeometry(width,height),w=Math.min(280,g.compartment-20),h=104;
+  const start=Math.min(198,g.y-35),end=g.y+h/2+6;
   return {x:lane*width,y:start+clamp(progress,0,1)*(end-start),width:w,height:h};
 }
-export function dropLane(width,sequence){
-  const g=trayGeometry(width,700);
-  const available=Math.max(0,Math.min(.035,(g.max-g.compartment-width/2)/width));
-  return .5+Math.sin(sequence*1.83)*available;
-}
+export function dropLane(width,sequence){return .5+Math.sin(sequence*1.83)*.035;}
+
+// Map the whole pointer range to the full tray travel. A phone's edge must be
+// able to select an outer bin even when the tray centre itself is offscreen.
+export function trayPointerPosition(pointerX,width,height){const g=trayGeometry(width,height);return g.min+clamp(pointerX/width,0,1)*(g.max-g.min);}
 
 export function start({container,data,onWin=()=>{},onFail=()=>{}}){
   const cfg=data.arcade||{},foods=cfg.foods||[],bonuses=cfg.bonus||[],relaxed=!!data.runtime?.relaxed;
@@ -70,7 +72,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     if(trayComplete(counts,bonusCount)){mode='won';stage.announce('퇴식 완료! 세 칸과 보너스를 모두 배웠어요.');if(!winSent){winSent=true;onWin({seconds:Math.round(elapsed),relaxed,counts:{...counts},bonus:bonusCount,bonusIds:[...clearedBonus],correct:points,mistakes});}}
     else{mode='retry';feedback(false,'세 칸 두 개씩, 보너스 세 개!');onFail({reason:'timeout',tip:'세 칸 두 개씩, 보너스 세 개!'});}
   }
-  stage.onPointer(p=>{if(mode==='play'&&(p.type==='pointerdown'||p.type==='pointermove')){const g=trayGeometry(stage.width,stage.height);tray=clamp(p.x,g.min,g.max)/stage.width;}});
+  stage.onPointer(p=>{if(mode==='play'&&(p.type==='pointerdown'||p.type==='pointermove'))tray=trayPointerPosition(p.x,stage.width,stage.height)/stage.width;});
   stage.onKey(k=>{if(mode==='retry'&&(k==='enter'||k===' '))reset();else if(['1','2','3'].includes(k))align(+k-1);});
   function labelLines(value,maxWidth,size){
     const chars=[...String(value)],lines=[];let line='';ctx.font=`700 ${size}px system-ui, sans-serif`;
@@ -78,15 +80,15 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
   }
   function drawTray(W,H,g,t){
     const x=tray*W,top=g.y;
-    ctx.fillStyle='#203a3522';ctx.beginPath();ctx.ellipse(x,top+104,g.width*.56,13,0,0,Math.PI*2);ctx.fill();
-    rounded(ctx,x-g.width/2-7,top-7,g.width+14,118,16,'#b9c4bb','#7b9584');
+    ctx.fillStyle='#203a3522';ctx.beginPath();ctx.ellipse(x,top+g.height,g.width*.56,13,0,0,Math.PI*2);ctx.fill();
+    rounded(ctx,x-g.width/2-7,top-7,g.width+14,g.height+14,16,'#b9c4bb','#7b9584');
     for(let i=0;i<3;i++){
       const left=x-g.width/2+i*g.compartment+4,highlight=revealTime>0&&reveal===i;
-      rounded(ctx,left,top,g.compartment-8,104,10,highlight?C.lime:i===0?'#f8e6b7':i===1?'#dfd0ea':'#c5e2da',highlight?C.green:'#8aa294');
+      rounded(ctx,left,top,g.compartment-8,g.height,10,highlight?C.lime:i===0?'#f8e6b7':i===1?'#dfd0ea':'#c5e2da',highlight?C.green:'#8aa294');
       if(phase==='bonus'&&item){
-        const size=g.compartment<100?16:20,lines=labelLines(item.food.options[i],g.compartment-16,size);
-        lines.forEach((line,j)=>text(ctx,line,left+(g.compartment-8)/2,top+52+(j-(lines.length-1)/2)*(size+3),size,C.green));
-      }else{text(ctx,LABELS[i],left+(g.compartment-8)/2,top+36,g.compartment<100?17:24,C.green);text(ctx,NAMES[i],left+(g.compartment-8)/2,top+69,g.compartment<100?16:20,C.green);}
+        const size=W<600?18:22,lines=labelLines(item.food.options[i],g.compartment-22,size);
+        lines.forEach((line,j)=>text(ctx,line,left+(g.compartment-8)/2,top+134+(j-(lines.length-1)/2)*(size+2),size,C.green));
+      }else{text(ctx,LABELS[i],left+(g.compartment-8)/2,top+121,W<600?22:26,C.green);text(ctx,NAMES[i],left+(g.compartment-8)/2,top+146,W<600?18:20,C.green);}
       if(splash>0)for(let j=0;j<3;j++){ctx.fillStyle=C.orange;ctx.beginPath();ctx.arc(x+(i-1)*g.compartment+(j-1)*10,top-8-(.7-splash)*50+Math.sin(j*3)*9,3,0,Math.PI*2);ctx.fill();}
     }
   }
@@ -107,29 +109,31 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     }
     ctx.fillStyle=C.cream;ctx.fillRect(0,0,W,H);
     // Serving hatch, wall tiles and a school-cafeteria floor establish the room.
-    ctx.fillStyle='#d7e1d3';ctx.fillRect(0,204,W,Math.max(0,H-286));ctx.strokeStyle='#bdcebb';ctx.lineWidth=1;
-    for(let x=0;x<W;x+=72){ctx.beginPath();ctx.moveTo(x,204);ctx.lineTo(x,H-90);ctx.stroke();}
-    for(let y=204;y<H-90;y+=65){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    ctx.fillStyle='#d7e1d3';ctx.fillRect(0,150,W,Math.max(0,H-232));ctx.strokeStyle='#bdcebb';ctx.lineWidth=1;
+    for(let x=0;x<W;x+=72){ctx.beginPath();ctx.moveTo(x,150);ctx.lineTo(x,H-90);ctx.stroke();}
+    for(let y=150;y<H-90;y+=65){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
     ctx.fillStyle='#baa285';ctx.fillRect(0,H-77,W,77);
     text(ctx,'3칸 식판',20,35,small?26:32,C.green,'left');text(ctx,relaxed?'천천히':`${Math.max(0,Math.ceil(LENGTH-elapsed))}s`,W-76,35,relaxed?18:24,C.green,'right');
     text(ctx,'← → 이동 · 아래 버튼으로 칸 맞추기',W/2,71,small?17:21,C.green);
     const progress=KINDS.map((kind,i)=>`${LABELS[i]} ${Math.min(counts[kind],2)}/2`).join('   ');
     fitText(ctx,`${progress}  ·  ★ ${Math.min(bonusCount,3)}/3`,W/2,102,W-24,small?16:20,C.green);
-    rounded(ctx,16,122,W-32,80,15,C.green);
-    text(ctx,phase==='bonus'?'보너스 · 용어의 뜻에 맞춰 담으세요':'지금 받을 반찬 · 뼈대 / 모양 / 동작?',W/2,143,small?16:19,C.paper);
-    text(ctx,item?.food.label||'다음 반찬 준비 중',W/2,177,small?27:32,C.paper);
+    text(ctx,phase==='bonus'?'보너스 · 용어의 뜻에 맞는 칸!':'반찬카드를 읽고 알맞은 칸으로!',W/2,131,small?17:21,C.green);
     if(mode==='play'){
+      drawTray(W,H,g,t);
       if(item){
         const foodBox=fallingFoodGeometry(W,H,item.progress,item.lane),{x,y,width:w,height:h}=foodBox;
         ctx.save();ctx.translate(x,y);ctx.fillStyle='#203a3522';ctx.beginPath();ctx.ellipse(0,h*.4,w*.4,7,0,0,Math.PI*2);ctx.fill();
         rounded(ctx,-w/2,-h/2,w,h,Math.min(16,w/3),item.bonus?'#f2d08e':C.paper,item.bonus?'#9b6d2d':'#90aa92');
-        text(ctx,item.food.icon||'★',0,0,Math.min(30,w-12),C.green);ctx.restore();
+        text(ctx,item.food.icon||'★',0,-30,22,C.green);
+        const size=small?20:24,lines=labelLines(item.food.label,w-20,size);
+        lines.forEach((line,j)=>text(ctx,line,0,12+(j-(lines.length-1)/2)*(size+4),size,C.green));
+        ctx.restore();
         const options=item.bonus?item.food.options:LABELS;
         stage.setButtons(options.map((option,i)=>({id:`align-${i}`,label:`${i+1}번 칸 맞추기 · ${option}`,x:W*i/3,y:H-70,w:W/3,h:70,onClick:()=>align(i)})));
       }else stage.setButtons([]);
-      drawTray(W,H,g,t);
       if(tipTime>0){
-        const lines=labelLines(tip,W-44,small?17:20),tipY=Math.max(224,g.y-50);
+        // Feedback belongs in the header, away from the falling readable card.
+        const lines=labelLines(tip,W-44,small?17:20),tipY=128;
         rounded(ctx,12,tipY-17,W-24,lines.length*22+14,10,C.paper);
         lines.forEach((line,j)=>text(ctx,line,W/2,tipY+j*22,small?17:20,revealTime>0?C.red:C.green));
       }

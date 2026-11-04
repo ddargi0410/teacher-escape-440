@@ -65,27 +65,27 @@ export function createCrowd({floors,questObjects,teacher,mesh,geo,mat,random=Mat
   for(let floor=1;floor<=5;floor++){
     const inside=floors.get(floor).inside;
     for(let n=0;n<2;n++){
-      const model=teacher(inside,0,0,0,n?'#dd9b69':'#80b2be');model.scale.setScalar(.64);
+      const model=teacher(inside,0,0,0,n?'#dd9b69':'#80b2be',false,{id:`child-${floor}-${n}`,role:'child'});model.scale.setScalar(.64);
       addActor({id:`child-${floor}-${n}`,model,floor,route:CROWD_ROUTES.children[n],speed:n?3.7:3.5,kind:'child',wait:0});
     }
     // Preallocate one fictional complaint caller on each floor. Only the
     // player's floor moves, so adding encounters costs no off-floor simulation.
-    const parentModel=teacher(inside,0,0,0,floor%2?'#b87d81':'#aa82ad');
+    const parentModel=teacher(inside,0,0,0,floor%2?'#b87d81':'#aa82ad',false,{id:`complaint-parent-${floor}`,role:'parent'});
     const hand=parentModel.userData.arms?.[1]||parentModel;
     mesh(hand,geo('BoxGeometry',.16,.28,.055),mat('#405258'),0,-.43,.16);
     mesh(hand,geo('BoxGeometry',.12,.21,.012),mat('#deebe2'),0,-.43,.195);
     const caller=addActor({id:`complaint-parent-${floor}`,model:parentModel,floor,route:CROWD_ROUTES.parent,speed:.58,kind:'parent',wait:1.7});
     caller.cooldown=5;
   }
-  const principal=addActor({id:'principal-patrol',model:teacher(floors.get(5).inside,0,0,0,'#5d7b73',true),floor:5,route:CROWD_ROUTES.principal,speed:.72,kind:'principal',wait:.65});
+  const principal=addActor({id:'principal-patrol',model:teacher(floors.get(5).inside,0,0,0,'#5d7b73',true,{id:'principal-patrol',role:'principal'}),floor:5,route:CROWD_ROUTES.principal,speed:.72,kind:'principal',wait:.65});
   // Floor projection is clipped against the same occluders used for detection.
   const segments=28,positions=new Float32Array(segments*9);
   const coneGeometry=new THREE.BufferGeometry();coneGeometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
   const cone=new THREE.Mesh(coneGeometry,new THREE.MeshBasicMaterial({color:'#edac55',transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false}));cone.position.y=.025;cone.name='principal-sight-cone';cone.renderOrder=1;principal.model.add(cone);
-  const vice=addActor({id:'vice-principal',model:teacher(floors.get(4).inside,0,0,0,'#9e8eae',true),floor:4,route:CROWD_ROUTES.vice,speed:.65,kind:'vice',wait:1});
+  const vice=addActor({id:'vice-principal',model:teacher(floors.get(4).inside,0,0,0,'#9e8eae',true,{id:'vice-principal',role:'vice'}),floor:4,route:CROWD_ROUTES.vice,speed:.65,kind:'vice',wait:1});
   vice.cooldown=8;
 
-  function head(a){return a.model.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,2.35*a.model.scale.y,0));}
+  function head(a){return a.model.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,(a.model.userData.headHeight||2.35)*a.model.scale.y,0));}
   function syncQuest(a){
     if(a.missionId===null)return;
     const q=questObjects.get(a.missionId),p=a.model.position;
@@ -194,5 +194,5 @@ export function createCrowd({floors,questObjects,teacher,mesh,geo,mat,random=Mat
     updateCone();
   }
   reset();
-  return {update,reset,useAction,actors,principal,vice,getNPC:id=>byMission.get(id)?.model,getNPCAnchor:id=>{const a=byMission.get(id);return a?head(a):null;},getAnchor:model=>model.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,2.35*model.scale.y,0))};
+  return {update,reset,useAction,actors,principal,vice,getNPC:id=>byMission.get(id)?.model,getNPCAnchor:id=>{const a=byMission.get(id);return a?head(a):null;},getAnchor:model=>model.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,(model.userData.headHeight||2.35)*model.scale.y,0))};
 }
