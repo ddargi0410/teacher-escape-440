@@ -18,7 +18,7 @@ function fixture(loaders) {
     listeners.get(type).add(fn);
   };
   doc.removeEventListener = (type, fn) => listeners.get(type)?.delete(fn);
-  doc.dispatch = type => { for (const fn of listeners.get(type) || []) fn(); };
+  doc.dispatch = (type,event) => { for (const fn of listeners.get(type) || []) fn(event); };
   const container = doc.createElement('div');
   const query = container.querySelector.bind(container);
   container.querySelector = selector => {
@@ -38,7 +38,7 @@ function fixture(loaders) {
     onDraft: value => drafts.push(value),
     onClose: () => closes++
   });
-  return { doc, container, runner, success, failure, drafts, listeners, get closes() { return closes; } };
+  return { doc, container, runner, success, failure, drafts, listeners, begin:()=>container.querySelector('.arcade-begin').click(), explain:()=>container.querySelector('.arcade-help').click(), get closes() { return closes; } };
 }
 
 function fakeModule() {
@@ -77,6 +77,7 @@ test('only the latest asynchronous load may create a game', async () => {
   const f = fixture({ 1: () => oldLoad.promise, 2: async () => second });
   const oldOpen = f.runner.open(MISSIONS[0]);
   await f.runner.open(MISSIONS[1]);
+  f.begin();
   oldLoad.resolve(first);
   await oldOpen;
   assert.equal(first.starts.length, 0);
@@ -90,6 +91,7 @@ test('each scene awards once and ignores failures after success', async () => {
   const module = fakeModule();
   const f = fixture({ 3: async () => module });
   await f.runner.open(MISSIONS[2]);
+  f.begin();
   const callbacks = module.starts[0];
   callbacks.onFail({ reason: 'wrong-answer' });
   callbacks.onWin({ answered: 5 });
@@ -111,8 +113,10 @@ test('callbacks from a closed game cannot award or penalize the next game', asyn
   const first = fakeModule(), second = fakeModule();
   const f = fixture({ 1: async () => first, 2: async () => second });
   await f.runner.open(MISSIONS[0]);
+  f.begin();
   const old = first.starts[0];
   await f.runner.open(MISSIONS[1]);
+  f.begin();
   old.onWin({ correct: 5 });
   old.onFail({ reason: 'late' });
   assert.equal(first.lifecycle.destroyed, 1);
@@ -128,6 +132,7 @@ test('visibility pauses and resumes the scene, and disposal removes its listener
   const f = fixture({ 1: async () => module });
   f.doc.hidden = true;
   await f.runner.open(MISSIONS[0]);
+  f.begin();
   assert.equal(module.lifecycle.paused, 1);
   f.doc.hidden = false;
   f.doc.dispatch('visibilitychange');
@@ -136,7 +141,8 @@ test('visibility pauses and resumes the scene, and disposal removes its listener
   f.doc.dispatch('visibilitychange');
   assert.equal(module.lifecycle.paused, 2);
   f.runner.hint();
-  assert.equal(module.lifecycle.hinted, 1);
+  assert.equal(f.container.querySelector('.arcade-briefing').hidden, false);
+  assert.equal(module.lifecycle.hinted, 0);
   f.runner.dispose();
   assert.equal(f.listeners.get('visibilitychange').size, 0);
   f.doc.hidden = false;
@@ -149,7 +155,7 @@ test('a module load failure leaves a working exit and does not award anything', 
   t.mock.method(console, 'error', () => {});
   const f = fixture({ 1: async () => { throw new Error('network interrupted'); } });
   await f.runner.open(MISSIONS[0]);
-  assert.match(f.container.querySelector('.arcade-mount').textContent, /다시 시도/);
+  assert.match(f.container.querySelector('.arcade-load-status').textContent, /다시 시도/);
   assert.equal(f.success.length, 0);
   assert.equal(f.failure.length, 0);
   f.container.querySelector('.arcade-exit').click();
@@ -165,6 +171,8 @@ test('all seven new missions use their own module and preserve the boss draft on
     const draft=id===10?'초등학교 5학년 생태 퀴즈를 HTML 파일로 만들어 줘.':'';
     if(id===10){const original=modules[id].start;modules[id].start=args=>({...original(args),getDraft:()=>draft+' 수정 중'});}
     await f.runner.open({...MISSIONS[id-1],initialPrompt:draft});
+    assert.equal(modules[id].starts.length,0);
+    f.begin();
     assert.equal(modules[id].starts.length,1);
     assert.equal(modules[id].starts[0].data.id,id);
     assert.ok(modules[id].starts[0].data.arcade.title);
@@ -175,5 +183,66 @@ test('all seven new missions use their own module and preserve the boss draft on
   assert.match(f.drafts[0],/수정 중$/);
   assert.equal(f.success.length,0);
   assert.equal(f.failure.length,0);
+  f.runner.dispose();
+});
+
+
+test('all ten missions wait for an explicit start, including after loading finishes', async () => {
+  for(const mission of MISSIONS){
+    const module=fakeModule(),f=fixture({[mission.id]:async()=>module});
+    await f.runner.open(mission);
+    assert.equal(module.starts.length,0);
+    assert.equal(f.runner.isPlaying(),false);
+    assert.match(f.container.querySelector('.arcade-project').textContent,/먹이사슬/);
+    assert.ok(f.container.querySelector('.arcade-brief-goal').textContent.length>10);
+    assert.equal(f.container.querySelector('.arcade-brief-steps').querySelectorAll('li').length,3);
+    f.begin();
+    assert.equal(module.starts.length,1);
+    assert.equal(f.runner.isPlaying(),true);
+    assert.equal(f.container.querySelector('.arcade-briefing').hidden,true);
+    f.runner.dispose();
+  }
+});
+
+test('reading mission help freezes gameplay and cannot be resumed by a visibility change', async () => {
+  const module=fakeModule(),f=fixture({4:async()=>module});
+  await f.runner.open(MISSIONS[3]);f.begin();
+  f.explain();
+  assert.equal(f.runner.isPlaying(),false);
+  assert.equal(module.lifecycle.paused,1);
+  assert.equal(f.container.querySelector('.arcade-mount').inert,true);
+  f.doc.hidden=true;f.doc.dispatch('visibilitychange');
+  f.doc.hidden=false;f.doc.dispatch('visibilitychange');
+  assert.equal(module.lifecycle.resumed,0);
+  assert.equal(f.runner.isPlaying(),false);
+  f.begin();
+  assert.equal(module.starts.length,1);
+  assert.equal(module.lifecycle.resumed,1);
+  assert.equal(f.runner.isPlaying(),true);
+  assert.equal(f.container.querySelector('.arcade-mount').inert,false);
+  f.runner.dispose();
+});
+
+test('Escape returns from help without closing the mission and closes an unstarted briefing', async () => {
+  const module=fakeModule(),f=fixture({5:async()=>module});
+  const event=()=>({key:'Escape',preventDefault(){},stopPropagation(){}});
+  await f.runner.open(MISSIONS[4]);
+  f.doc.dispatch('keydown',event());
+  assert.equal(f.runner.isOpen(),false);assert.equal(module.starts.length,0);
+  await f.runner.open(MISSIONS[4]);f.begin();f.explain();
+  f.doc.dispatch('keydown',event());
+  assert.equal(f.runner.isOpen(),true);assert.equal(f.runner.isPlaying(),true);
+  f.runner.dispose();assert.equal(f.listeners.get('keydown').size,0);
+});
+
+test('a boss-local hint pause also pauses the shared school clock', async () => {
+  const module=fakeModule();let localPause=false;
+  const start=module.start;
+  module.start=args=>({...start(args),isPaused:()=>localPause,hint(){localPause=true;}});
+  const f=fixture({10:async()=>module});
+  await f.runner.open(MISSIONS[9]);f.begin();
+  assert.equal(f.runner.isPlaying(),true);f.runner.hint();
+  assert.equal(f.runner.isPlaying(),false);
+  localPause=false;assert.equal(f.runner.isPlaying(),true);
   f.runner.dispose();
 });

@@ -187,7 +187,7 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
         peer.model.visible=show;peer.label.hidden=!show;if(!show)continue;
         const greetingActive=peer.greetingUntil>now();
         const resting=data.action==='rest'&&data.bedId&&data.floor===1;
-        if(resting)world.setRestPose?.(peer.model,data.bedId);
+        if(resting)world.setRestPose?.(peer.model,data.bedId,Math.abs(Math.sin(data.yaw))>.5?'side':'back');
         else{
           world.clearRestPose?.(peer.model);
           peer.model.position.lerp(new THREE.Vector3(data.x,data.y,data.z),1-Math.exp(-7*step));
@@ -195,7 +195,7 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
           peer.model.rotation.y+=delta*Math.min(1,step*9);
           world.animateCharacter?.(peer.model,phase,data.action==='walk'?1:0);
         }
-        (peer.model.userData.arms||[]).forEach((arm,index)=>arm.rotation.z=peer.armZ[index]);
+        if(!resting)(peer.model.userData.arms||[]).forEach((arm,index)=>arm.rotation.z=peer.armZ[index]);
         if(greetingActive&&!resting){const arm=peer.model.userData.arms?.[1];if(arm){arm.rotation.z=-2.2;arm.rotation.x=Math.sin(phase*1.5)*.3;}}
         peer.bubble.hidden=!greetingActive;
         projection.copy(peer.model.position);projection.y+=resting?1:2.65;projection.project(camera);

@@ -1,4 +1,4 @@
-import {createCanvasStage,COLORS as C,clamp,rounded,text,fitText} from './shared.js';
+import {createCanvasStage,COLORS as C,clamp,rounded,text,fitText,wrapText} from './shared.js';
 
 export function start({container,data,onWin=()=>{},onFail=()=>{}}){
   const cfg=data.arcade||{};
@@ -32,7 +32,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     if(spill>0){for(let i=0;i<9;i++){ctx.fillStyle='#8e5c3d';ctx.beginPath();ctx.arc(x+Math.sin(i*8.3)*w,y-(.8-spill)*100+Math.cos(i)*25,3+(i%3),0,Math.PI*2);ctx.fill();}}
   }
   stage.loop((dt,t,clockDt)=>{
-    const W=stage.width,H=stage.height,narrow=W<600,s=Math.min(W/800,H/650),font=clamp(22*s,15,24),mugW=clamp(W*.12,82,125),mugH=65,mugY=H-116;
+    const W=stage.width,H=stage.height,narrow=W<600,s=Math.min(W/800,H/650),font=clamp(24*s,20,27),mugW=clamp(W*.12,82,125),mugH=65,mugY=H-116;
     if(mode==='play'){
       elapsed+=clockDt;nextWave-=clockDt;spill=Math.max(0,spill-clockDt);tipTime=Math.max(0,tipTime-clockDt);correctReveal=Math.max(0,correctReveal-clockDt);
       const direction=(stage.keys.has('arrowright')||stage.keys.has('d')?1:0)-(stage.keys.has('arrowleft')||stage.keys.has('a')?1:0);mugX=clamp(mugX+direction*clockDt*.75,.09,.91);
@@ -53,17 +53,17 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     ctx.fillStyle='#e7e1c8';ctx.fillRect(0,H*.19,W,H*.59);
     ctx.strokeStyle='#d9d4bc';ctx.lineWidth=1;for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,H*.19);ctx.lineTo(x,H*.78);ctx.stroke();}for(let y=H*.19;y<H*.78;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
     text(ctx,'믹스커피 카드 캐치',24,38,clamp(font*1.15,19,28),C.green,'left');
-    text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-90,38,font*.9,C.green,'right');
-    text(ctx,'↔ 머그컵으로 필요한 카드만 받기',W/2,72,clamp(font*.8,13,18),C.green);
+    text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-22,38,Math.max(16,font*.9),C.green,'right');
+    text(ctx,'↔ 머그컵으로 필요한 카드만 받기',W/2,72,clamp(Math.max(16,font*.8),16,20),C.green);
     const slotW=Math.min((W-28)/5,150),slotStart=(W-slotW*5)/2;
-    slots.forEach((slot,i)=>{const x=slotStart+i*slotW;rounded(ctx,x+3,96,slotW-6,34,12,i<slotIndex?C.green:i===slotIndex?C.lime:'#e6e5d9');fitText(ctx,`${i<slotIndex?'✓ ':''}${slot.label}`,x+slotW/2,113,slotW-12,clamp(font*.76,12,17),i<slotIndex?C.paper:C.green);});
+    slots.forEach((slot,i)=>{const x=slotStart+i*slotW;rounded(ctx,x+3,96,slotW-6,34,12,i<slotIndex?C.green:i===slotIndex?C.lime:'#e6e5d9');fitText(ctx,`${i<slotIndex?'✓ ':''}${slot.label}`,x+slotW/2,113,slotW-12,clamp(Math.max(16,font*.76),16,19),i<slotIndex?C.paper:C.green);});
     if(mode==='play'){
       rounded(ctx,20,H*.22-8,W-40,33,9,C.green);rounded(ctx,35,H*.22+2,W-70,12,6,'#122c28');
       text(ctx,`↓ ${slots[slotIndex].label}`,W/2,H*.22+55,font,C.green);
-      for(const item of falling){const w=clamp(W*.23,94,184),h=64,x=item.x*W,y=item.y,isAnswer=correctReveal>0&&item.card.slot===slots[slotIndex].id;ctx.save();ctx.translate(x,y);ctx.rotate(item.rotation+Math.sin(t*2+item.x)*.025);ctx.shadowColor='#203a3522';ctx.shadowBlur=8;ctx.shadowOffsetY=6;rounded(ctx,-w/2,-h/2,w,h,11,isAnswer?C.lime:C.paper,isAnswer?C.green:undefined);ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.fillStyle='#cfb28d';ctx.fillRect(-w/2+10,-h/2+8,w-20,4);fitText(ctx,item.card.label,0,5,w-15,font,C.green);ctx.restore();}
+      for(const item of falling){const w=clamp(W*.29,108,220),h=92,x=item.x*W,y=item.y,isAnswer=correctReveal>0&&item.card.slot===slots[slotIndex].id;ctx.save();ctx.translate(x,y);ctx.rotate(item.rotation+Math.sin(t*2+item.x)*.025);ctx.shadowColor='#203a3522';ctx.shadowBlur=8;ctx.shadowOffsetY=6;rounded(ctx,-w/2,-h/2,w,h,11,isAnswer?C.lime:C.paper,isAnswer?C.green:undefined);ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.fillStyle='#cfb28d';ctx.fillRect(-w/2+10,-h/2+8,w-20,4);wrapText(ctx,item.card.label,0,8,w-18,{size:Math.max(17,font*.9),color:C.green,lineHeight:23});ctx.restore();}
       ctx.fillStyle='#c7ad88';ctx.fillRect(0,H-52,W,52);ctx.fillStyle='#a68965';ctx.fillRect(0,H-55,W,6);drawMug(mugX*W,mugY,mugW,mugH);
-      if(tipTime>0)text(ctx,tip,W/2,H-155,clamp(font*.8,14,20),C.red);
-      if(correctReveal>0){const right=cards.find(c=>c.slot===slots[slotIndex].id);if(right){rounded(ctx,W/2-130,H-204,260,32,12,C.lime);fitText(ctx,`✓ ${right.label}`,W/2,H-188,240,font*.85,C.green);}}
+      if(tipTime>0)wrapText(ctx,tip,W/2,H-170,W-30,{size:18,color:C.red});
+      if(correctReveal>0){const right=cards.find(c=>c.slot===slots[slotIndex].id);if(right){rounded(ctx,W/2-130,H-204,260,32,12,C.lime);fitText(ctx,`✓ ${right.label}`,W/2,H-188,240,Math.max(16,font*.85),C.green);}}
       text(ctx,'◀',28,H-25,24,C.green);text(ctx,'▶',W-28,H-25,24,C.green);
       stage.setButtons([{id:'left',label:'머그컵 왼쪽 이동',x:0,y:H-65,w:70,h:65,onClick:()=>{mugX=clamp(mugX-.23,.09,.91);}},{id:'right',label:'머그컵 오른쪽 이동',x:W-70,y:H-65,w:70,h:65,onClick:()=>{mugX=clamp(mugX+.23,.09,.91);}}]);
     }else if(mode==='success'){

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {start,trayCompartment,trayComplete,trayGeometry} from '../minigames/m09.js';
+import {start,trayCompartment,trayComplete,trayGeometry,fallingFoodGeometry,dropLane} from '../minigames/m09.js';
 import {getStage2Arcade} from '../minigames/stage2-content.js';
 import {MISSIONS} from '../missions-data.js';
 
@@ -19,8 +19,8 @@ function harness(width=800,height=700){
 }
 const data=()=>({...MISSIONS[8],arcade:getStage2Arcade(MISSIONS[8])});
 function playFrame(h,cfg){
-  const drawn=h.context.draws.find(d=>d.y>=190&&d.y<h.height-125&&[...cfg.foods,...cfg.bonus].some(f=>f.label===d.text));
-  if(drawn){const food=cfg.bonus.find(f=>f.label===drawn.text)||cfg.foods.find(f=>f.label===drawn.text),answer=food.options?food.answer:['html','css','js'].indexOf(food.kind),g=trayGeometry(h.width,h.height);h.canvas().dispatch('pointermove',{clientX:drawn.x-(answer-1)*g.compartment,clientY:g.y,pointerType:'mouse'});}
+  const named=h.context.draws.find(d=>d.y===177&&[...cfg.foods,...cfg.bonus].some(f=>f.label===d.text));
+  if(named){const food=cfg.bonus.find(f=>f.label===named.text)||cfg.foods.find(f=>f.label===named.text),drawn=h.context.draws.find(d=>d.text===(food.icon||'★')&&d.y>=204),answer=food.options?food.answer:['html','css','js'].indexOf(food.kind),g=trayGeometry(h.width,h.height);if(drawn)h.canvas().dispatch('pointermove',{clientX:drawn.x-(answer-1)*g.compartment,clientY:g.y,pointerType:'mouse'});}
   h.step();
 }
 
@@ -56,5 +56,35 @@ test('relaxed mode has no timeout failure and continues missing learning goals a
     game=start({container:h.container,data:d,onWin:p=>wins.push(p),onFail:p=>fails.push(p)});h.step(61);assert.equal(wins.length,0);assert.equal(fails.filter(f=>f.reason==='timeout').length,0);assert.ok(h.context.draws.some(d=>d.text==='천천히'));
     for(let i=0;i<1400&&!wins.length;i++)playFrame(h,d.arcade);
     assert.equal(wins.length,1);assert.equal(wins[0].relaxed,true);assert.ok(wins[0].seconds>60);
+  }finally{game?.destroy();h.restore();}
+});
+
+
+test('falling food silhouette fits completely inside every reachable slot at phone, tablet and desktop widths',()=>{
+  for(const [width,height] of [[320,560],[390,630],[768,860],[1366,720]]){
+    const g=trayGeometry(width,height);
+    for(let sequence=0;sequence<20;sequence++)for(let slot=0;slot<3;slot++){
+      const lane=dropLane(width,sequence),food=fallingFoodGeometry(width,height,.9,lane);
+      const trayX=lane*width-(slot-1)*g.compartment;
+      assert.ok(trayX>=g.min-1e-8&&trayX<=g.max+1e-8,'full centering is reachable');
+      const left=trayX-g.width/2+slot*g.compartment+4,right=left+g.compartment-8;
+      assert.ok(food.width<=g.compartment-16,'food is visibly narrower than the bin');
+      assert.ok(food.x-food.width/2>=left&&food.x+food.width/2<=right,'whole food token fits, not just center');
+      assert.equal(trayCompartment(food.x,trayX,g.width),slot);
+      assert.equal(trayCompartment(food.x+g.compartment,trayX,g.width),slot<2?slot+1:-1,'adjacent compartment does not award requested one');
+      assert.equal(trayCompartment(trayX+g.width/2+food.width,trayX,g.width),-1,'outside tray is a miss');
+    }
+  }
+});
+
+test('phone shows the full current term on a large board and labeled slot controls',()=>{
+  const h=harness(320,560);let game;
+  try{
+    game=start({container:h.container,data:data()});h.step(.6);
+    assert.ok(h.context.draws.some(d=>d.text==='제목 구조'&&d.y===177));
+    assert.ok(h.context.draws.some(d=>d.text==='▤'&&d.y>204));
+    assert.ok(h.context.draws.some(d=>d.text.includes('HTML')&&d.y>490));
+    const buttons=h.buttons();assert.equal(buttons.length,3);
+    assert.ok(buttons.every(b=>parseFloat(b.style.height)>=64));
   }finally{game?.destroy();h.restore();}
 });

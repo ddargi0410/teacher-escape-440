@@ -1,12 +1,10 @@
+import {schoolTime} from './school-clock.js';
+
 function elapsedLabel(seconds) {
   const value = Math.max(0, Math.floor(Number(seconds) || 0));
   return `${Math.floor(value / 60)}분 ${String(value % 60).padStart(2, '0')}초`;
 }
 
-function departureLabel(penalty) {
-  const minutes = 16 * 60 + 40 + Math.min(320, Math.max(0, Number(penalty) || 0));
-  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(Math.floor(minutes % 60)).padStart(2, '0')}`;
-}
 
 function wrapText(ctx, text, x, y, width, lineHeight, maxLines = Infinity) {
   let line = '';
@@ -74,7 +72,7 @@ export async function downloadCertificate(state, missions) {
   ctx.fillText('10가지 업무를 해결하고, AI에게 일을 맡기는 요령을 익혔습니다.', 100, 600);
   const stats = [
     ['실제 플레이 시간', elapsedLabel(state.elapsed)],
-    ['게임 속 퇴근 시각', departureLabel(state.penalty)],
+    ['게임 속 퇴근 시각', schoolTime(state)],
     ['챙겨 가는 노하우', '10장 / 10장']
   ];
   stats.forEach(([label, value], index) => {

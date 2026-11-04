@@ -1,15 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { MISSIONS } from '../missions-data.js';
+import { MISSIONS, STORY } from '../missions-data.js';
 import { getArcadeData, getKnowledgeDetails, NPC_LINES } from '../minigames/content.js';
 
 const length = text => [...text].length;
 
-test('canonical mission content remains byte-for-byte unchanged', () => {
-  const hash = createHash('sha256').update(readFileSync(new URL('../missions-data.js', import.meta.url))).digest('hex');
-  assert.equal(hash, '01a7d59e70fc1e2b8635acce3cef381d6ac2ad7dc9e6d7abf8d0e172c8a8f539');
+test('unrequested mission content is preserved outside mission6 and two food-chain project examples', () => {
+  const retained=MISSIONS.filter(m=>m.id!==6).map(m=>m.id===2?{...m,cards:m.cards.map(c=>['c-goal','c-format'].includes(c.id)?{...c,text:'PROJECT_EXAMPLE'}:c)}:m);
+  const hash=createHash('sha256').update(JSON.stringify(retained)).digest('hex');
+  assert.equal(hash,'3f698d58caa0a17abe038434b393c70bf5677f442b004f9c1006a3f7e4512947');
+  assert.match(STORY.opening[0].text,/오후 4시\./);
+  assert.match(STORY.opening[1].text,/40분 남았다/);
 });
 
 test('OX runs retain original truth values and attach the full source explanations', () => {

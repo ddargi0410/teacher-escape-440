@@ -31,10 +31,10 @@ function fixture({defer=false}={}){
   const ctx=context();let unlocks=0,resolve;
   const pending=defer?new Promise(r=>{resolve=r;}):Promise.resolve(true);
   const audio={context:ctx,enabled:false,master:{kind:'effects-master'},unlock(){unlocks++;return pending;}};
-  const entered=[],left=[];const bed={id:'bed-1',bedPose:{x:1,y:.8,z:2},exitPoint:{x:3,y:0,z:2}};
-  const rest=createRestRoom({audio,getBed:id=>id==='bed-1'?bed:null,onEnter:b=>entered.push(b),onLeave:b=>left.push(b)});
+  const entered=[],left=[],poses=[];const bed={id:'bed-1',bedPose:{x:1,y:.8,z:2},exitPoint:{x:3,y:0,z:2}};
+  const rest=createRestRoom({audio,getBed:id=>id==='bed-1'?bed:null,onEnter:b=>entered.push(b),onLeave:b=>left.push(b),onPosture:(b,pose)=>poses.push({bed:b.id,pose})});
   const strip=doc.body.querySelector('.rest-room');
-  return {rest,doc,ctx,audio,bed,entered,left,strip,events,resolve,get unlocks(){return unlocks;},
+  return {rest,doc,ctx,audio,bed,entered,left,poses,strip,events,resolve,get unlocks(){return unlocks;},
     sound:value=>strip.querySelector(`[data-rest-sound="${value}"]`).click(),
     visible:flag=>{doc.hidden=!flag;doc.dispatch('visibilitychange');}};
 }
@@ -92,4 +92,24 @@ test('disposing releases input and visibility handlers and is idempotent',async(
   assert.equal(stopped,1);f.rest.dispose();f.rest.dispose();assert.equal(f.rest.isOpen(),false);
   assert.equal(f.events.get('visibilitychange').size,0);const n=f.unlocks;f.visible(false);f.visible(true);await settle();assert.equal(f.unlocks,n);
   assert.equal(f.rest.open('bed-1'),false);assert.equal(f.doc.body.querySelector('.rest-room'),null);
+});
+
+
+test('original gentle music can be selected and all notes stop on exit or hidden tab',async()=>{
+  const f=fixture();f.rest.open('bed-1');await settle();f.sound('music');await settle();
+  assert.match(f.strip.querySelector('.rest-room-status').textContent,/잔잔한 선율/);
+  const active=f.ctx.nodes.filter(n=>n.kind==='oscillator'&&!n.disconnected);
+  assert.equal(active.length,5,'two melodic tones and three soft chord tones');
+  for(let n=0;n<5;n++)f.rest.update(1);
+  assert.ok(f.ctx.nodes.filter(n=>n.kind==='oscillator').length>active.length);
+  f.visible(false);assert.ok(f.ctx.nodes.filter(n=>n.started).every(n=>n.stopped));
+  f.visible(true);await settle();f.rest.close();assert.ok(f.ctx.nodes.every(n=>n.disconnected));f.rest.dispose();
+});
+
+test('back and side choices notify the world without restarting the rest session',async()=>{
+  const f=fixture();f.rest.open('bed-1');await settle();f.rest.update(1);
+  f.strip.querySelector('[data-rest-pose="side"]').click();
+  assert.equal(f.rest.getPosture(),'side');assert.deepEqual(f.poses,[{bed:'bed-1',pose:'side'}]);
+  assert.equal(f.strip.querySelector('.rest-room-clock').textContent,'00:01');assert.equal(f.entered.length,1);
+  f.strip.querySelector('[data-rest-pose="back"]').click();assert.equal(f.rest.getPosture(),'back');assert.equal(f.poses.length,2);f.rest.dispose();
 });

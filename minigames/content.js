@@ -2,7 +2,7 @@ import {getStage2Arcade} from './stage2-content.js';
 
 /*
  * Mini-game presentation copy. The complete questions, choices, answers and
- * explanations remain unchanged in ../missions-data.js.
+ * explanations are authored in ../missions-data.js.
  * These short labels summarize the same content for fast physical play.
  * sourceIndex and originalText preserve the connection to the full lesson.
  */
@@ -13,7 +13,7 @@ export const NPC_LINES = {
   3: ['우리 아이 마음도 읽어주셨나요?', 'AI도 독심술은 못 한대요.'],
   4: ['공문도 코딩도 한 입씩요.', '작은 것부터 확인해요.'],
   5: ['어떤 버튼이 어떻게 안 되나요?', '증상을 알면 같이 고쳐요.'],
-  6: ['말투는 만점, 내용은 재검토!', '과학 내용은 직접 확인해요.'],
+  6: ['오늘 실험은 AI 사용법이에요.', '틀린 코딩 습관만 쓱 잘라요.'],
   7: ['그 명단, 붙여넣기 잠깐만요!', '가상 예시로도 충분해요.'],
   8: ['어제는 됐는데! 오늘이 행사인데!', '원인부터 나누고 하나씩 고쳐요.'],
   9: ['오늘 밥은 앉아서 드셨나요?', '퇴식 전에 용어 한 숟갈요.'],
@@ -29,9 +29,9 @@ const oxLabels = [
 const coffeeLabels = {
   'c-role': '과학 웹 개발 도우미',
   'c-audience': '초등학교 5학년',
-  'c-goal': '생산·소비·분해 구분',
+  'c-goal': '먹이사슬 순서·화살표',
   'c-constraints': '태블릿·큰글자·실명X',
-  'c-format': 'HTML 3문항·해설',
+  'c-format': 'HTML 3단계·해설',
   'c-vague': '알아서 대박 나게',
   'c-pressure': '급하니 오류 없겠지'
 };

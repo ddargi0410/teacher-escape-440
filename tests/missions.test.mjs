@@ -83,7 +83,7 @@ test('mission 5: probe broken preview, identify symptom, and repair request retr
   f.click(`[data-choice="${m.repair.answer}"]`);f.next();f.finish();assert.equal(f.failures.length,2);
 });
 
-test('mission 6: select all false science claims, keeping correct claims unselected',()=>{
+test('mission 6: select all poor vibe-coding habits, keeping good habits unselected',()=>{
   const f=fixture(6),m=mission(6);f.wrongOnce('#check-science');f.next();
   m.items.forEach((q,i)=>{if(q.wrong)f.click(`[data-fact="${i}"]`);});
   f.click('#check-science');f.next();f.finish();

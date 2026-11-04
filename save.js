@@ -17,7 +17,7 @@ export function freshState(name = '퇴근희망 교사') {
     completed: [],
     elapsed: 0,
     penalty: 0,
-    floor: 5,
+    floor: 1,
     bossDraft: '',
     finished: false,
     beginnerLearned: false,
@@ -34,8 +34,8 @@ function normalize(value) {
   const firstNineDone = Array.from({ length: 9 }, (_, i) => i + 1).every(id => completed.includes(id));
   state.completed = completed.filter(id => id !== 10 || firstNineDone).sort((a, b) => a - b);
   state.elapsed = number(value.elapsed, 0, 0, 604800);
-  state.penalty = number(value.penalty, 0, 0, 320);
-  state.floor = Math.round(number(value.floor, 5, 1, 5));
+  state.penalty = number(value.penalty, 0, 0, 360);
+  state.floor = Math.round(number(value.floor, 1, 1, 5));
   state.bossDraft = typeof value.bossDraft === 'string' ? value.bossDraft : '';
   state.beginnerLearned = value.beginnerLearned === true;
   state.finished = value.finished === true && state.completed.length === 10;

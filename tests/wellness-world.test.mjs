@@ -84,3 +84,23 @@ test('all five beds have separate face-up resting poses that can be cleared for 
   }
   assert.equal(new Set(xPositions).size,5);
 });
+
+
+test('side posture keeps the body along the bed and resets completely when standing',()=>{
+  const world=makeWorld(),model=world.createTeacher();world.setFloor(1);
+  assert.equal(world.setRestPose(model,'bed-3','side'),true);
+  const bed=world.getBed('bed-3'),head=model.localToWorld(new THREE.Vector3(0,1.82,.33));
+  assert.ok(Math.abs(head.x-bed.bedPose.x)<.5);assert.ok(head.z< -1.9&&head.z> -2.2);
+  assert.ok(model.position.y>bed.bedPose.y);assert.equal(model.userData.restPosture,'side');
+  world.clearRestPose(model);assert.equal(model.rotation.y,0);assert.equal(model.userData.restPosture,undefined);
+  assert.ok(model.userData.legs.every(leg=>Math.abs(leg.rotation.x)<.0001));
+});
+
+test('all five floors expose central stairs and no elevator interaction',()=>{
+  const world=makeWorld();
+  for(let floor=1;floor<=5;floor++){
+    world.setFloor(floor);const stair=world.interactables.find(i=>i.kind==='stairs');
+    assert.ok(stair);assert.equal(stair.floor,floor);assert.equal(pointBlocked(stair,world.colliders,.35),false);
+    assert.equal(world.interactables.some(i=>i.id==='elevator'),false);
+  }
+});

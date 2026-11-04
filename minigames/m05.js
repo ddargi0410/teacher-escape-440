@@ -1,4 +1,4 @@
-import {createCanvasStage,COLORS as C,clamp,rounded,text,fitText,hit} from './shared.js';
+import {createCanvasStage,COLORS as C,clamp,rounded,text,fitText,wrapText,hit} from './shared.js';
 
 /** Slots are semantic, so moving a piece never silently changes its answer. */
 export function judgeReportDrop(fragment,slot,placed={}){
@@ -77,7 +77,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     return {outer,slots:slots.map((slot,i)=>({slot,x:34,y:outer.y+16+i*rowH,w:slotW,h:rowH-9})),cards:bugs[completed].fragments.map((fragment,i)=>({fragment,x:W-cardW-32,y:outer.y+16+((i+2+completed)%4)*rowH,w:cardW,h:rowH-9})).filter(c=>!placed[c.fragment.slot])};
   }
   stage.loop((dt,t,clockDt)=>{
-    const W=stage.width,H=stage.height,font=clamp(Math.min(W/800,H/650)*23,15,25),buttons=[];
+    const W=stage.width,H=stage.height,font=clamp(Math.min(W/800,H/650)*25,20,28),buttons=[];
     if(['hunt','report','burst'].includes(mode)){
       elapsed+=clockDt;tipTime=Math.max(0,tipTime-clockDt);revealTime=Math.max(0,revealTime-clockDt);
       if(mode==='hunt'){
@@ -89,9 +89,9 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
       if(elapsed>=duration&&mode!=='success'){mode='timeout';drag=null;selected=null;fail('timeout','증거 네 칸으로 다시 잡아봐요.');}
     }else if(mode==='success'){finish+=clockDt;if(finish>.8&&!won){won=true;onWin({caught:completed,seconds:Math.round(elapsed),mistakes});}}
     ctx.fillStyle='#dce6df';ctx.fillRect(0,0,W,H);
-    text(ctx,cfg.title||'버그 잡기',22,36,clamp(font*1.15,19,28),C.green,'left');text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-90,36,font*.9,C.green,'right');
-    fitText(ctx,mode==='report'||mode==='burst'?bugs[completed].report||bugs[completed].label:'☝ 모니터의 벌레를 잡아요',W/2,72,W-32,font*.8,C.green);
-    text(ctx,`✓ ${completed}/${bugs.length}`,24,106,font,C.green,'left');fitText(ctx,mode==='report'||mode==='burst'?bugs[completed].errorText||'오류 메시지 없음':'BUG HUNT · 정보 담당 구조대',W-24,106,W*.72,font*.75,C.green,'right');
+    text(ctx,cfg.title||'버그 잡기',22,36,clamp(font*1.15,19,28),C.green,'left');text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-22,36,Math.max(16,font*.9),C.green,'right');
+    fitText(ctx,mode==='report'||mode==='burst'?bugs[completed].report||bugs[completed].label:'☝ 모니터의 벌레를 잡아요',W/2,72,W-32,Math.max(16,font*.8),C.green);
+    text(ctx,`✓ ${completed}/${bugs.length}`,24,106,font,C.green,'left');fitText(ctx,mode==='report'||mode==='burst'?bugs[completed].errorText||'오류 메시지 없음':'BUG HUNT · 정보 담당 구조대',W-24,106,W*.72,Math.max(16,font*.75),C.green,'right');
     if(mode==='hunt'){
       for(let i=0;i<6;i++){
         const b=monitorBox(i,W,H),active=i===monitor&&bugVisible();
@@ -101,24 +101,24 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
         if(active){drawBug(b.x+b.w/2,b.y+b.h*.54,Math.min(b.w,b.h)*.57,t);buttons.push({id:`bug-${i}`,label:`${i+1}번 모니터 벌레 잡기`,...b,onClick:()=>catchBug(i)});}
         else{for(let line=0;line<3;line++){ctx.fillStyle=line%2?'#386357':'#527d65';ctx.fillRect(b.x+20,b.y+b.h*.33+line*12,(b.w-40)*(.6+line*.12),3);}}
       }
-      text(ctx,'숨어도 다시 나와요. 숫자 1–6도 가능!',W/2,H-30,clamp(font*.75,12,18),C.green);
+      text(ctx,'숨어도 다시 나와요. 숫자 1–6도 가능!',W/2,H-30,clamp(Math.max(16,font*.75),16,20),C.green);
     }else if(mode==='report'||mode==='burst'){
       layout=reportLayout(W,H);const o=layout.outer;rounded(ctx,o.x,o.y,o.w,o.h,18,'#243f3b');
-      for(const b of layout.slots){const filled=placed[b.slot.id],glow=revealTime>0&&revealSlot===b.slot.id;rounded(ctx,b.x,b.y,b.w,b.h,9,filled?C.mint:glow?C.lime:'#eef1e4',glow&&Math.sin(t*16)>0?C.orange:undefined);text(ctx,`${filled?'✓':'○'} ${b.slot.label}`,b.x+10,b.y+14,clamp(font*.66,11,16),C.green,'left');
-        if(filled)lines(ctx,filled.label,b.x+b.w/2,b.y+b.h*.64,b.w-16,clamp(font*.75,12,18),C.green,2);
+      for(const b of layout.slots){const filled=placed[b.slot.id],glow=revealTime>0&&revealSlot===b.slot.id;rounded(ctx,b.x,b.y,b.w,b.h,9,filled?C.mint:glow?C.lime:'#eef1e4',glow&&Math.sin(t*16)>0?C.orange:undefined);text(ctx,`${filled?'✓':'○'} ${b.slot.label}`,b.x+10,b.y+18,clamp(Math.max(16,font*.66),16,19),C.green,'left');
+        if(filled)lines(ctx,filled.label,b.x+b.w/2,b.y+b.h*.66,b.w-16,clamp(Math.max(16,font*.75),16,20),C.green,2);
         else{ text(ctx,'＋',b.x+b.w/2,b.y+b.h*.65,Math.min(26,b.h*.33),glow?C.orange:'#91a899');if(mode==='report')buttons.push({id:`slot-${b.slot.id}`,label:`${b.slot.label} 칸에 놓기`,x:b.x,y:b.y,w:b.w,h:b.h,onClick:()=>{if(!suppressClick)drop(b.slot.id);}});}
       }
       for(const b of layout.cards){
         if(drag?.moved&&drag.id===b.fragment.id)continue;
-        rounded(ctx,b.x,b.y,b.w,b.h,9,selected===b.fragment.id?C.lime:C.paper,selected===b.fragment.id?C.orange:undefined);lines(ctx,b.fragment.label,b.x+b.w/2,b.y+b.h/2,b.w-18,clamp(font*.83,13,20),C.green,3);
+        rounded(ctx,b.x,b.y,b.w,b.h,9,selected===b.fragment.id?C.lime:C.paper,selected===b.fragment.id?C.orange:undefined);lines(ctx,b.fragment.label,b.x+b.w/2,b.y+b.h/2,b.w-18,clamp(Math.max(16,font*.83),18,22),C.green,3);
         if(mode==='report')buttons.push({id:`piece-${b.fragment.id}`,label:`조각 선택: ${b.fragment.label}`,x:b.x,y:b.y,w:b.w,h:b.h,onClick:()=>select(b.fragment.id)});
       }
-      if(drag?.moved){const fragment=bugs[completed].fragments.find(f=>f.id===drag.id),w=clamp(W*.38,125,270),h=60;rounded(ctx,drag.p.x-w/2,drag.p.y-h/2,w,h,10,C.lime,C.orange);lines(ctx,fragment.label,drag.p.x,drag.p.y,w-16,clamp(font*.8,13,19),C.green,2);}
+      if(drag?.moved){const fragment=bugs[completed].fragments.find(f=>f.id===drag.id),w=clamp(W*.38,125,270),h=60;rounded(ctx,drag.p.x-w/2,drag.p.y-h/2,w,h,10,C.lime,C.orange);lines(ctx,fragment.label,drag.p.x,drag.p.y,w-16,clamp(Math.max(16,font*.8),17,21),C.green,2);}
       if(mode==='burst')for(let n=0;n<14;n++){const angle=n*Math.PI*2/14;ctx.fillStyle=n%2?C.orange:C.lime;ctx.beginPath();ctx.arc(W/2+Math.cos(angle)*burst*220,H*.5+Math.sin(angle)*burst*160,Math.max(1,7-burst*7),0,Math.PI*2);ctx.fill();}
-      if(tipTime>0)fitText(ctx,tip,W/2,H-31,W-30,font*.8,C.red);
-      else text(ctx,'☝ 조각을 끌거나, 조각 → 칸을 눌러요',W/2,H-31,clamp(font*.73,12,18),C.green);
+      if(tipTime>0)fitText(ctx,tip,W/2,H-31,W-30,Math.max(16,font*.8),C.red);
+      else text(ctx,'☝ 조각을 끌거나, 조각 → 칸을 눌러요',W/2,H-31,clamp(Math.max(16,font*.73),16,20),C.green);
     }else if(mode==='success'){
-      drawBug(W/2,H*.40,70,t,C.mint);text(ctx,'✓ 버그 3마리 해결!',W/2,H*.58,font*1.4,C.green);text(ctx,'“안 돼요” 대신 정확한 증거!',W/2,H*.68,font*.85,C.green);
+      drawBug(W/2,H*.40,70,t,C.mint);text(ctx,'✓ 버그 3마리 해결!',W/2,H*.58,font*1.4,C.green);text(ctx,'“안 돼요” 대신 정확한 증거!',W/2,H*.68,Math.max(16,font*.85),C.green);
     }else{
       drawBug(W/2,H*.38,70,t);text(ctx,'버그는 잡힐 때까지!',W/2,H*.54,font*1.2,C.green);const b={x:W/2-110,y:H*.66,w:220,h:54};rounded(ctx,b.x,b.y,b.w,b.h,16,C.green);text(ctx,'↻ 다시 잡기',W/2,b.y+27,font,C.paper);buttons.push({id:'retry',label:'버그 잡기 다시 도전',...b,onClick:reset});
     }

@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {evaluateBossPrompt,createBossAttempt,applyBossDraft,advanceBossAttempt,submitBossAttempt,start} from '../minigames/m10.js';
+import {MISSIONS} from '../missions-data.js';
+import {getArcadeData} from '../minigames/content.js';
 import {SoftwareRenderer} from '../software-renderer.js';
 import {createDocument} from './dom-stub.mjs';
 
@@ -72,4 +74,39 @@ test('hidden and paused time is ignored; deadline retains text and retry becomes
 });
 test('destroy releases RAF, events and rendering resources exactly once',()=>{
   const f=fixture();try{f.game.destroy();f.game.destroy();assert.equal(f.pendingFrames,0);assert.equal(f.listenerCount,0);assert.equal(f.disposed,1);assert.equal(f.container.children.length,0);f.tick(100);assert.equal(f.fails.length,0);}finally{f.cleanup();}
+});
+
+test('hint opens clearly, freezes principal and timer, and never writes an answer by itself',()=>{
+  const f=fixture();try{
+    assert.match(f.find('.m10-task').textContent,/5학년 먹이사슬/);
+    assert.match(f.find('textarea').attrs.placeholder,/생물 카드를 놓고 먹이사슬/);
+    f.tick(10);const time=f.find('.m10-time').textContent,position=f.scene.getObjectByName('m10-principal').position.clone();
+    f.find('.m10-hint-button').dispatch('click');assert.equal(f.find('.m10-hints').hidden,false);assert.equal(f.game.isPaused(),true);
+    assert.match(f.find('.m10-hint-progress').textContent,/읽는 동안 시간 정지/);
+    f.tick(200);assert.equal(f.find('.m10-time').textContent,time);assert.deepEqual(f.scene.getObjectByName('m10-principal').position,position);assert.equal(f.fails.length,0);
+    f.find('.m10-hint-next').dispatch('click');f.find('.m10-hint-next').dispatch('click');assert.equal(f.find('.m10-hint-insert').hidden,false);
+    assert.match(f.find('.m10-hint-copy').textContent,/화살표/);assert.equal(f.find('textarea').value,'');assert.equal(f.game.getDraft(),'');assert.equal(f.wins.length,0);
+    f.find('.m10-hint-close').dispatch('click');assert.equal(f.game.isPaused(),false);f.tick(1);assert.equal(f.find('.m10-time').textContent,'79초');
+  }finally{f.cleanup();}
+});
+test('explicit example insertion preserves existing writing and persists draft without automatic win',()=>{
+  const f=fixture('나는 큰 글씨가 좋아.');try{
+    f.game.hint();f.find('.m10-hint-next').dispatch('click');f.find('.m10-hint-next').dispatch('click');
+    assert.equal(f.find('.m10-hint-insert').textContent,'쓴 글 뒤에 예시 붙이기');f.find('.m10-hint-insert').dispatch('click');
+    assert.match(f.find('textarea').value,/^나는 큰 글씨가 좋아\.\n\n너는/);assert.equal(f.game.getDraft(),f.find('textarea').value);assert.equal(f.events.at(-1).detail.prompt,f.game.getDraft());
+    assert.equal(f.find('.m10-hints').hidden,true);assert.equal(f.find('.m10-leave').disabled,false);assert.equal(f.wins.length,0);
+  }finally{f.cleanup();}
+});
+test('hint pause remains independent from runner pause and Escape returns focus safely',()=>{
+  const f=fixture();try{
+    f.tick(5);f.game.hint();f.game.pause();f.find('.m10-hint-sheet').dispatch('keydown',{key:'Escape'});
+    assert.equal(f.find('.m10-hints').hidden,true);assert.equal(f.game.isPaused(),true);f.tick(200);assert.equal(f.fails.length,0);
+    assert.equal(f.doc.activeElement,f.find('.m10-hint-button'));f.game.resume();assert.equal(f.game.isPaused(),false);f.tick(1);assert.equal(f.find('.m10-time').textContent,'84초');
+  }finally{f.cleanup();}
+});
+
+test('the actual food-chain activity example activates all six shields without the word quiz',()=>{
+  const {arcade}=getArcadeData(MISSIONS.find(m=>m.id===10));
+  assert.match(arcade.sample,/먹이사슬/);assert.match(arcade.sample,/화살표/);assert.equal(evaluateBossPrompt(arcade.sample).count,6);
+  assert.equal(evaluateBossPrompt('생물 카드를 순서대로 놓고 화살표로 연결하는 활동').checks.find(c=>c.id==='format').passed,true);
 });

@@ -31,13 +31,13 @@ export function start({container, data, onWin = () => {}, onFail = () => {}}) {
   root.innerHTML = `<style>
     .m01-room{position:relative;width:100%;height:100%;min-height:360px;overflow:hidden;background:#ede8d8;font-family:inherit;color:#264c43;isolation:isolate;touch-action:none}
     .m01-room canvas{display:block;width:100%;height:100%;touch-action:none}
-    .m01-room .m01-hud{position:absolute;top:76px;left:5%;right:5%;display:flex;align-items:center;justify-content:space-between;gap:16px;pointer-events:none;font-weight:800;font-size:clamp(14px,2vw,22px);text-shadow:0 1px #fff}
-    .m01-room .m01-round{letter-spacing:3px;color:#264c43}
+    .m01-room .m01-hud{position:absolute;top:16px;left:5%;right:5%;display:flex;align-items:center;justify-content:space-between;gap:16px;pointer-events:none;font-weight:800;font-size:clamp(18px,2vw,24px);text-shadow:0 1px #fff}
+    .m01-room .m01-question{position:absolute;top:92px;left:5%;right:5%;padding:14px 18px;background:#183f35;color:#fffdf3;border:2px solid #7d9c87;border-radius:14px;text-align:center;font-size:clamp(20px,2.1vw,30px);font-weight:800;line-height:1.4;word-break:keep-all;overflow-wrap:anywhere;pointer-events:none}.m01-room .m01-round{letter-spacing:3px;color:#264c43}
     .m01-room .m01-count{font-size:clamp(28px,4vw,50px);font-variant-numeric:tabular-nums}
-    .m01-room .m01-total{position:absolute;right:5%;top:132px;font-size:12px;font-weight:700;color:#596f65}
+    .m01-room .m01-total{position:absolute;right:5%;top:60px;font-size:16px;font-weight:700;color:#596f65}
     .m01-room .m01-feedback{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);font-size:clamp(16px,2.3vw,28px);font-weight:900;text-align:center;white-space:nowrap;pointer-events:none;text-shadow:0 2px 8px #fff,0 0 18px #fff}
     .m01-room .m01-feedback b{display:block;font-size:clamp(40px,7vw,88px);line-height:1.1}
-    .m01-room .m01-instruction{position:absolute;left:50%;bottom:25px;transform:translateX(-50%);font-size:clamp(12px,1.5vw,17px);font-weight:800;white-space:nowrap;text-shadow:0 1px 5px white;pointer-events:none}
+    .m01-room .m01-instruction{position:absolute;left:50%;bottom:25px;transform:translateX(-50%);font-size:clamp(16px,1.5vw,19px);font-weight:800;white-space:nowrap;text-shadow:0 1px 5px white;pointer-events:none}
     .m01-room .m01-pad{position:absolute;bottom:64px;left:18px;display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(2,44px);gap:5px}
     .m01-room .m01-key{all:unset;box-sizing:border-box;display:grid;place-items:center;background:#ffffffd9;border:2px solid #5b7d6c;border-radius:12px;color:#264c43;font:900 25px sans-serif;cursor:pointer;touch-action:none;user-select:none}
     .m01-room .m01-key:active,.m01-room .m01-key:focus-visible{background:#f5d681;outline:3px solid #df8768}
@@ -51,12 +51,12 @@ export function start({container, data, onWin = () => {}, onFail = () => {}}) {
     .m01-room .m01-retry:focus-visible{outline:4px solid #df8768;outline-offset:4px}
     .m01-room.m01-hit{animation:m01-shake .24s linear}
     @keyframes m01-shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
-    @media(max-width:600px){.m01-room .m01-hud{top:68px}.m01-room .m01-total{top:110px}.m01-room .m01-pad{bottom:57px;grid-template-columns:repeat(3,38px);grid-template-rows:repeat(2,38px)}.m01-room .m01-feedback{top:43%;font-size:15px}.m01-room .m01-instruction{bottom:18px;font-size:11px}.m01-room .m01-bubble{font-size:11px}}
+    @media(max-width:600px){.m01-room .m01-hud{top:14px}.m01-room .m01-total{top:55px}.m01-room .m01-question{top:84px;font-size:21px;padding:12px}.m01-room .m01-pad{bottom:57px;grid-template-columns:repeat(3,38px);grid-template-rows:repeat(2,38px)}.m01-room .m01-feedback{top:43%;font-size:18px}.m01-room .m01-instruction{bottom:14px;font-size:16px;white-space:normal;text-align:center;width:92%}.m01-room .m01-bubble{font-size:16px;white-space:normal;max-width:190px}}
     @media(prefers-reduced-motion:reduce){.m01-room.m01-hit{animation:none}}
   </style>
   <canvas aria-label="교실 바닥 O와 X 구역으로 달리는 3D 미니게임" tabindex="0"></canvas>
   <div class="m01-hud"><span class="m01-round" aria-label="맞힌 문제 수"></span><strong class="m01-count" aria-label="남은 답변 시간"></strong></div>
-  <div class="m01-total"></div>
+  <div class="m01-total"></div><div class="m01-question" aria-live="polite"></div>
   <div class="m01-feedback" role="status" aria-live="polite"></div>
   <div class="m01-instruction">⌨ WASD / 방향키 · 바닥을 눌러 달리기</div>
   <div class="m01-pad" aria-label="달리기 조작">
@@ -72,6 +72,7 @@ export function start({container, data, onWin = () => {}, onFail = () => {}}) {
   const roundLabel = root.querySelector('.m01-round');
   const countdown = root.querySelector('.m01-count');
   const totalLabel = root.querySelector('.m01-total');
+  const questionLabel = root.querySelector('.m01-question');
   const feedback = root.querySelector('.m01-feedback');
   const bubble = root.querySelector('.m01-bubble');
   const retry = root.querySelector('.m01-retry');
@@ -183,6 +184,7 @@ export function start({container, data, onWin = () => {}, onFail = () => {}}) {
 
   function updateBoard() {
     const q = questions[round];
+    questionLabel.textContent = q.text;
     const old = boardMaterial.map;
     boardMaterial.map = textureCanvas(2048, 286, (ctx, w, h) => {
       ctx.fillStyle = '#264c43'; ctx.fillRect(0, 0, w, h);

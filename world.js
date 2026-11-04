@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import {createCrowd,animateCharacter} from './crowd.js';
+import {createSchoolDetails} from './school-details.js';
 
 // A small, entirely procedural school. No downloaded models or textures.
 const COLORS = {
@@ -116,6 +117,7 @@ export function createWorld(scene) {
     const item={npc,ring,crystal,number,base:y,done:false};animated.push(item);questObjects.set(id,item);
     return {id:'mission-'+id,missionId:id,x,y,z,label};
   }
+  const schoolDetails=createSchoolDetails({box,cyl,mesh,geo,mat,collide});
 
   // Landscaped courtyard and school surroundings.
   box(exterior,0,-.8,3,58,1.25,54,'#8ca386');
@@ -217,12 +219,24 @@ export function createWorld(scene) {
     // Real hiding places: geometry and sight/movement collisions stay aligned.
     for(const x of [-4,4]){box(inside,x,1.45,6.05,.7,2.9,.7,COLORS.mint);collide(colliders,x,6.05,.7,.7);}
     bookshelf(inside,-12.3,0,6.8,1.35);collide(colliders,-12.3,6.8,1.35,.8);
-    // Wayfinding strips and center lift, never placed over a door opening.
-    box(inside,0,.16,4.7,2.6,.025,2.25,'#799f8d');
-    box(inside,0,.18,4.7,2.3,.025,1.9,'#b4ccb0');
-    const lift=badge(inside,'↕',0,1.3,4.7,'#f5dd93',.82);
-    sign(inside,'층 이동',0,.64,4.65,1.4,.35,'#355347','#d8e6c5');
-    interactables.push({id:'elevator',x:0,y:base,z:4.7,label:'엘리베이터 · 층 이동',floor});
+    // A central, two-flight staircase. The approach remains in the corridor;
+    // each E interaction travels one storey, never through an elevator.
+    box(inside,0,.15,3.45,3.1,.12,1.3,'#c6c9bc');
+    for(const direction of [-1,1]){
+      for(let step=0;step<10;step++){
+        const h=.15+step*.22,z=2.4-step*.38;
+        box(inside,direction*.9,h/2,z,1.55,h,.4,'#d6d8ca');
+        box(inside,direction*.9,h+.015,z+.17,1.55,.025,.045,'#858f80');
+      }
+      for(let n=0;n<6;n++){
+        const z=2.55-n*.7,y=.65+n*.4;
+        box(inside,direction*1.68,y,z,.055,1.1,.055,'#789184');
+      }
+      const rail=box(inside,direction*1.68,2, .5,.07,.07,4.35,'#5a7767');rail.rotation.x=.52;
+    }
+    badge(inside,'↗',0,1.6,4.3,'#f5dd93',.82);
+    sign(inside,'중앙계단',0,.64,4.65,2,.45,'#355347','#e9eddd');
+    interactables.push({id:'central-stairs',kind:'stairs',x:0,y:base,z:4.7,label:'중앙계단 · 한 층씩 이동',floor});
     for(const [side,room] of ROOMS[floor].entries()){
       const cx=side===0?-7:7;
       box(inside,cx,.04,-2.75,13.25,.12,9.7,room.color);
@@ -231,7 +245,7 @@ export function createWorld(scene) {
       box(inside,cx-4.3,1.24,2.5,4.5,2.48,.18,COLORS.trim);collide(colliders,cx-4.3,2.5,4.5,.2);
       box(inside,cx+4.3,1.24,2.5,4.5,2.48,.18,COLORS.trim);collide(colliders,cx+4.3,2.5,4.5,.2);
       box(inside,cx,2.58,2.5,4.2,.2,.24,COLORS.mint);
-      sign(inside,room.name,cx,2.91,2.66,3.2,.53,'#f4ead0','#577d6c');
+      sign(inside,room.name,cx,2.52,2.68,3.2,.44,'#fff9e9','#345e4c');
       plant(inside,cx+(side===0?-5.3:5.3),.15,1.1,.85);
       sign(inside,room.kind==='lobby'?'퇴근은 권리입니다':'배움은 즐겁게 · 퇴근은 빠르게',cx,2.3,-7.6,5.8,.55,'#5a7864','#f1e6cb');
       if(room.id){const item=quest(inside,room.id,cx,0,-3,'#f5d27d',room.npc,side===0?'#d79d75':'#83aa95');item.y=base;item.floor=floor;interactables.push(item);}
@@ -286,6 +300,7 @@ export function createWorld(scene) {
         bench(18,10);plant(inside,left,0,-2,1.2);plant(inside,right,0,-2,1.2);
       }
     }
+    schoolDetails.decorateFloor({inside,front,floor,rooms:ROOMS[floor],colliders});
     if(floor===1){
       const boss=quest(inside,10,7,0,7,'#e99a76','교장선생님','#6a867a');boss.floor=1;interactables.push(boss);
       for(const side of [-1,1]){
@@ -302,9 +317,10 @@ export function createWorld(scene) {
         }
         sign(front,roomName,cx,2.9,8.12,3.3,.55);
         box(inside,cx,.04,0,11.8,.12,15.5,color);
-        box(inside,cx,1.4,-7.7,12,2.8,.2,'#e8e6d1');
-        box(inside,side*25.8,.5,0,.25,1,16,COLORS.mint);
-        box(inside,cx,.45,7.8,12,.9,.22,COLORS.mint);
+        if(learning)box(inside,cx,1.4,-7.7,12,2.8,.2,'#e8e6d1');
+        else {box(inside,cx,.35,-7.7,12,.7,.2,'#eee9d9');box(inside,cx,3.28,-7.7,12,.2,.2,'#f8f2e3');}
+        box(inside,side*25.8,learning?.5:.22,0,.25,learning?1:.44,16,learning?COLORS.mint:'#ded6bc');
+        box(inside,cx,learning?.45:.22,7.8,12,learning?.9:.44,.22,learning?COLORS.mint:'#ded6bc');
         box(inside,cx,.12,4.7,11.5,.025,2.3,'#e4ead1');
         for(const z of [-3.9,-1.9,.1])box(inside,side*15.2,.12,z,.12,.02,.65,'#f4efd5');
         collide(colliders,side*26,0,.25,16);
@@ -349,21 +365,34 @@ export function createWorld(scene) {
             beds.set(id,bed);interactables.push(bed);
             badge(inside,String(index+1),x,.7,1,blanketColors[index],.58);
           }
-          // A little forest view, drawn from simple geometry rather than an
-          // external image; no extra light/shadow passes are needed.
-          box(inside,cx,1.25,-7.52,8.5,1.75,.12,'#81a398');
-          box(inside,cx,1.25,-7.43,8.15,1.47,.04,'#d5e6d5');
-          for(const [index,x] of [16.7,18.1,19.6,21.2,22.7,23.4].entries()){
-            const y=1.25+(index%3)*.16;
-            box(inside,x,.95,-7.39,.08,.68,.03,'#aa9974');
-            const crown=mesh(inside,geo('ConeGeometry',.42,.95,6),mat(index%2?'#8fb095':'#739b83'),x,y,-7.35,false);
-            crown.scale.z=.06;
+          // A wide garden beyond floor-to-ceiling windows, with real depth.
+          // The garden is visual scenery; existing wall collisions keep beds safe.
+          box(inside,cx,.035,-10.6,14,.12,7.5,'#b9cd9d');
+          box(inside,cx,.11,-10.5,3.4,.025,7,'#e4d9bc');
+          for(const x of [cx-5.65,cx,cx+5.65]){
+            box(inside,x,1.92,-7.45,.07,2.8,.08,'#e5ded0');
           }
-          for(const x of [cx-2.75,cx,cx+2.75])box(inside,x,1.25,-7.28,.07,1.6,.06,'#f5f0dc');
-          box(inside,cx,.4,-7.3,8.6,.1,.4,'#d1c5a4');
-          for(const x of [15.25,24.75]){
-            box(inside,x,2.3,-6.9,.38,.1,.3,'#b6a583');
-            cyl(inside,x,2.5,-6.9,.2,.29,.32,'#f7e5b1');
+          box(inside,cx,.6,-7.45,11.8,.07,.13,'#d7ceb9');
+          box(inside,cx,3.35,-7.45,11.8,.1,.13,'#d7ceb9');
+          for(const [index,x]of [14.7,17.4,22.8,25.2].entries()){
+            const z=-10.7-(index%2)*2.1;
+            cyl(inside,x,1.12,z,.16,.23,2.2,'#9e8564',8);
+            ball(inside,x,2.65,z,1.25,index%2?'#abc394':'#88ac80',[1,1.05,1]);
+            ball(inside,x+.65,2.9,z-.3,.8,'#bdd49c');
+          }
+          for(let n=0;n<24;n++){
+            const x=14.7+(n%8)*1.5,z=-8.7-Math.floor(n/8)*1.6;
+            if(Math.abs(x-cx)<1.9)continue;
+            cyl(inside,x,.35,z,.025,.03,.6,'#8fa375',5);
+            ball(inside,x,.65,z,.17,['#f1b9b2','#f7e2a6','#d8c7e9','#fff3de'][n%4],[1,.6,1]);
+          }
+          for(const x of [14.75,25.25])plant(inside,x,0,-4.7,1.45);
+          // Indoor flower vases and a light reading bench face the garden.
+          for(const x of [16.7,23.4]){
+            box(inside,x,.5,-5.85,1.3,.12,.7,'#c9b28a');
+            for(const dx of [-.5,.5])box(inside,x+dx,.24,-5.85,.08,.48,.5,'#bba37f');
+            cyl(inside,x,.82,-5.85,.16,.12,.48,'#f6f0dd',10);
+            for(const dx of [-.17,0,.17]){cyl(inside,x+dx,1.12,-5.85,.018,.018,.4,'#8a9f6b',5);ball(inside,x+dx,1.34,-5.85,.14,dx===0?'#f3d988':'#e9b8b3');}
           }
           sign(inside,'여기서는 아무것도 안 해도 돼요',cx,2.6,6.95,6,.55,'#4f7569','#eff1df');
         }
@@ -372,6 +401,7 @@ export function createWorld(scene) {
   }
 
   const roof=new THREE.Group();roof.position.y=20;world.add(roof);
+  schoolDetails.decorateExterior(exterior,floors.get(1).colliders);
   box(roof,0,-.22,0,29,.42,17,COLORS.roof);
   for(const z of [-8.1,8.1])box(roof,0,.22,z,28.8,.7,.23,COLORS.trim);
   for(const x of [-14.3,14.3])box(roof,x,.22,0,.23,.7,16.4,COLORS.trim);
@@ -449,12 +479,13 @@ export function createWorld(scene) {
   const api={
     root:world, car, specialRooms,
     getBed(id){return beds.get(id)||null;},
-    setRestPose(model,id){
+    setRestPose(model,id,posture='back'){
       const bed=beds.get(id);if(!model||!bed)return false;
-      const p=bed.bedPose;model.position.set(p.x,p.y,p.z);model.rotation.set(p.rotationX,p.yaw,0);model.visible=true;
-      animateCharacter(model,0,0);model.userData.restingBed=id;return true;
+      const p=bed.bedPose,side=posture==='side';model.position.set(p.x,p.y+(side?.2:0),p.z);model.rotation.set(p.rotationX,side?Math.PI/2:p.yaw,0);model.visible=true;
+      animateCharacter(model,0,0);if(side){model.userData.legs.forEach(leg=>leg.rotation.x=-.24);model.userData.arms.forEach(arm=>arm.rotation.x=-.48);}
+      model.userData.restingBed=id;model.userData.restPosture=side?'side':'back';return true;
     },
-    clearRestPose(model){if(!model)return;model.rotation.x=0;model.rotation.z=0;delete model.userData.restingBed;},
+    clearRestPose(model){if(!model)return;model.rotation.set(0,0,0);animateCharacter(model,0,0);delete model.userData.restingBed;delete model.userData.restPosture;},
     get characters(){return crowd.actors;},
     getNPC:crowd.getNPC, getNPCAnchor:crowd.getNPCAnchor, getCharacterAnchor:crowd.getAnchor,
     updateCrowd:crowd.update, resetCrowd:crowd.reset, animateCharacter,

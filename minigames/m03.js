@@ -1,4 +1,4 @@
-import {createCanvasStage,COLORS as C,rounded,text,fitText,clamp} from './shared.js';
+import {createCanvasStage,COLORS as C,rounded,text,fitText,wrapText,clamp} from './shared.js';
 
 export function start({container,data,onWin=()=>{},onFail=()=>{}}){
   const cfg=data.arcade||{},calls=cfg.calls||data.items.map((item,i)=>({parent:'선생님, 잠깐 통화 괜찮으세요?',choices:item.options,answer:item.answer,tip:'확인할 수 있는 조건을 말해요.',sourceIndex:i}));
@@ -31,7 +31,7 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     ctx.restore();
   }
   stage.loop((dt,t,clockDt)=>{
-    const W=stage.width,H=stage.height,narrow=W<590,font=clamp(Math.min(W/800,H/650)*23,16,25);
+    const W=stage.width,H=stage.height,narrow=W<590,font=clamp(Math.min(W/800,H/650)*25,20,28);
     if(['waiting','ringing','answer','reveal'].includes(mode)){
       elapsed+=clockDt;
       if(mode==='waiting'){next-=clockDt;if(next<=0)ring();}
@@ -41,9 +41,9 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
       if(elapsed>=duration&&mode!=='success')timeout();
     }else if(mode==='success'){finished+=clockDt;if(finished>1.8&&!won){won=true;onWin({answered:completed,missed,seconds:Math.round(elapsed),mistakes});}}
     ctx.fillStyle=C.cream;ctx.fillRect(0,0,W,H);
-    text(ctx,'민원 전화 두더지',24,36,clamp(font*1.12,20,28),C.green,'left');text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-90,36,font*.9,C.green,'right');
-    text(ctx,'☎ 전화 받고, 구체적인 요청 고르기',W/2,70,clamp(font*.78,13,18),C.green);
-    text(ctx,`✓ ${completed}/${calls.length}`,28,106,font,C.green,'left');text(ctx,`부재중 ${missed}통`,W-25,106,font*.8,missed?C.red:C.green,'right');
+    text(ctx,'민원 전화 두더지',24,36,clamp(font*1.12,20,28),C.green,'left');text(ctx,`${Math.max(0,Math.ceil(duration-elapsed))}s`,W-22,36,Math.max(16,font*.9),C.green,'right');
+    text(ctx,'☎ 전화 받고, 구체적인 요청 고르기',W/2,70,clamp(Math.max(16,font*.78),16,20),C.green);
+    text(ctx,`✓ ${completed}/${calls.length}`,28,106,font,C.green,'left');text(ctx,`부재중 ${missed}통`,W-25,106,Math.max(16,font*.8),missed?C.red:C.green,'right');
     // An open desktop, not a quiz dialog: phones, paper slips and timer live in place.
     rounded(ctx,10,H*.22,W-20,H*.48,24,'#b99268');ctx.strokeStyle='#a68059';ctx.lineWidth=2;for(let y=H*.25;y<H*.68;y+=38){ctx.beginPath();ctx.moveTo(12,y);ctx.lineTo(W-12,y+5);ctx.stroke();}
     for(let i=0;i<6;i++)drawPhone(i,phoneBox(i,W,H),t);
@@ -51,23 +51,23 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     if(mode==='ringing'){
       const b=phoneBox(phone,W,H);buttons.push({id:`phone-${phone}`,label:`${phone+1}번 전화 받기`,...b,onClick:()=>answerPhone(phone)});
       const barW=Math.min(W*.5,320);rounded(ctx,W/2-barW/2,H*.19,barW,8,4,'#d6dacc');rounded(ctx,W/2-barW/2,H*.19,barW*clamp(ringLeft/4.5,0,1),8,4,C.orange);
-      text(ctx,'☎',W/2,H*.81,60,C.orange);text(ctx,'울리는 전화기를 눌러요',W/2,H*.90,font*.8,C.green);
+      text(ctx,'☎',W/2,H*.81,60,C.orange);text(ctx,'울리는 전화기를 눌러요',W/2,H*.90,Math.max(16,font*.8),C.green);
     }else if(mode==='answer'||mode==='reveal'){
       const call=calls[completed];const bubbleW=Math.min(W-32,650),bubbleY=H*.16;
-      rounded(ctx,(W-bubbleW)/2,bubbleY,bubbleW,Math.max(34,H*.055),18,C.paper);fitText(ctx,call.parent,W/2,bubbleY+Math.max(17,H*.0275),bubbleW-26,font*.85,C.green);
-      const gap=14,cardW=(W-40-gap)/2,cardY=H*.77,cardH=Math.min(82,H*.13);
+      rounded(ctx,(W-bubbleW)/2,bubbleY,bubbleW,Math.max(34,H*.055),18,C.paper);fitText(ctx,call.parent,W/2,bubbleY+Math.max(17,H*.0275),bubbleW-26,Math.max(16,font*.85),C.green);
+      const gap=12,stacked=W<590,cardW=stacked?W-32:(W-40-gap)/2,cardY=stacked?H*.72:H*.77,cardH=stacked?Math.min(68,H*.12):Math.min(90,H*.14);
       call.choices.forEach((choice,i)=>{
-        const x=20+i*(cardW+gap);const isAnswer=mode==='reveal'&&i===call.answer;const isWrong=mode==='reveal'&&i===selected&&!correct;
-        const pulse=isAnswer?1+Math.sin(t*18)*.015:1;ctx.save();ctx.translate(x+cardW/2,cardY+cardH/2);ctx.scale(pulse,pulse);rounded(ctx,-cardW/2,-cardH/2,cardW,cardH,15,isAnswer?C.lime:isWrong?'#f6c6b9':C.paper,isAnswer?C.green:undefined);text(ctx,isAnswer?'✓':`${i+1}`,0,-cardH*.24,font*.75,isWrong?C.red:C.green);fitText(ctx,choice,0,cardH*.14,cardW-18,font,C.green);ctx.restore();
-        if(mode==='answer')buttons.push({id:`choice-${i}`,label:`${i+1}번 ${choice}`,x,y:cardY,w:cardW,h:cardH,onClick:()=>choose(i)});
+        const x=stacked?16:20+i*(cardW+gap),y=cardY+(stacked?i*(cardH+8):0);const isAnswer=mode==='reveal'&&i===call.answer;const isWrong=mode==='reveal'&&i===selected&&!correct;
+        const pulse=isAnswer?1+Math.sin(t*18)*.015:1;ctx.save();ctx.translate(x+cardW/2,y+cardH/2);ctx.scale(pulse,pulse);rounded(ctx,-cardW/2,-cardH/2,cardW,cardH,15,isAnswer?C.lime:isWrong?'#f6c6b9':C.paper,isAnswer?C.green:undefined);text(ctx,isAnswer?'✓':`${i+1}`,-cardW/2+24,0,20,isWrong?C.red:C.green);wrapText(ctx,choice,14,0,cardW-70,{size:Math.max(18,font),color:C.green,lineHeight:24});ctx.restore();
+        if(mode==='answer')buttons.push({id:`choice-${i}`,label:`${i+1}번 ${choice}`,x,y,w:cardW,h:cardH,onClick:()=>choose(i)});
       });
       if(mode==='answer'){
-        const timerW=W-42;rounded(ctx,21,H*.72,timerW,10,5,'#e0d7c5');rounded(ctx,21,H*.72,timerW*clamp(answerLeft/answerSeconds,0,1),10,5,answerLeft<1?C.red:C.orange);text(ctx,`${answerLeft.toFixed(1)}s`,W/2,H*.72-19,font*.8,C.green);
-      }else if(tip)fitText(ctx,tip,W/2,H*.72,W-35,font*.8,C.red);
+        const timerW=W-42;rounded(ctx,21,H*.68,timerW,10,5,'#e0d7c5');rounded(ctx,21,H*.68,timerW*clamp(answerLeft/answerSeconds,0,1),10,5,answerLeft<1?C.red:C.orange);text(ctx,`${answerLeft.toFixed(1)}s`,W/2,H*.68-19,Math.max(16,font*.8),C.green);
+      }else if(tip)wrapText(ctx,tip,W/2,H*.67,W-35,{size:17,color:C.red});
     }else if(mode==='waiting'){
-      text(ctx,'…',W/2,H*.81,54,C.green);text(ctx,completed?'잠깐의 평화…':'벨이 울리면 받아 주세요',W/2,H*.90,font*.8,C.green);
+      text(ctx,'…',W/2,H*.81,54,C.green);text(ctx,completed?'잠깐의 평화…':'벨이 울리면 받아 주세요',W/2,H*.90,Math.max(16,font*.8),C.green);
     }else if(mode==='success'){
-      text(ctx,'✓ 5통 처리 완료',W/2,H*.79,font*1.3,C.green);text(ctx,'잠시, 전화기와 거리 두기.',W/2,H*.9,font*.8,C.green);
+      text(ctx,'✓ 5통 처리 완료',W/2,H*.79,font*1.3,C.green);text(ctx,'잠시, 전화기와 거리 두기.',W/2,H*.9,Math.max(16,font*.8),C.green);
     }else if(mode==='timeout'){
       text(ctx,'☎ 다시 받으면 됩니다',W/2,H*.77,font,C.green);const box={x:W/2-112,y:H*.84,w:224,h:54};rounded(ctx,box.x,box.y,box.w,box.h,16,C.green);text(ctx,'↻ 다시 받기',W/2,box.y+27,font,C.paper);buttons.push({id:'retry',label:'다시 받기',...box,onClick:reset});
     }

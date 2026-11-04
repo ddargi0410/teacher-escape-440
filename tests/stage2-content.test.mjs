@@ -32,16 +32,19 @@ test('each bug has four unambiguous slots and preserves the observed error rathe
   assert.ok(data.bugs.slice(1).every(b=>b.practice));
 });
 
-test('nine science bubbles preserve all five original truth values and sources',()=>{
+test('nine bubbles teach vibe-coding habits rather than recall of ecology facts',()=>{
   const data=game(6),source=MISSIONS.find(m=>m.id===6);
-  assert.equal(data.statements.length,9);
-  assert.deepEqual(data.statements.slice(0,5).map(s=>s.wrong),source.items.map(s=>s.wrong));
-  assert.deepEqual(data.statements.slice(5).map(s=>s.wrong),[false,true,true,true]);
+  assert.equal(data.statements.length,9);assert.equal(source.items.length,9);
+  assert.deepEqual(data.statements.map(s=>s.wrong),[true,false,false,true,false,false,true,true,true]);
   for(const statement of data.statements){
     assert.equal(statement.originalText,source.items[statement.sourceIndex].q);
     assert.equal(statement.explanation,source.items[statement.sourceIndex].explanation);
     assert.ok(size(statement.text)<=35);
   }
+  assert.match(data.title,/코딩 습관/);
+  assert.match(data.statements.map(s=>s.text).join(' '),/대상 학년/);
+  assert.match(data.statements.map(s=>s.text).join(' '),/오류 메시지/);
+  assert.match(source.explanation,/과학 상식을 시험하지 않고/);
 });
 
 test('screening retains original categories and only uses alias on empty collection templates',()=>{
@@ -85,10 +88,12 @@ test('boss uses the requested six shields and threshold without a character coun
   const data=game(10);
   assert.deepEqual(data.shields.map(s=>s.id),['role','audience','topic','format','constraints','output']);
   assert.equal(data.required,5);
-  assert.ok(data.shields.find(s=>s.id==='format').help.includes('퀴즈'));
+  assert.ok(data.shields.find(s=>s.id==='format').help.includes('배치'));
   assert.ok(data.shields.find(s=>s.id==='output').help.includes('HTML'));
   assert.ok(data.details.some(d=>d.explanation.includes('글자 수 제한은 없습니다')));
   assert.equal(data.minLength,undefined);assert.equal(data.maxLength,undefined);
+  assert.equal(data.hints.length,3);assert.ok(data.hints.every(h=>h.title&&h.text));
+  assert.match(data.sample,/초등학교 5학년/);assert.match(data.sample,/먹이사슬/);assert.match(data.sample,/카드를 순서대로 놓고 화살표로 연결/);
 });
 
 test('new presentations neither mutate canonical content nor exceed the short-feedback budget',()=>{

@@ -41,23 +41,21 @@ function bugs(mission){
 }
 
 function science(mission){
-  const labels=[
-    ['먹이 화살표는 먹는 쪽 → 먹히는 쪽','먹히는 생물 → 먹는 생물이에요.'],
-    ['풀과 나무는 스스로 양분을 만든다','녹색 식물은 생산자의 예예요.'],
-    ['일부 균류는 생물의 사체를 분해한다','분해자는 물질 순환을 도와요.'],
-    ['외래생물은 모두 해로워 즉시 잡는다','종을 확인하고 기관 안내를 따라요.'],
-    ['생물 수 변화는 다른 생물에도 영향','먹이 관계로 서로 연결돼 있어요.']
+  const tips=[
+    '만든 뒤에는 직접 실행해요.',
+    '누가 무엇을 할지 먼저 정해요.',
+    '바꿀 것과 지킬 것을 함께!',
+    '한 부분씩 고치고 다시 확인!',
+    '요청 → 실행 → 확인 → 수정',
+    '본 오류만 그대로 전달해요.',
+    'AI의 확신보다 직접 검증!',
+    '실제 기록 대신 완전한 가상 예시!',
+    '공유 주소를 다른 기기에서도 확인!'
   ];
-  const statements=mission.items.map((item,sourceIndex)=>({id:`science-${sourceIndex}`,text:labels[sourceIndex][0],wrong:item.wrong,tip:labels[sourceIndex][1],sourceIndex,originalText:item.q,explanation:item.explanation}));
-  const extra=[
-    ['먹이 화살표는 에너지가 전달되는 방향',false,0,'먹히는 생물의 에너지가 전해져요.'],
-    ['분해자는 물질 순환과 관련 없다',true,2,'분해자는 물질 순환을 도와요.'],
-    ['외래생물은 모두 생태계교란 생물이다',true,3,'외래생물과 교란 생물은 달라요.'],
-    ['생태 변화의 원인은 언제나 하나다',true,4,'여러 원인과 연결을 함께 살펴요.']
-  ];
-  extra.forEach(([text,wrong,sourceIndex,tip],i)=>statements.push({id:`science-extra-${i}`,text,wrong,tip,sourceIndex,originalText:mission.items[sourceIndex].q,explanation:mission.items[sourceIndex].explanation,reinforcement:true}));
-  return {...base('틀린 문장 썰기','틀린 문장만 쓱! 맞는 문장은 바구니로.','╱'),statements,tip:'맞는 문장은 자르지 말고 기다려요.',
-    details:statements.filter(s=>s.reinforcement).map(s=>detail(s.text,s.wrong?'틀린 문장 · 수정 필요':'맞는 문장',s.explanation))};
+  const statements=mission.items.map((item,sourceIndex)=>({id:`vibe-${sourceIndex}`,text:item.q,wrong:item.wrong,tip:tips[sourceIndex],sourceIndex,originalText:item.q,explanation:item.explanation}));
+  return {...base('틀린 코딩 습관 썰기','틀린 AI 사용법은 자르고, 맞는 것은 담기!','╱'),statements,
+    tip:'과학 암기 대신, AI와 일하는 방법!',
+    details:[detail('과학실에서 왜 코딩 습관을 배우나요?','먹이사슬 자료를 만드는 교사의 작업 습관을 실험합니다.',mission.explanation)]};
 }
 
 function screening(mission){
@@ -113,18 +111,23 @@ function lunch(mission){
 }
 
 function boss(mission){
-  return {...base('보스전: 4시 29분의 남자','요청을 쓰고 방패 5개로 퇴근!','⌨'),
+  const sample='초등 과학 웹 자료 개발 도우미가 되어 줘. 초등학교 5학년이 생태계의 먹이사슬을 배우는 활동을 만들어 줘. 학생이 풀·메뚜기·개구리 카드를 순서대로 놓고 화살표로 연결하면 정답과 이유를 보여 줘. 글씨와 버튼을 크게 하고 태블릿에서 실행되게 해 줘. 실제 학생 정보는 사용하지 마. HTML 파일 하나로 만들어 줘.';
+  return {...base('보스전: 4시 29분의 남자','먹이사슬 활동을 AI에게 부탁하는 글 쓰기!','⌨'),
     shields:[
-      {id:'role',label:'역할',help:'과학 자료 개발 도우미'},
-      {id:'audience',label:'대상',help:'초등학교 5학년'},
-      {id:'topic',label:'주제',help:'생물과 환경 · 먹이 관계'},
-      {id:'format',label:'형식',help:'퀴즈 · 도감 · 관찰 게임'},
-      {id:'constraints',label:'조건',help:'3문항 · 큰 글씨 · 개인정보 제외'},
-      {id:'output',label:'출력',help:'HTML 파일 · 실행 코드'}
-    ],required:5,
-    sample:'초등 과학 자료 개발 도우미가 되어 줘. 초등학교 5학년이 먹이 관계를 배우는 퀴즈를 만들어 줘. 답을 선택하면 이유를 보여 줘. 3문항으로 만들고 실제 학생 개인정보는 넣지 마. HTML 파일로 만들어 줘.',
-    tip:'역할 · 대상 · 주제 · 형식 · 조건 · 출력',
-    details:[detail('교문을 여는 여섯 방패','역할·대상·주제·형식·조건·출력 중 다섯 가지 이상','글자 수 제한은 없습니다. 키워드만 늘어놓기보다 AI가 무엇을 만들어야 하는지 요청 문장으로 적어 보세요. 게임의 자동 체크는 표현을 찾는 연습용 판정이며 과학적 정확성이나 실제 동작을 보장하지 않습니다. 완성한 프롬프트는 복사해 실습에 쓸 수 있습니다.'),detail('퇴근 후 이어갈 제작 원칙','작게 만들기 → 직접 검증 → 필요한 부분만 수정',mission.explanation)]};
+      {id:'role',label:'역할',help:'초등 과학 웹 자료 개발 도우미'},
+      {id:'audience',label:'대상',help:'초등학교 5학년 학생'},
+      {id:'topic',label:'주제',help:'생태계의 먹이사슬 이해하기'},
+      {id:'format',label:'형식',help:'생물 카드 배치·화살표 연결 활동'},
+      {id:'constraints',label:'조건',help:'큰 글씨·태블릿·실제 학생 정보 제외'},
+      {id:'output',label:'출력',help:'HTML 파일 하나'}
+    ],required:5,sample,
+    hints:[
+      {title:'무엇을 부탁할까요?',text:'AI에게 “초등 5학년이 생태계의 먹이사슬을 배우는 웹 활동을 만들어 줘”라고 시작해 보세요. 지금 쓰는 글은 AI에게 보낼 제작 요청문입니다.'},
+      {title:'학생의 행동을 덧붙여요',text:'“학생이 풀·메뚜기·개구리 카드를 순서대로 놓고 화살표로 연결하면 정답과 이유를 보여 줘.” 여기에 큰 글씨·태블릿·HTML 파일 같은 조건을 덧붙여요.'},
+      {title:'완성 예시를 참고해요',text:sample}
+    ],
+    tip:'누가 · 무엇을 · 어떻게 만들지 써요.',
+    details:[detail('교문을 여는 여섯 방패','역할·대상·주제·형식·조건·출력 중 다섯 가지 이상','글자 수 제한은 없습니다. 초등 5학년을 위한 생태계 먹이사슬 활동을 AI에게 부탁해 보세요. 학생이 생물 카드를 배치하고 화살표로 연결했을 때 화면이 어떻게 반응할지도 적습니다. 게임의 자동 체크는 표현을 찾는 연습용 판정이며 정확성이나 실제 동작을 보장하지 않습니다. 완성한 프롬프트는 복사해 실습에 쓸 수 있습니다.'),detail('퇴근 후 이어갈 제작 원칙','작게 만들기 → 직접 검증 → 필요한 부분만 수정',mission.explanation)]};
 }
 
 export function getStage2Arcade(mission){

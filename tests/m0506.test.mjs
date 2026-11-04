@@ -95,7 +95,7 @@ test('science bubble is actually sliced by a mouse or touch swipe across its vis
   const h=harness({width:390,height:740}),fails=[];let game;
   try{
     game=science({container:h.container,data:data(6),onFail:p=>fails.push(p)});h.step(1.3);
-    const sentence=h.context.draws.find(d=>d.text.includes('먹이 화살표'));assert.ok(sentence);
+    const sentence=h.context.draws.find(d=>d.text.includes('AI가 준'));assert.ok(sentence);
     h.canvas().dispatch('pointerdown',{clientX:5,clientY:sentence.y,pointerType:'touch'});
     h.canvas().dispatch('pointermove',{clientX:385,clientY:sentence.y,pointerType:'touch'});h.canvas().dispatch('pointerup',{clientX:385,clientY:sentence.y,pointerType:'touch'});h.step(.1);
     assert.equal(fails.length,0);assert.ok(h.context.draws.some(d=>d.text==='✓ 1/9'));
@@ -107,6 +107,6 @@ test('leaving wrong statements alone cannot win; pause and hidden tabs do not co
   try{
     game=science({container:h.container,data:data(6),onFail:p=>fails.push(p),onWin:p=>wins.push(p)});h.step(.2);game.pause();h.step(100,1000);assert.equal(fails.length,0);game.resume();h.doc.hidden=true;h.step(100,1000);assert.equal(fails.length,0);h.doc.hidden=false;
     h.step(95,100);assert.equal(wins.length,0);assert.equal(fails.filter(f=>f.reason==='timeout').length,1);const count=fails.length;h.step(10);assert.equal(fails.length,count);
-    click(h,/과학 문장 다시 검증하기/);assert.ok(h.context.draws.some(d=>d.text==='✓ 0/9'));assert.ok(button(h,/틀린 문장 자르기/));
+    click(h,/AI 작업 습관 다시 검증하기/);assert.ok(h.context.draws.some(d=>d.text==='✓ 0/9'));assert.ok(button(h,/틀린 문장 자르기/));
   }finally{game?.destroy();h.restore();}
 });

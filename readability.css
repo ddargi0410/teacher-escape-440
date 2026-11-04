@@ -1,0 +1,100 @@
+/* Comfortable text sizes for teachers reading on school PCs and tablets. */
+.panel {width:min(780px,100%);padding:32px;}
+.panel.wide {width:min(1040px,100%);}
+.panel h2 {font-size:clamp(27px,3vw,36px);line-height:1.4;letter-spacing:-.6px;}
+.panel p,.panel .notice,.panel label,.panel textarea,.panel input,.panel select {font-size:18px;line-height:1.75;color:#263e35;}
+.panel .eyebrow {font-size:13px;color:#4d654f;}
+.panel .notice {background:#e9efda;padding:18px 20px;}
+.panel .actions button,.primary,.secondary {font-size:18px;min-height:48px;}
+.panel .close-button {width:44px;height:44px;font-size:28px;}
+.panel .option-row label {font-size:18px;}
+.panel .option-row small {font-size:15px;line-height:1.6;color:#4d604c;}
+.controls-table {grid-template-columns:130px 1fr;font-size:17px;line-height:1.65;}
+.controls-table kbd {font-size:15px;min-height:30px;opacity:1;}
+.mission-row {padding:18px 15px;gap:12px;align-items:flex-start;}
+.mission-row>div {min-width:0;}
+.mission-row h3 {font-size:20px;line-height:1.5;color:#183e32;}
+.mission-row small,.mission-row .status {font-size:14px;color:#4d604c;line-height:1.5;}
+.mission-row .mission-learning {font-size:16px;line-height:1.55;margin:4px 0 8px;color:#344d40;}
+.knowledge-card h3 {font-size:21px;line-height:1.4;}
+.knowledge-card p,.knowledge-details {font-size:17px;line-height:1.8;color:#2f493e;}
+.knowledge-details summary {font-size:17px;padding:10px 0;}
+.knowledge-card .card-top {font-size:12px;}
+.empty-card,.elevator-floors button span {font-size:17px;line-height:1.65;}
+.elevator-floors button small,.end-stats small {font-size:14px;color:#41563f;}
+.location-panel {min-width:280px;max-width:350px;}
+.location-panel h2 {font-size:25px;}
+.location-panel p {font-size:16px;line-height:1.55;color:#3f5545;}
+.location-panel .eyebrow {font-size:12px;color:#49634e;}
+.progress-panel>div:first-child {font-size:15px;}
+.progress-panel small {font-size:13px;color:#48603f;}
+.clock-panel {min-width:205px;padding:15px 18px;}
+.clock-panel>span {font-size:16px;font-weight:700;}
+.clock-panel>span small {font-size:12px;color:#e2edd6;line-height:1.6;}
+.clock-panel strong {font-size:42px;letter-spacing:0;}
+.clock-panel>div span,.clock-panel>div b {font-size:13px;font-weight:500;color:#e2edd6;}
+.clock-panel button {width:36px;height:36px;font-size:19px;}
+.floor-rail {top:210px;}
+.floor-rail button {width:44px;min-height:42px;font-size:16px;}
+.floor-rail #map-button {font-size:15px;}
+.floor-rail>span {font-size:11px;}
+.hud-tools button {min-height:48px;}
+.hud-tools span,.hud-tools b {font-size:16px;}
+.keyboard-guide {font-size:13px;color:#2b4938;}
+.keyboard-guide kbd {font-size:12px;opacity:1;}
+#interaction small {font-size:13px;color:#d8e6c8;}
+#interaction b {font-size:18px;}
+#interact-button {font-size:17px;min-height:48px;}
+#tutorial {max-width:340px;top:208px;}
+#tutorial b {font-size:19px;}
+#tutorial p {font-size:16px;line-height:1.7;color:#465637;}
+#tutorial .tutorial-label,#tutorial button,#tutorial>div {font-size:14px;}
+#toast {font-size:18px;max-width:min(680px,92vw);line-height:1.6;}
+.character-bubble {font-size:clamp(16px,1.4vw,20px);line-height:1.5;white-space:normal;text-align:center;}
+.end-stats strong {font-size:27px;}
+@media(max-width:800px){
+  .panel {padding:26px 20px;}
+  .panel p,.panel .notice,.panel label,.panel textarea,.panel input,.panel select {font-size:17px;}
+  .panel .actions .primary,.panel .actions .secondary {font-size:17px;min-height:48px;}
+  .location-panel {min-width:0;max-width:calc(100vw - 205px);padding:12px;}
+  .location-panel h2 {font-size:20px;}
+  .location-panel p {font-size:14px;}
+  .location-panel .eyebrow {font-size:10px;}
+  .clock-panel {min-width:155px;padding:12px;}
+  .clock-panel>span {font-size:14px;}
+  .clock-panel>span small {font-size:11px;max-width:136px;}
+  .clock-panel strong {font-size:34px;}
+  .progress-panel {top:151px;padding:10px 12px;}
+  .progress-panel>div:first-child {font-size:14px;}
+  .floor-rail {right:12px;top:208px;padding:9px 5px;}
+  #tutorial {top:237px;left:16px;max-width:calc(100vw - 100px);}
+  #interaction {bottom:115px;max-width:94vw;}
+  #interaction b {white-space:normal;font-size:17px;}
+  #interact-button {font-size:16px;}
+  .hud-tools span,.hud-tools b {font-size:14px;}
+  #toast {top:215px;font-size:17px;}
+  .controls-table {grid-template-columns:112px 1fr;font-size:16px;gap:12px;}
+}
+@media(max-width:480px){
+  .location-panel {max-width:calc(100vw - 180px);}
+  .location-panel h2 {font-size:18px;line-height:1.4;}
+  .location-panel p {font-size:13px;}
+  .clock-panel {min-width:140px;}
+  .clock-panel strong {font-size:32px;}
+  .clock-panel>span small {max-width:118px;}
+  .mission-row h3 {font-size:19px;}
+  .mission-row .mission-learning {font-size:16px;}
+  .panel .notice {padding:14px;}
+  #interaction {gap:8px;padding:10px;}
+  #interaction .interact-icon {display:none;}
+  .end-stats {grid-template-columns:1fr;gap:14px;}
+}
+
+/* Keep the interaction prompt clear of channel controls and the touch joystick. */
+@media(max-width:800px){
+  #interaction{width:calc(100vw - 28px);max-width:460px;bottom:225px;padding:12px;gap:12px;}
+  #interaction>div{flex:1;min-width:0;}
+  #interaction b{display:block;word-break:keep-all;font-size:16px;line-height:1.45;}
+  #interact-button{flex-shrink:0;min-height:48px;}
+  .location-panel h2,.clock-panel>span small{word-break:keep-all;}
+}
