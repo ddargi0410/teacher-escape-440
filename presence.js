@@ -43,7 +43,7 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
   const fetcher = runtime.fetch || ((...args)=>fetch(...args));
   const now = runtime.now || (()=>performance.now());
   const cryptoApi = Object.hasOwn(runtime,'crypto') ? runtime.crypto : globalThis.crypto;
-  const identity=secureIdentity(cryptoApi),id=identity?.id||null,token=identity?.token||null;
+  let identity=null,id=null,token=null;
   const labels = doc.createElement('div');
   labels.className='presence-labels';labels.hidden=true;
   labels.setAttribute('aria-hidden','true');
@@ -137,7 +137,7 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
     } catch(error) {
       if(epoch!==generation||disposed||!wanted)return false;
       connected=false;clearPeers();failures++;nextAt=now()+Math.min(15000,1000*2**Math.min(failures,4));
-      if(error.message==='room_full')report('full','연수실이 가득 찼어요. 다른 방 코드를 사용해 주세요.');
+      if(error.message==='room_full')report('full','채널이 가득 찼어요. 다른 채널로 이동해 주세요.');
       else if(error.message==='session_conflict')report('offline','접속 정보가 겹쳤어요. 새로고침 후 다시 연결해 주세요.');
       else report('reconnecting','연결을 다시 확인 중이에요. 혼자 계속할 수 있어요.');
       return false;
@@ -162,10 +162,14 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
   return {
     async connect(options={}) {
       if(disposed)return false;
-      if(!identity){report('offline','이 브라우저에서는 함께하기를 사용할 수 없어요. 혼자 탐색은 계속돼요.');return false;}
+      const nextIdentity=secureIdentity(cryptoApi);
+      if(!nextIdentity){report('offline','이 브라우저에서는 함께하기를 사용할 수 없어요. 혼자 탐색은 계속돼요.');return false;}
       const nextRoom=String(options.room||'').trim().toUpperCase();
       if(!/^[A-Z0-9_-]{4,24}$/.test(nextRoom)){report('offline','방 코드는 영문·숫자 4~24자로 적어 주세요.');return false;}
       if(wanted)disconnect();
+      // A channel switch starts a new session. The old channel's delayed leave
+      // or heartbeat must never delete or overwrite the new channel's player.
+      identity=nextIdentity;id=identity.id;token=identity.token;sequence=0;
       room=nextRoom;nickname=cleanName(options.nickname);wanted=true;connected=false;failures=0;nextAt=0;pendingGreeting=null;lastGreetAt=-Infinity;
       report(doc.hidden?'hidden':'connecting',doc.hidden?'게임 화면으로 돌아오면 연결돼요.':'연수실에 들어가는 중…');
       return await poll();

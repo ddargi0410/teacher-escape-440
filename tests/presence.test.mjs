@@ -149,3 +149,25 @@ test('simultaneous bed claims keep the lower peer id and offer the loser a free 
   assert.deepEqual(f.api.getBedConflict('bed-5'),{conflict:true,freeBedId:null});
   f.api.disconnect();assert.equal(f.api.getBedConflict('bed-5'),null);
 });
+
+test('switching channels uses a fresh identity and delayed leaves retain the old room credentials',async t=>{
+  const f=fixture();t.after(()=>f.api.dispose());await f.connect();
+  const first=f.requests[0].body;
+  assert.equal(await f.api.connect({room:'TEACHERS-2',nickname:'퇴근 희망'}),true);
+  const leave=f.requests.find(r=>r.body.leave).body,next=f.requests.at(-1).body;
+  assert.deepEqual(leave,{room:first.room,id:first.id,token:first.token,leave:true});
+  assert.notEqual(next.id,first.id);assert.notEqual(next.token,first.token);assert.equal(next.room,'TEACHERS-2');
+  assert.equal(f.api.getSnapshotStatus().selfId,next.id);assert.equal(f.api.getSnapshotStatus().room,'TEACHERS-2');
+});
+
+test('a late old-channel heartbeat cannot populate the newly joined channel',async t=>{
+  let finishOld;
+  const f=fixture(request=>{
+    if(request.body.leave)return Promise.resolve({ok:true,json:async()=>({})});
+    if(request.body.room==='TEACHER2026')return new Promise(resolve=>finishOld=()=>resolve({ok:true,json:async()=>({self:request.body.id,players:[remote('old-room')],serverTime:100000})}));
+    return Promise.resolve({ok:true,json:async()=>({self:request.body.id,players:[remote('new-room')],serverTime:100000})});
+  });t.after(()=>f.api.dispose());
+  const old=f.connect();await f.api.connect({room:'TEACHERS-2',nickname:'새 채널'});finishOld();assert.equal(await old,false);
+  assert.equal(f.api.count,2);assert.equal(f.labels.children.length,1);assert.equal(f.api.getSnapshotStatus().room,'TEACHERS-2');
+  assert.equal(f.scene.children[0].name,'online-teacher');
+});
