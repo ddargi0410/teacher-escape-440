@@ -21,7 +21,7 @@ function fixture(handler, runtimeOverrides={}) {
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(42,1.5,.1,220);
   camera.position.set(0,28,19);camera.lookAt(0,17,0);camera.updateMatrixWorld();
   const local={x:0,y:16,z:4,yaw:0,floor:5,action:'idle'};
-  const statuses=[],greetings=[],requests=[];let clock=0,players=[],fail=false;
+  const statuses=[],greetings=[],sentGreetings=[],requests=[];let clock=0,players=[],fail=false;
   const world={createTeacher(){const model=new THREE.Group();model.userData.arms=[new THREE.Group(),new THREE.Group()];model.userData.legs=[new THREE.Group(),new THREE.Group()];return model;},
     animateCharacter(){},setRestPose(model,bed){model.rotation.x=-Math.PI/2;model.userData.restingBed=bed;},clearRestPose(model){model.rotation.x=0;delete model.userData.restingBed;}};
   const fetcher=(url,options)=>{
@@ -30,9 +30,9 @@ function fixture(handler, runtimeOverrides={}) {
     if(fail)return Promise.reject(new Error('offline'));
     return Promise.resolve({ok:true,json:async()=>({self:body.id,players:[{...local,id:body.id,nickname:body.nickname},...players],serverTime:100000+clock,capacity:30})});
   };
-  const api=createPresence({scene,world,camera,getLocal:()=>local,onStatus:value=>statuses.push(value),onGreeting:value=>greetings.push(value),endpoint:'https://relay.example/api/presence',
+  const api=createPresence({scene,world,camera,getLocal:()=>local,onStatus:value=>statuses.push(value),onGreeting:value=>greetings.push(value),onGreetingSent:value=>sentGreetings.push(value),endpoint:'https://relay.example/api/presence',
     runtime:{document:doc,window:win,fetch:fetcher,crypto:webcrypto,now:()=>clock,...runtimeOverrides}});
-  return {api,scene,doc,win,local,statuses,greetings,requests,
+  return {api,scene,doc,win,local,statuses,greetings,sentGreetings,requests,
     get labels(){return doc.body.children[0];},
     peers(value){players=value;},fail(value=true){fail=value;},
     async advance(milliseconds,{visible=true,floor=local.floor}={}){clock+=milliseconds;api.update(milliseconds/1000,{visible,floor});await flush();},
@@ -90,11 +90,11 @@ test('greetings appear once, expire off-floor, and sending is throttled',async t
   const f=fixture();t.after(()=>f.api.dispose());await f.advance(0);
   f.peers([remote('waving',{greeting:{seq:1,type:'wave',at:100000}})]);await f.connect();await f.advance(0);
   assert.equal(f.greetings.length,1);assert.equal(f.labels.children[0].children[0].hidden,false);
-  assert.equal(f.api.greet('thanks'),true);assert.equal(f.api.greet('wave'),false);
-  await f.advance(1000);assert.equal(f.greetings.length,1);assert.equal(f.requests.at(-1).body.greeting.type,'thanks');
+  assert.equal(f.api.greet('thanks'),true);assert.equal(f.api.greet('wave'),false);assert.equal(f.sentGreetings.length,0);
+  await f.advance(1000);assert.equal(f.greetings.length,1);assert.equal(f.requests.at(-1).body.greeting.type,'thanks');assert.deepEqual(f.sentGreetings,[{seq:1,type:'thanks'}]);
   await f.advance(2500,{floor:4});await f.advance(0,{floor:5});
   assert.equal(f.labels.children[0].children[0].hidden,true);
-  assert.equal(f.api.greet('cheer'),true);
+  assert.equal(f.sentGreetings.length,1);assert.equal(f.api.greet('cheer'),true);
 });
 
 test('menu visibility hides remote avatars without pretending the participant left',async t=>{
@@ -170,4 +170,11 @@ test('a late old-channel heartbeat cannot populate the newly joined channel',asy
   const old=f.connect();await f.api.connect({room:'TEACHERS-2',nickname:'새 채널'});finishOld();assert.equal(await old,false);
   assert.equal(f.api.count,2);assert.equal(f.labels.children.length,1);assert.equal(f.api.getSnapshotStatus().room,'TEACHERS-2');
   assert.equal(f.scene.children[0].name,'online-teacher');
+});
+
+test('local greeting acknowledgement waits for a successful response and retries without a false success',async t=>{
+ const f=fixture();t.after(()=>f.api.dispose());await f.connect();assert.equal(f.api.greet('wave'),true);
+ f.fail();await f.advance(1000);assert.equal(f.sentGreetings.length,0);
+ f.fail(false);await f.advance(2000);assert.deepEqual(f.sentGreetings,[{seq:1,type:'wave'}]);
+ await f.advance(1000);assert.equal(f.sentGreetings.length,1);
 });

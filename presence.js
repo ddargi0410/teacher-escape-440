@@ -37,7 +37,7 @@ export function sanitizePresencePlayer(value) {
 }
 
 /** Polls the hosted presence service; no simulated visitors or same-browser substitute. */
-export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,endpoint,runtime={}}) {
+export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,onGreetingSent,endpoint,runtime={}}) {
   const doc = runtime.document || document;
   const win = runtime.window || window;
   const fetcher = runtime.fetch || ((...args)=>fetch(...args));
@@ -122,7 +122,7 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
     const epoch=generation,controller=new AbortController();
     const request={controller,timer:0};inflight=request;
     request.timer=setTimeout(()=>controller.abort(),6000);
-    const sentGreeting=pendingGreeting?.seq;
+    const sentGreeting=pendingGreeting?{...pendingGreeting}:null;
     try {
       const response=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body()),signal:controller.signal,credentials:'omit',cache:'no-store'});
       if(epoch!==generation||disposed||!wanted)return false;
@@ -131,8 +131,9 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
       if(epoch!==generation||disposed||!wanted)return false;
       if(!response.ok)throw new Error(payload?.error||'service_unavailable');
       accept(payload);connected=true;failures=0;nextAt=now()+1000;
-      if(pendingGreeting?.seq===sentGreeting)pendingGreeting=null;
+      if(sentGreeting&&pendingGreeting?.seq===sentGreeting.seq)pendingGreeting=null;
       report('online',`${peers.size+1}명 함께 탐색 중`);
+      if(sentGreeting){try{onGreetingSent?.({...sentGreeting});}catch(error){console.warn('Greeting feedback unavailable',error);}}
       return true;
     } catch(error) {
       if(epoch!==generation||disposed||!wanted)return false;

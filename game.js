@@ -28,7 +28,7 @@ const canvas=$('#world'),overlay=$('#app-overlay'),audio=new AudioManager();
 let state=loadGame()||freshState(),mode='home',world,player,renderer,scene,camera,teacher,nearest=null,activeMission=null;
 let frame=0,saveClock=0,toastTimer,tutorialTime=0,endingTime=0,lastFocus=null,overlayKind='',nightAmount=0;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-let sun,ambient,feedback;
+let sun,ambient,feedback,greetingFeedbackTimer;
 let encounter=null,npcSpeechClock=0,lastSpokenNPC=null;
 let presence,channels,restingBed=null,restView=false,wantsChannelRest=false;
 const onlineNickname=`퇴근동료${Math.floor(1000+Math.random()*9000)}`;
@@ -54,6 +54,10 @@ function onCrowdEvent(event){
  player.setActive(false);
 }
 function toast(message){$('#toast').textContent=message;$('#toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),4500)}
+function clearGreetingFeedback(){clearTimeout(greetingFeedbackTimer);$('#social-feedback').hidden=true;$('#social-feedback').textContent='';}
+function showGreetingFeedback(message){clearTimeout(greetingFeedbackTimer);const box=$('#social-feedback');box.textContent=message;box.hidden=false;greetingFeedbackTimer=setTimeout(clearGreetingFeedback,3000);}
+function sendGreeting(type){if(mode!=='play')return;if(presence?.greet(type))showGreetingFeedback('인사를 보내는 중…');else showGreetingFeedback(presence?.isConnected()?'잠깐만요! 2초마다 보낼 수 있어요.':'채널에 연결되면 인사할 수 있어요.');}
+function greetingSent({type}){if(mode!=='play')return;const messages={wave:'👋 인사를 보냈어요!',cheer:'🙌 응원을 보냈어요!',thanks:'💚 감사 인사를 보냈어요!'};if(messages[type])showGreetingFeedback(messages[type]);}
 function persist(){saveGame(state)}
 function busy(){return !overlay.hidden||missions.isOpen()||arcade.isOpen()||!!encounter||learning.isOpen()||rest.isOpen()||channelUI.isOpen()||mode!=='play'||document.hidden}
 const missions=createMissionUI({container:$('#mission-overlay'),getDraft:()=>state.bossDraft,getRelaxed:()=>state.settings.relaxed,
@@ -109,6 +113,7 @@ function travelToRoom(id){const room=world.specialRooms.find(r=>r.id===id);if(!r
 function openLearning(){if(mode!=='play')return;messenger.suspend();tutorialTime=0;$('#tutorial').hidden=true;player.setActive(false);learning.open()}
 function onPresenceStatus(next){channels?.handlePresenceStatus(next);}
 function onChannelChange(next){
+ if(!next.connected)clearGreetingFeedback();
  const label=next.connected?`채널 ${next.selected} · 함께 ${next.count}명`:next.loading?'채널 연결 중…':next.offline?'혼자 쉬는 중':'연결을 확인 중…';
  $('#social-status').textContent=label;$('#social-bar').hidden=mode!=='play';
  $('#social-connect-label').textContent=next.connected?`채널 ${next.selected}`:'채널';
@@ -164,7 +169,7 @@ function init(){
  const fill=new THREE.DirectionalLight('#b9d7d0',1);fill.position.set(25,16,-18);scene.add(fill);
  world=createWorld(scene);feedback=createWorldFeedback({camera});teacher=world.createTeacher('#d9bc75');scene.add(teacher);teacher.visible=false;
  player=createPlayer({camera,canvas,model:teacher,world,onMove:()=>{}});player.setActive(false);world.setFloor(null);applyQuality();updateSound();$('#continue-game').hidden=!loadGame();
- presence=createPresence({scene,world,camera,endpoint:PRESENCE_ENDPOINT,getLocal:()=>({x:player.position.x,y:player.position.y,z:player.position.z,yaw:teacher.rotation.y,floor:state.floor,action:rest.isOpen()?'rest':learning.isOpen()?'learn':activeMission?'mission':player.moving?'walk':'idle',bedId:restingBed?.id}),onStatus:onPresenceStatus,onGreeting:({nickname,text})=>{if(!busy())toast(`${nickname}: ${text}`)}});
+ presence=createPresence({scene,world,camera,endpoint:PRESENCE_ENDPOINT,getLocal:()=>({x:player.position.x,y:player.position.y,z:player.position.z,yaw:teacher.rotation.y,floor:state.floor,action:rest.isOpen()?'rest':learning.isOpen()?'learn':activeMission?'mission':player.moving?'walk':'idle',bedId:restingBed?.id}),onStatus:onPresenceStatus,onGreetingSent:greetingSent,onGreeting:({nickname,text})=>{if(!busy())toast(`${nickname}: ${text}`)}});
  channels=createChannels({presence,endpoint:PRESENCE_ENDPOINT,getNickname:()=>onlineNickname,onChange:onChannelChange,onBeforeSwitch:()=>{if(rest.isOpen())rest.close();}});
  window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();persist();toast('그래픽 연결이 잠시 끊겼어요. 새로고침하면 저장한 진행으로 이어 할 수 있습니다.')});
@@ -201,7 +206,7 @@ function loop(ms){requestAnimationFrame(loop);const elapsedDt=Math.min(1,(ms-(fr
  messenger.update(elapsedDt,!busy()&&tutorialTime<=0&&!state.finished);
 }
 $('#talk-button').onclick=()=>repel('talk');$('#bonk-button').onclick=()=>repel('bonk');
-$('#learning-button').onclick=()=>{if(!busy()){travelToRoom('learning-room');openLearning()}};$('#nurse-button').onclick=()=>{if(!busy())travelToRoom('nurse-room')};$('#together-button').onclick=showTogether;$('#social-channel-button').onclick=showTogether;$$('[data-greet]').forEach(b=>b.onclick=()=>{if(mode==='play')presence?.greet(b.dataset.greet)});
+$('#learning-button').onclick=()=>{if(!busy()){travelToRoom('learning-room');openLearning()}};$('#nurse-button').onclick=()=>{if(!busy())travelToRoom('nurse-room')};$('#together-button').onclick=showTogether;$('#social-channel-button').onclick=showTogether;$$('[data-greet]').forEach(b=>b.onclick=()=>sendGreeting(b.dataset.greet));
 $('#start').onclick=newGame;$('#continue-game').onclick=()=>start(true);$('#home-guide').onclick=guide;$('#pause-button').onclick=pause;$('#map-button').onclick=()=>{if(!busy())showMap()};$('#bag-button').onclick=()=>{if(!busy())bag()};$('#hint-button').onclick=hint;$('#interact-button').onclick=interact;$('#touch-interact').onclick=interact;$('#tutorial-skip').onclick=()=>{tutorialTime=0;$('#tutorial').hidden=true};
 $$('.sound-toggle').forEach(b=>b.onclick=()=>{state.settings.sound=!state.settings.sound;audio.setEnabled(state.settings.sound);audio.unlock();audio.play('click');updateSound();persist()});
 window.addEventListener('keydown',e=>{
