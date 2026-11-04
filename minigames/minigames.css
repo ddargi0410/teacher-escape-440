@@ -1,0 +1,12 @@
+.arcade-stage{position:absolute;inset:0;overflow:hidden;background:#f5f0df;isolation:isolate;touch-action:none;color:#203a35}
+.arcade-canvas{display:block;position:absolute;inset:0;outline:none;touch-action:none}
+.arcade-hit-layer{position:absolute;inset:0;pointer-events:none}
+.arcade-hit{position:absolute;pointer-events:auto;opacity:0;border:3px solid #e77952;border-radius:14px;background:transparent;padding:0;cursor:pointer;min-height:0;min-width:0;box-shadow:none}
+.arcade-hit:focus-visible{opacity:1;outline:4px solid #234c43;outline-offset:3px}
+.arcade-hit:disabled{pointer-events:none}
+.arcade-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.arcade-feedback{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) scale(.5);pointer-events:none;font-size:90px;font-weight:900;opacity:0;color:#3a7852;text-shadow:0 4px 0 #fff;transition:transform .2s,opacity .2s}
+.arcade-feedback.bad{color:#c84245}.arcade-feedback.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+@keyframes arcade-shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+.arcade-shake{animation:arcade-shake .32s ease}
+@media(prefers-reduced-motion:reduce){.arcade-feedback{transition:none}.arcade-shake{animation:none}}

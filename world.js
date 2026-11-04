@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import {createCrowd,animateCharacter} from './crowd.js';
 
 // A small, entirely procedural school. No downloaded models or textures.
 const COLORS = {
@@ -38,7 +39,7 @@ export function createWorld(scene) {
   function box(parent,x,y,z,w,h,d,color,options) { return mesh(parent,geo('BoxGeometry',w,h,d),mat(color,options),x,y,z); }
   function cyl(parent,x,y,z,r1,r2,h,color,n=10) { return mesh(parent,geo('CylinderGeometry',r1,r2,h,n),mat(color),x,y,z); }
   function ball(parent,x,y,z,r,color,scale=[1,1,1]) { const o=mesh(parent,geo('IcosahedronGeometry',r,1),mat(color),x,y,z);o.scale.set(...scale);return o; }
-  function collide(list,x,z,w,d) { list.push({x,z,w,d}); }
+  function collide(list,x,z,w,d,blocksSight=true) { list.push({x,z,w,d,blocksSight}); }
   function textTexture(text, {color='#f6ead2',background='#344b48',width=768,height=160,fontSize=66,border=false}={}) {
     const c=document.createElement('canvas'); c.width=width;c.height=height;
     const ctx=c.getContext('2d');
@@ -70,7 +71,7 @@ export function createWorld(scene) {
   function desk(parent,x,y,z,w=1.6,d=.9,color='#c89969',list) {
     box(parent,x,y+.95,z,w,.14,d,color);
     for(const dx of [-w/2+.12,w/2-.12])for(const dz of [-d/2+.12,d/2-.12])box(parent,x+dx,y+.45,z+dz,.09,.9,.09,'#6c7d76');
-    if(list)collide(list,x,z,w,d);
+    if(list)collide(list,x,z,w,d,false);
   }
   function monitor(parent,x,y,z) {
     box(parent,x,y+.22,z,.08,.4,.08,'#344b48');box(parent,x,y,z,.45,.04,.28,'#344b48');
@@ -89,10 +90,10 @@ export function createWorld(scene) {
   }
   function teacher(parent,x,y,z,color='#e3bb82',principal=false) {
     const g=new THREE.Group();g.position.set(x,y,z);parent.add(g);
-    const legs=[];
+    const legs=[],arms=[];
     for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.14,.66,0);g.add(leg);box(leg,0,-.26,0,.2,.52,.22,'#3f5655');box(leg,0,-.56,.06,.23,.14,.36,'#354641');legs.push(leg);}
     box(g,0,1.03,0,.62,.7,.34,color);box(g,0,1.06,.18,.16,.58,.02,'#f3e4ca');
-    for(const side of [-1,1]){const arm=box(g,side*.4,1.06,0,.2,.6,.25,color);arm.rotation.z=-side*.12;ball(g,side*.43,.74,.02,.12,COLORS.skin);}
+    for(const side of [-1,1]){const arm=new THREE.Group();arm.position.set(side*.4,1.35,0);g.add(arm);arm.rotation.z=-side*.12;box(arm,0,-.29,0,.2,.6,.25,color);ball(arm,0,-.61,.02,.12,COLORS.skin);arms.push(arm);}
     cyl(g,0,1.5,0,.1,.1,.2,COLORS.skin,8);ball(g,0,1.82,0,.39,COLORS.skin,[.95,1,.88]);
     ball(g,0,2.01,-.04,.36,principal?'#6e726b':'#57453b',[1,.67,.92]);
     if(!principal)ball(g,-.24,1.79,-.11,.2,'#57453b',[.7,1.6,1]);
@@ -100,7 +101,7 @@ export function createWorld(scene) {
     box(g,0,1.66,.34,.12,.024,.02,'#a66f57');
     if(principal){box(g,0,1.2,.2,.07,.35,.03,'#c67c60');for(const side of [-1,1]){const glasses=mesh(g,geo('TorusGeometry',.095,.012,5,12),mat('#495c56'),side*.125,1.84,.37);glasses.rotation.z=.08;}box(g,0,1.84,.37,.09,.015,.02,'#495c56');}
     else {box(g,-.21,1.13,.19,.1,.17,.02,'#6c9d90');}
-    g.userData.legs=legs;return g;
+    g.userData.legs=legs;g.userData.arms=arms;return g;
   }
   function quest(parent,id,x,y,z,color,label,npcColor) {
     const npc=teacher(parent,x,y,z,npcColor,id===10);
@@ -196,6 +197,9 @@ export function createWorld(scene) {
     collide(colliders,0,-2.7,.3,10.2);collide(colliders,-13.9,0,.25,16);collide(colliders,13.9,0,.25,16);collide(colliders,0,-8,28,.3);
     if(floor>1)collide(colliders,0,8,28,.3);
     else {collide(colliders,-8,8,12,.3);collide(colliders,8,8,12,.3);}
+    // Real hiding places: geometry and sight/movement collisions stay aligned.
+    for(const x of [-4,4]){box(inside,x,1.45,6.05,.7,2.9,.7,COLORS.mint);collide(colliders,x,6.05,.7,.7);}
+    bookshelf(inside,-12.3,0,6.8,1.35);collide(colliders,-12.3,6.8,1.35,.8);
     // Wayfinding strips and center lift, never placed over a door opening.
     box(inside,0,.16,4.7,2.6,.025,2.25,'#799f8d');
     box(inside,0,.18,4.7,2.3,.025,1.9,'#b4ccb0');
@@ -223,9 +227,7 @@ export function createWorld(scene) {
           if(room.kind==='computer')monitor(inside,x,1.06,z-.15);else {box(inside,x,1.05,z,.7,.05,.5,'#e8e1c1');box(inside,x+.25,1.1,z+.2,.4,.025,.035,'#d89068');}
         }
         if(room.kind==='classroom'){
-          const child1=teacher(inside,cx-1.6,0,-6,'#94b5b0');child1.scale.setScalar(.62);child1.rotation.y=.6;
-          const child2=teacher(inside,cx+1.5,0,-6,'#d09a83');child2.scale.setScalar(.62);child2.rotation.y=-.6;
-          sign(inside,'쟤가 먼저요!',cx-1.9,1.7,-6,2.1,.4,'#715746','#f3deab');
+          // The two running children now live in the active floor's corridor.
         }
       }else if(['staff','office','admin'].includes(room.kind)){
         for(const x of [left,right]){
@@ -269,7 +271,7 @@ export function createWorld(scene) {
     }
     if(floor===1){
       const boss=quest(inside,10,7,0,7,'#e99a76','교장선생님','#6a867a');boss.floor=1;interactables.push(boss);
-      sign(inside,'선생님, 잠깐만요~',7,2.6,7.15,3.5,.6,'#714d3d','#f2d6ae');
+
     }
   }
 
@@ -287,11 +289,14 @@ export function createWorld(scene) {
   for(let i=0;i<4;i++){const p=box(roof,6,.4,-4+i*1.25,6,.08,1.1,'#527877');p.rotation.x=.14;}
   const aerial=cyl(roof,10,1.1,4,.035,.035,2.2,'#e6dbc1',6);box(roof,10,2,4,1.1,.06,.06,'#e6dbc1');
 
+  const crowd=createCrowd({floors,questObjects,teacher,mesh,geo,mat});
+
   // Merge fixed scenery by material. The detailed school stays inexpensive to
   // draw, while NPCs, quest markers, lift sprites, car and gate remain movable.
   world.updateMatrixWorld(true);
   const moving=new Set([car,gateLeft,gateRight,flag]);
   for(const q of animated)for(const object of [q.npc,q.ring,q.crystal,q.number])moving.add(object);
+  for(const actor of crowd.actors)moving.add(actor.model);
   function batchStatic(parent){
     const batches=new Map(),inverse=new THREE.Matrix4().copy(parent.matrixWorld).invert();
     function visit(node){
@@ -347,6 +352,9 @@ export function createWorld(scene) {
   }
   const api={
     root:world, car,
+    get characters(){return crowd.actors;},
+    getNPC:crowd.getNPC, getNPCAnchor:crowd.getNPCAnchor, getCharacterAnchor:crowd.getAnchor,
+    updateCrowd:crowd.update, resetCrowd:crowd.reset, animateCharacter,
     heroTarget:new THREE.Vector3(0,8,1), heroCamera:new THREE.Vector3(42,31,44),
     get floor(){return currentFloor;},
     get colliders(){
@@ -364,11 +372,11 @@ export function createWorld(scene) {
     reset(){
       gateOpen=false;gateAngle=0;gateLeft.rotation.y=0;gateRight.rotation.y=0;
       car.position.set(7,0,22.2);car.rotation.set(0,0,0);car.visible=true;
-      setCompleted([]);
+      setCompleted([]);crowd.reset();
     },
     update(dt,time,ids){
       if(ids)setCompleted(ids);
-      for(const q of animated){q.crystal.position.y=q.base+2.65+Math.sin(time*2+q.npc.position.x)*.12;q.crystal.rotation.y=time*.8;q.npc.rotation.y=Math.sin(time*.6+q.npc.position.x)*.035;}
+      for(const q of animated){q.crystal.position.y=q.base+2.65+Math.sin(time*2+q.npc.position.x)*.12;q.crystal.rotation.y=time*.8;}
       const target=gateOpen?Math.PI*.53:0;gateAngle+=(target-gateAngle)*Math.min(1,dt*3);
       gateLeft.rotation.y=-gateAngle;gateRight.rotation.y=gateAngle;
       flag.rotation.y=Math.sin(time*.8)*.07;

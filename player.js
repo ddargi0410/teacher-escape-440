@@ -12,6 +12,8 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   const knob = document.getElementById('joystick-knob');
   const desiredCamera = new THREE.Vector3();
   const lookTarget = new THREE.Vector3();
+  const focusTarget = new THREE.Vector3();
+  let focusStarted = false;
   const stick = { x: 0, y: 0 };
   let enabled = true;
   let firstPerson = false;
@@ -62,8 +64,8 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   }
 
   function resetLegs() {
-    const legs = model?.userData?.legs;
-    if (Array.isArray(legs)) for (const leg of legs) if (leg?.rotation) leg.rotation.x = 0;
+    for (const limbs of [model?.userData?.legs,model?.userData?.arms])
+      if (Array.isArray(limbs)) for (const limb of limbs) if (limb?.rotation) limb.rotation.x = 0;
   }
 
   listen(window, 'keydown', event => {
@@ -149,6 +151,7 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   }
 
   function updateCamera(dt, snap = false) {
+    focusStarted = false;
     if (firstPerson) {
       desiredCamera.set(position.x, position.y + 1.66, position.z);
       lookTarget.set(
@@ -222,6 +225,10 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
       if (Array.isArray(legs)) legs.forEach((leg, index) => {
         if (leg?.rotation) leg.rotation.x = moving ? Math.sin(gait + index * Math.PI) * 0.45 : 0;
       });
+      const arms=model.userData?.arms;
+      if(Array.isArray(arms)) arms.forEach((arm,index)=>{
+        if(arm?.rotation)arm.rotation.x=moving?-Math.sin(gait+index*Math.PI)*0.35:0;
+      });
     }
     updateCamera(dt);
   }
@@ -262,6 +269,11 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
     setActive,
     setView,
     resetCamera,
+    focusOn(target,dt){
+      if(!focusStarted){camera.getWorldDirection(focusTarget);focusTarget.multiplyScalar(10).add(camera.position);focusStarted=true;}
+      const p=target.getWorldPosition?target.getWorldPosition(new THREE.Vector3()):target.clone();
+      p.y+=1.6;focusTarget.lerp(p,1-Math.exp(-7*dt));camera.lookAt(focusTarget);
+    },
     dispose() {
       clearInput();
       listeners.forEach(remove => remove());
