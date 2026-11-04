@@ -1,6 +1,35 @@
 # 변경 파일과 실행 안내
 
-## 이번 업데이트 · 퇴근톡 독촉 쪽지
+## 이번 업데이트 · 기초 학습, 휴식, 실제 동시 접속
+
+- **선택형 배움터**: ChatGPT·Claude·Gemini를 고르는 첫걸음부터 말로 요청하기, 코드와 실행, 프롬프트 조립, 오류 수정, 검증, API와 배포까지 여섯 단계. 각 화면에 직접 그린 SVG 삽화와 손으로 눌러 확인하는 시연을 넣었습니다. 실제 AI 호출이나 미션 벌점은 없습니다.
+- **보건실**: 1층 별도 공간에 침대 다섯 개. 캐릭터가 누워 숲소리·목탁·무음으로 쉬며, 플레이 시간과 독촉 알림은 정지합니다.
+- **함께하기**: 실제 접속 중계 서버를 연결했습니다. 같은 4–24자 방 코드로 최대 30명이 들어가 별명·이동·휴식·인사를 봅니다. 약 1초 간격으로 갱신하며, 미션 진행은 각자 유지합니다. 숨긴 탭은 퇴장을 알리고 비정상 종료는 약 20초 안에 접속 목록에서 만료됩니다.
+- **복도 돌발 캐릭터**: F로 말로 진정시키기, G로 만화 효과. 학생·가상 민원 학부모 NPC는 잠시 사라졌다가 현재 층 탐색 시간 20–35초 뒤 재등장합니다. 배움터와 보건실은 돌발 상황이 없는 공간입니다.
+
+### 이번 변경 파일
+
+| 구분 | 파일 |
+| --- | --- |
+| 추가 | `learning-room.js`, `learning-room.css` |
+| 추가 | `rest-room.js`, `rest-room.css` |
+| 추가 | `presence.js`, `presence.css`, `presence-config.js`, `campus.css` |
+| 수정 | `game.js`, `index.html`, `world.js`, `crowd.js`, `save.js` |
+| 추가 검사 | `tests/learning-room.test.mjs`, `tests/rest-room.test.mjs`, `tests/presence.test.mjs`, `tests/wellness-world.test.mjs`, `tests/corridor-combat.test.mjs` |
+| 문서 | `README.md`, `CHANGES.md`, `TEACHER-GUIDE.md` |
+| 전체 ZIP 추가 파일 | `presence-server-source.zip` — 별도 동시 접속 중계 서버 원본. GitHub Pages 프런트엔드 저장소에는 넣지 않습니다. |
+
+문항·정답·해설은 기존 `missions-data.js`를 유지합니다. 미니게임 전환 범위는 여전히 1–3번이며, 4–10번은 기존 방식입니다. 학습실·보건실·동료 인사는 미션 도장 수를 늘리지 않습니다.
+
+### 서버와 검증
+
+접속 중계 서버: https://teacher-escape-presence.hodumandu.chatgpt.site  
+요청 경로: `/api/presence`  
+서버 프로젝트: `teacher-escape-presence` (`presence-server-source.zip`에 원본 포함)
+
+AI API 키는 사용하지 않습니다. 게임은 GitHub Pages에서 실행하며, 함께하기를 선택할 때만 공개 중계 주소에 위치·활동 상태를 전송합니다. 게임 검사와 서버 검사는 각각의 프로젝트에서 `node --test tests/*.test.mjs`로 실행합니다. 이번 검사에는 학습 선택·휴식 정지·사운드 정리·접속과 방 격리·세션 소유권·만료·침대와 안전 구역·NPC 재등장이 포함됩니다. 최종 검사 수와 브라우저 확인 결과는 릴리스 안내에 기록합니다.
+
+## 이전 업데이트 · 퇴근톡 독촉 쪽지
 
 미완료 미션을 골라 독촉하는 가상 학교 메신저를 추가했습니다. 20개 문구를 돌아가며 사용하며, 완료한 업무는 다시 독촉하지 않습니다. 방송실 문구에는 행사 당일 장비가 갑자기 안 되는 상황을 반영했습니다.
 

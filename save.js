@@ -20,6 +20,7 @@ export function freshState(name = '퇴근희망 교사') {
     floor: 5,
     bossDraft: '',
     finished: false,
+    beginnerLearned: false,
     settings: { quality: 'medium', sound: false, relaxed: false }
   };
 }
@@ -36,6 +37,7 @@ function normalize(value) {
   state.penalty = number(value.penalty, 0, 0, 320);
   state.floor = Math.round(number(value.floor, 5, 1, 5));
   state.bossDraft = typeof value.bossDraft === 'string' ? value.bossDraft.slice(0, 12000) : '';
+  state.beginnerLearned = value.beginnerLearned === true;
   state.finished = value.finished === true && state.completed.length === 10;
   const settings = value.settings || {};
   state.settings = {

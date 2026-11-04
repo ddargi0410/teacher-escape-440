@@ -19,6 +19,11 @@ export function createWorld(scene) {
   const world = new THREE.Group(); world.name = '퇴근초등학교'; scene.add(world);
   const exterior = new THREE.Group(); world.add(exterior);
   const floors = new Map(), animated = [], questObjects = new Map();
+  const beds = new Map();
+  const specialRooms = [
+    {id:'learning-room',kind:'learning',label:'배움터 · 바이브 코딩 첫걸음',floor:1,entry:{x:-20,y:0,z:1.2}},
+    {id:'nurse-room',kind:'nurse',label:'보건실 · 아무것도 안 해도 되는 방',floor:1,entry:{x:20,y:0,z:2.5}}
+  ];
   const materials = new Map(), geometries = new Map();
   let currentFloor = null, completed = new Set(), gateOpen = false, gateAngle = 0;
 
@@ -129,7 +134,9 @@ export function createWorld(scene) {
     ball(exterior,x-.8*s,3.7*s,z+.2*s,1.2*s,'#91ad7b');
     ball(exterior,x+.6*s,4.8*s,z-.2*s,1.3*s,'#a9bd83');
   }
-  [[-19,-9,1.1],[-19,3,1],[-18,14,.95],[19,-9,1.15],[19,4,1],[17,15,.85],[-7,-13,.8],[7,-13,.9]].forEach(v=>tree(...v));
+  // The first-floor quiet wings occupy the old side planters. Their trees now
+  // shade the outside of the annexes instead of growing through the rooms.
+  [[-28,-6,1.1],[-28,3,1],[-18,14,.95],[28,-6,1.15],[28,4,1],[17,15,.85],[-7,-13,.8],[7,-13,.9]].forEach(v=>tree(...v));
   function bench(x,z,rot=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=rot;exterior.add(g);for(let j=0;j<3;j++)box(g,0,.65,-.36+j*.25,2.6,.13,.18,'#ab7955');for(let j=0;j<2;j++)box(g,0,1.1+j*.23,-.5,2.6,.16,.1,'#ab7955');for(const dx of [-.9,.9])box(g,dx,.3,0,.12,.6,.9,'#526a5b');}
   bench(-10,12);bench(10,12,Math.PI);plant(exterior,-13,0,11,1.5);plant(exterior,13,0,11,1.5);
   // One original school plaque and flagpole; no external graphics.
@@ -190,11 +197,21 @@ export function createWorld(scene) {
     box(front,0,1.85,8.23,3.8,.09,.04,COLORS.trim);
     sign(front,String(floor)+'F',-13,2.1,8.13,1,.5);
     // Only low walls are kept on the camera-facing sides of a cutaway.
-    box(inside,-13.8,.45,0,.3,.9,16,COLORS.mint);box(inside,13.8,.45,0,.3,.9,16,COLORS.mint);
+    for(const side of [-1,1]){
+      if(floor===1){
+        // Real 3.4 m doorways align with the existing corridor at z=4.7.
+        box(inside,side*13.8,.45,-2.5,.3,.9,11,COLORS.mint);
+        box(inside,side*13.8,.45,7.2,.3,.9,1.6,COLORS.mint);
+      }else box(inside,side*13.8,.45,0,.3,.9,16,COLORS.mint);
+    }
     box(inside,0,.06,4.95,27.4,.09,5.7,'#d4d6b7');
     box(inside,0,.12,4.95,.14,.02,5.7,'#f8edcb');
     box(inside,0,1.4,-2.7,.25,2.8,10.2,COLORS.trim);
-    collide(colliders,0,-2.7,.3,10.2);collide(colliders,-13.9,0,.25,16);collide(colliders,13.9,0,.25,16);collide(colliders,0,-8,28,.3);
+    collide(colliders,0,-2.7,.3,10.2);collide(colliders,0,-8,28,.3);
+    for(const side of [-1,1]){
+      if(floor===1){collide(colliders,side*13.9,-2.5,.25,11);collide(colliders,side*13.9,7.2,.25,1.6);}
+      else collide(colliders,side*13.9,0,.25,16);
+    }
     if(floor>1)collide(colliders,0,8,28,.3);
     else {collide(colliders,-8,8,12,.3);collide(colliders,8,8,12,.3);}
     // Real hiding places: geometry and sight/movement collisions stay aligned.
@@ -271,7 +288,86 @@ export function createWorld(scene) {
     }
     if(floor===1){
       const boss=quest(inside,10,7,0,7,'#e99a76','교장선생님','#6a867a');boss.floor=1;interactables.push(boss);
-
+      for(const side of [-1,1]){
+        const cx=side*20, learning=side<0, color=learning?'#bed4ae':'#c4ddd6';
+        const roomName=learning?'배움터':'보건실';
+        box(shell,cx,-.16,0,12.4,.3,16.5,COLORS.trim);
+        box(cap,cx,3.56,0,12.4,.3,16.55,COLORS.trim);
+        box(cap,side*26.05,1.7,0,.22,3.4,16,COLORS.mint);
+        box(front,cx,1.7,7.95,12.25,3.4,.22,COLORS.mint);
+        for(const x of [cx-3,cx+3]){
+          box(front,x,1.9,8.08,2.8,1.6,.08,COLORS.dark);
+          box(front,x,1.9,8.14,2.6,1.4,.04,'#afcec2');
+          box(front,x,1.9,8.18,.06,1.5,.025,COLORS.trim);
+        }
+        sign(front,roomName,cx,2.9,8.12,3.3,.55);
+        box(inside,cx,.04,0,11.8,.12,15.5,color);
+        box(inside,cx,1.4,-7.7,12,2.8,.2,'#e8e6d1');
+        box(inside,side*25.8,.5,0,.25,1,16,COLORS.mint);
+        box(inside,cx,.45,7.8,12,.9,.22,COLORS.mint);
+        box(inside,cx,.12,4.7,11.5,.025,2.3,'#e4ead1');
+        for(const z of [-3.9,-1.9,.1])box(inside,side*15.2,.12,z,.12,.02,.65,'#f4efd5');
+        collide(colliders,side*26,0,.25,16);
+        collide(colliders,cx,-8,12.2,.3);
+        collide(colliders,cx,8,12.2,.3);
+        // Keep expanded movement bounds from creating an escape around the gate.
+        collide(colliders,side*19.9,17.1,12.4,18.2);
+        sign(inside,roomName,cx,2.7,-7.56,4.4,.7,'#345e51','#e5eddb');
+        if(learning)sign(inside,'처음이어도 괜찮아요',cx,1.9,-7.55,6.5,.5,'#6f8d73','#e8e6d1');
+        plant(inside,cx-4.6,0,-6.5,1.1);plant(inside,cx+4.6,0,-6.5,1.1);
+        sign(inside,learning?'← 배움터':'보건실 →',side*13.15,2.15,4.78,2.3,.48,'#496d5a','#f3e7c6');
+        if(learning){
+          box(inside,cx,1.35,-6.9,5.3,2.1,.18,'#527d6b');
+          sign(inside,'말로 부탁 → 실행 → 확인',cx,1.55,-6.78,4.9,1,'#fff3d5','#527d6b');
+          desk(inside,cx,0,-3.7,3.5,1.3,'#be9b6d',colliders);
+          monitor(inside,cx-.8,1.06,-3.9);paperStack(inside,cx+.9,1.05,-3.7,3);
+          chair(inside,cx-.8,0,-2.6,'#88aa8a');
+          for(const dx of [-3.5,3.5]){
+            box(inside,cx+dx,.55,-1.4,1.9,.65,1.5,'#8ba897');
+            box(inside,cx+dx,1.15,-2.03,1.9,.65,.23,'#8ba897');
+            collide(colliders,cx+dx,-1.4,1.9,1.5,false);
+          }
+          const item={id:'learning-room',kind:'learning',x:cx,y:0,z:.2,label:'배움터 · 바이브 코딩 첫걸음',floor:1};
+          interactables.push(item);
+          badge(inside,'?',cx,1.3,.2,'#dfd29a',.82);
+          sign(inside,'기초부터 3분 · 선택 학습',cx,.62,.25,3,.38,'#476c59','#e5edcf');
+        }else{
+          // Five genuine beds share a generous front aisle. Distinct blankets
+          // and numbered foot markers help friends choose a bed together.
+          const blanketColors=['#b8cfad','#a9cad2','#d4b9b1','#c3b9d7','#dfd1a4'];
+          for(const [index,x] of [15.5,17.8,20.1,22.4,24.7].entries()){
+            const z=-1.6,id=`bed-${index+1}`;
+            box(inside,x,.55,z,1.8,.38,3.35,'#83a99d');
+            box(inside,x,.82,z,1.7,.22,3.25,'#f8f4e7');
+            box(inside,x,.98,z-1.1,1.25,.16,.55,'#fffaf0');
+            box(inside,x,.98,z+.55,1.6,.1,1.8,blanketColors[index]);
+            box(inside,x,.85,z-1.7,1.85,1.2,.14,'#7e9f91');
+            for(const dx of [-.72,.72])for(const dz of [-1.3,1.3])box(inside,x+dx,.25,z+dz,.12,.5,.12,'#749184');
+            collide(colliders,x,z,1.85,3.5,false);
+            const bed={id,kind:'bed',floor:1,x,y:0,z:1.1,label:`보건실 침대 ${index+1} · 잠깐 멍때리기`,
+              bedPose:{x,y:1.1,z:-.2,rotationX:-Math.PI/2,yaw:0},exitPoint:{x,y:0,z:1.1}};
+            beds.set(id,bed);interactables.push(bed);
+            badge(inside,String(index+1),x,.7,1,blanketColors[index],.58);
+          }
+          // A little forest view, drawn from simple geometry rather than an
+          // external image; no extra light/shadow passes are needed.
+          box(inside,cx,1.25,-7.52,8.5,1.75,.12,'#81a398');
+          box(inside,cx,1.25,-7.43,8.15,1.47,.04,'#d5e6d5');
+          for(const [index,x] of [16.7,18.1,19.6,21.2,22.7,23.4].entries()){
+            const y=1.25+(index%3)*.16;
+            box(inside,x,.95,-7.39,.08,.68,.03,'#aa9974');
+            const crown=mesh(inside,geo('ConeGeometry',.42,.95,6),mat(index%2?'#8fb095':'#739b83'),x,y,-7.35,false);
+            crown.scale.z=.06;
+          }
+          for(const x of [cx-2.75,cx,cx+2.75])box(inside,x,1.25,-7.28,.07,1.6,.06,'#f5f0dc');
+          box(inside,cx,.4,-7.3,8.6,.1,.4,'#d1c5a4');
+          for(const x of [15.25,24.75]){
+            box(inside,x,2.3,-6.9,.38,.1,.3,'#b6a583');
+            cyl(inside,x,2.5,-6.9,.2,.29,.32,'#f7e5b1');
+          }
+          sign(inside,'여기서는 아무것도 안 해도 돼요',cx,2.6,6.95,6,.55,'#4f7569','#eff1df');
+        }
+      }
     }
   }
 
@@ -351,10 +447,18 @@ export function createWorld(scene) {
     }
   }
   const api={
-    root:world, car,
+    root:world, car, specialRooms,
+    getBed(id){return beds.get(id)||null;},
+    setRestPose(model,id){
+      const bed=beds.get(id);if(!model||!bed)return false;
+      const p=bed.bedPose;model.position.set(p.x,p.y,p.z);model.rotation.set(p.rotationX,p.yaw,0);model.visible=true;
+      animateCharacter(model,0,0);model.userData.restingBed=id;return true;
+    },
+    clearRestPose(model){if(!model)return;model.rotation.x=0;model.rotation.z=0;delete model.userData.restingBed;},
     get characters(){return crowd.actors;},
     getNPC:crowd.getNPC, getNPCAnchor:crowd.getNPCAnchor, getCharacterAnchor:crowd.getAnchor,
     updateCrowd:crowd.update, resetCrowd:crowd.reset, animateCharacter,
+    useCorridorAction:(kind,position)=>crowd.useAction(kind,position,currentFloor),
     heroTarget:new THREE.Vector3(0,8,1), heroCamera:new THREE.Vector3(42,31,44),
     get floor(){return currentFloor;},
     get colliders(){
@@ -364,7 +468,7 @@ export function createWorld(scene) {
       return list;
     },
     get interactables(){return currentFloor===null?[]:floors.get(currentFloor).interactables;},
-    get bounds(){return currentFloor===1?{minX:-13.6,maxX:13.6,minZ:-7.7,maxZ:26}:{minX:-13.6,maxX:13.6,minZ:-7.7,maxZ:7.7};},
+    get bounds(){return currentFloor===1?{minX:-25.7,maxX:25.7,minZ:-7.7,maxZ:26}:{minX:-13.6,maxX:13.6,minZ:-7.7,maxZ:7.7};},
     spawn(floor){return {x:0,y:(floor-1)*4,z:6.5};},
     createTeacher(color='#e6bf83'){const holder=new THREE.Group();return teacher(holder,0,0,0,color);},
     setFloor,setCompleted,
