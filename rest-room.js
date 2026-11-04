@@ -1,4 +1,4 @@
-/** Original Web Audio ambience: no recordings, requests, tracking or timers. */
+/** Rest ambience: synthesized nature sounds and the supplied local piano recording. */
 export function createRestRoom({audio, getBed, onEnter, onLeave, onPosture}) {
   const strip=document.createElement('section');
   strip.className='rest-room';strip.hidden=true;
@@ -11,15 +11,16 @@ export function createRestRoom({audio, getBed, onEnter, onLeave, onPosture}) {
   const leaveButton=strip.querySelector('.rest-room-leave');
   const poseButtons=[...strip.querySelectorAll('[data-rest-pose]')];
   const cleanup=[];
-  let bed=null, disposed=false, elapsed=0, selected='forest', lastSound='forest',posture='back',melodyStep=0;
+  let bed=null, disposed=false, elapsed=0, selected='forest', lastSound='forest',posture='back',musicPlayer=null;
   let generation=0, master=null, nodes=new Set(), sources=new Set(), noiseBuffer=null;
   let nextSound=0, starting=false;
-  const labels={forest:'숲소리로 쉬는 중',music:'직접 만든 잔잔한 선율과 쉬는 중',moktak:'목탁 소리로 쉬는 중',silent:'소리 없이 쉬는 중'};
+  const labels={forest:'숲소리로 쉬는 중',music:'잔잔한 피아노 음악과 쉬는 중',moktak:'목탁 소리로 쉬는 중',silent:'소리 없이 쉬는 중'};
   const listen=(target,type,fn)=>{target.addEventListener(type,fn);cleanup.push(()=>target.removeEventListener(type,fn));};
   const own=node=>{nodes.add(node);return node;};
 
   function stopAudio() {
     generation++;starting=false;
+    musicPlayer?.pause();
     for(const source of sources){source.onended=null;try{source.stop();}catch{}}
     for(const node of nodes){try{node.disconnect();}catch{}}
     sources.clear();nodes.clear();master=null;
@@ -81,26 +82,26 @@ export function createRestRoom({audio, getBed, onEnter, onLeave, onPosture}) {
     const strike=source(context.createBufferSource(),[filter,gain]);strike.buffer=noise(context);
     strike.connect(filter);filter.connect(gain);gain.connect(master);strike.start(now);strike.stop(now+.04);
   }
-  function music(context){
-    // Original slow pentatonic melody: soft sine tones, no sampled song or API.
-    const melody=[261.63,329.63,392,440,392,329.63,293.66,0];
-    const now=context.currentTime,frequency=melody[melodyStep%melody.length];
-    function note(frequency,volume,length){
-      const gain=own(context.createGain()),tone=source(context.createOscillator(),[gain]);
-      tone.type='sine';tone.frequency.setValueAtTime(frequency,now);
-      gain.gain.setValueAtTime(.0001,now);gain.gain.linearRampToValueAtTime(volume,now+.35);
-      gain.gain.exponentialRampToValueAtTime(.0001,now+length);
-      tone.connect(gain);gain.connect(master);tone.start(now);tone.stop(now+length+.05);
-    }
-    if(frequency){note(frequency,.18,3.8);note(frequency*2,.025,2.6);}
-    if(melodyStep%4===0){const chords=[[130.81,164.81,196],[110,130.81,164.81],[87.31,130.81,174.61],[98,146.83,196]];for(const f of chords[Math.floor(melodyStep/4)%4])note(f,.065,8.2);}
-    melodyStep++;
-  }
   async function startAudio() {
     stopAudio();
     if(!bed||disposed||document.hidden||selected==='silent')return;
     const ticket=generation;starting=true;
     try{
+      if(selected==='music'){
+        if(!musicPlayer){
+          musicPlayer=document.createElement('audio');
+          musicPlayer.src=new URL('./assets/audio/leberch-calm-piano-586711.mp3',import.meta.url).href;
+          musicPlayer.preload='none';musicPlayer.loop=true;musicPlayer.volume=.35;
+          listen(musicPlayer,'error',()=>{
+            if(bed&&selected==='music')status.textContent='음악을 불러오지 못했어요. 잔잔한 음악 버튼을 다시 눌러 주세요.';
+          });
+        }
+        if(musicPlayer.error)musicPlayer.load();
+        // Call play in the selection gesture, before awaiting Web Audio unlock.
+        await musicPlayer.play();
+        if(ticket!==generation||!bed||disposed||document.hidden)return;
+        starting=false;status.textContent=labels.music;return;
+      }
       const unlocked=await audio.unlock();
       if(ticket!==generation||!bed||disposed||document.hidden||selected==='silent')return;
       starting=false;
@@ -111,11 +112,10 @@ export function createRestRoom({audio, getBed, onEnter, onLeave, onPosture}) {
       master=own(context.createGain());master.gain.setValueAtTime(.0001,context.currentTime);
       master.gain.linearRampToValueAtTime(.08,context.currentTime+.5);master.connect(context.destination);
       if(selected==='forest'){forest(context);nextSound=1.6;}
-      else if(selected==='music'){melodyStep=0;music(context);nextSound=2.2;}
       else{moktak(context);nextSound=2.2;}
       status.textContent=labels[selected];
     }catch{
-      if(ticket===generation){stopAudio();status.textContent='소리 없이도 편하게 쉬어 가세요.';}
+      if(ticket===generation){stopAudio();status.textContent=selected==='music'?'소리가 안 들리면 잔잔한 음악 버튼을 다시 눌러 주세요.':'소리 없이도 편하게 쉬어 가세요.';}
     }
   }
   function refreshButtons(){
@@ -124,6 +124,7 @@ export function createRestRoom({audio, getBed, onEnter, onLeave, onPosture}) {
   }
   function choose(value){
     if(!Object.hasOwn(labels,value)||disposed)return;
+    if(value!==selected&&musicPlayer)musicPlayer.currentTime=0;
     selected=value;if(value!=='silent')lastSound=value;
     refreshButtons();if(bed)void startAudio();
   }
@@ -131,6 +132,7 @@ export function createRestRoom({audio, getBed, onEnter, onLeave, onPosture}) {
     if(!bed)return;
     const leaving=bed;bed=null;
     stopAudio();strip.hidden=true;document.body.classList.remove('resting');
+    if(musicPlayer)musicPlayer.currentTime=0;
     if(strip.contains(document.activeElement))document.activeElement.blur?.();
     onLeave?.(leaving);
   }
@@ -161,13 +163,12 @@ export function createRestRoom({audio, getBed, onEnter, onLeave, onPosture}) {
       nextSound-=step;
       if(nextSound<=0){
         if(selected==='forest'){bird(audio.context);nextSound=3.5+Math.random()*4;}
-        else if(selected==='music'){music(audio.context);nextSound=2.2;}
         else{moktak(audio.context);nextSound=2.1+Math.random()*.5;}
       }
     },
     setMuted(value){choose(value?'silent':lastSound);},
     getPosture:()=>posture,
     isOpen:()=>!!bed&&!disposed,
-    dispose(){if(disposed)return;close();disposed=true;stopAudio();cleanup.forEach(fn=>fn());strip.remove();noiseBuffer=null;}
+    dispose(){if(disposed)return;close();disposed=true;stopAudio();cleanup.forEach(fn=>fn());if(musicPlayer){musicPlayer.removeAttribute('src');musicPlayer.load();musicPlayer=null;}strip.remove();noiseBuffer=null;}
   };
 }

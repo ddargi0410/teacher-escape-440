@@ -25,6 +25,18 @@ function context(){
 }
 function fixture({defer=false}={}){
   const doc=createDocument();doc.body=doc.createElement('body');const events=new Map();
+  const media=[],createElement=doc.createElement.bind(doc);
+  doc.createElement=tag=>{
+    const element=createElement(tag);
+    if(tag==='audio'){
+      Object.assign(element,{paused:true,currentTime:0,plays:0,
+        play(){this.paused=false;this.plays++;return Promise.resolve();},
+        pause(){this.paused=true;},load(){this.released=true;},
+        removeAttribute(name){delete this[name];}});
+      media.push(element);
+    }
+    return element;
+  };
   doc.addEventListener=(n,fn)=>{if(!events.has(n))events.set(n,new Set());events.get(n).add(fn);};
   doc.removeEventListener=(n,fn)=>events.get(n)?.delete(fn);
   doc.dispatch=n=>{for(const fn of events.get(n)||[])fn();};globalThis.document=doc;
@@ -34,7 +46,7 @@ function fixture({defer=false}={}){
   const entered=[],left=[],poses=[];const bed={id:'bed-1',bedPose:{x:1,y:.8,z:2},exitPoint:{x:3,y:0,z:2}};
   const rest=createRestRoom({audio,getBed:id=>id==='bed-1'?bed:null,onEnter:b=>entered.push(b),onLeave:b=>left.push(b),onPosture:(b,pose)=>poses.push({bed:b.id,pose})});
   const strip=doc.body.querySelector('.rest-room');
-  return {rest,doc,ctx,audio,bed,entered,left,poses,strip,events,resolve,get unlocks(){return unlocks;},
+  return {rest,doc,ctx,audio,bed,entered,left,poses,strip,events,resolve,media,get unlocks(){return unlocks;},
     sound:value=>strip.querySelector(`[data-rest-sound="${value}"]`).click(),
     visible:flag=>{doc.hidden=!flag;doc.dispatch('visibilitychange');}};
 }
@@ -95,15 +107,25 @@ test('disposing releases input and visibility handlers and is idempotent',async(
 });
 
 
-test('original gentle music can be selected and all notes stop on exit or hidden tab',async()=>{
+test('the supplied piano loops, pauses with the tab, and stops on mute, switch or exit',async()=>{
   const f=fixture();f.rest.open('bed-1');await settle();f.sound('music');await settle();
-  assert.match(f.strip.querySelector('.rest-room-status').textContent,/잔잔한 선율/);
-  const active=f.ctx.nodes.filter(n=>n.kind==='oscillator'&&!n.disconnected);
-  assert.equal(active.length,5,'two melodic tones and three soft chord tones');
+  assert.match(f.strip.querySelector('.rest-room-status').textContent,/피아노 음악/);
+  const piano=f.media[0];assert.equal(f.media.length,1);
+  assert.ok(piano.src.endsWith('/assets/audio/leberch-calm-piano-586711.mp3'));
+  assert.equal(piano.loop,true);assert.equal(piano.paused,false);assert.equal(piano.volume,.35);
+  assert.ok(f.ctx.nodes.every(n=>n.disconnected),'forest stops when piano starts');
+  const count=f.ctx.nodes.length;
   for(let n=0;n<5;n++)f.rest.update(1);
-  assert.ok(f.ctx.nodes.filter(n=>n.kind==='oscillator').length>active.length);
-  f.visible(false);assert.ok(f.ctx.nodes.filter(n=>n.started).every(n=>n.stopped));
-  f.visible(true);await settle();f.rest.close();assert.ok(f.ctx.nodes.every(n=>n.disconnected));f.rest.dispose();
+  assert.equal(f.ctx.nodes.length,count,'the old synthesized melody does not run');
+  piano.currentTime=12;f.visible(false);assert.equal(piano.paused,true);
+  f.visible(true);await settle();assert.equal(piano.paused,false);assert.equal(piano.currentTime,12);
+  f.rest.setMuted(true);assert.equal(piano.paused,true);
+  const plays=piano.plays;f.visible(false);f.visible(true);await settle();assert.equal(piano.plays,plays);
+  f.rest.setMuted(false);await settle();assert.equal(piano.paused,false);
+  f.sound('moktak');await settle();assert.equal(piano.paused,true);
+  f.sound('music');await settle();assert.equal(f.media.length,1);assert.equal(piano.paused,false);
+  piano.currentTime=9;f.rest.close();assert.equal(piano.paused,true);assert.equal(piano.currentTime,0);
+  assert.ok(f.ctx.nodes.every(n=>n.disconnected));f.rest.dispose();assert.equal(piano.released,true);
 });
 
 test('back and side choices notify the world without restarting the rest session',async()=>{
