@@ -1,0 +1,74 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import {createChannels} from '../channels.js';
+import {freshState} from '../save.js';
+import {createDocument} from './dom-stub.mjs';
+
+const source=readFileSync(new URL('../game.js',import.meta.url),'utf8');
+// Run the production start/resume and HUD functions, plus their actual channel
+// constructor, without booting WebGL. Only the network boundary is simulated.
+function functionSource(name){
+  const start=source.indexOf(`function ${name}(`);
+  assert.notEqual(start,-1,`${name} exists`);
+  const next=source.indexOf('\nfunction ',start+1);
+  return source.slice(start,next===-1?undefined:next);
+}
+const channelsSource=source.split('\n').find(line=>line.trim().startsWith('channels=createChannels('));
+const noop=()=>{};
+const flush=async()=>{for(let n=0;n<20;n++)await Promise.resolve();};
+function setup(){
+  const document=createDocument();document.body=document.createElement('body');
+  document.body.innerHTML='<div id="home"></div><div id="hud"></div><div id="tutorial-title"></div><div id="tutorial-text"></div><div id="social-bar"><span id="social-status"></span><span id="social-nickname"></span><span id="social-connect-label"></span><button data-greet="wave"></button></div>';
+  let status={state:'offline',connected:false,count:0},saved;
+  const connections=[],chooser=[];
+  const presence={
+    getSnapshotStatus:()=>status,
+    disconnect(){status={state:'offline',connected:false,count:0};},
+    async connect({room,nickname}){connections.push({room,nickname});status={state:'online',room,nickname,connected:true,count:1};return true;}
+  };
+  const context={
+    state:freshState('수진의 퇴근'),mode:'home',document,presence,
+    $:selector=>document.body.querySelector(selector),$$:selector=>document.body.querySelectorAll(selector),
+    createChannels:options=>createChannels({...options,runtime:{document,fetch:async()=>({ok:false}),now:()=>0}}),
+    PRESENCE_ENDPOINT:'https://relay.example/api/presence',
+    rest:{close:noop,isOpen:()=>false},learning:{close:noop},channelUI:{close:noop,update:value=>chooser.push(value)},
+    messenger:{reset:noop,notifyMissionSuccess:noop},clearEncounter:noop,clearGreetingFeedback:noop,
+    world:{resetCrowd:noop,reset:noop,setCompleted:noop,setFloor:noop},
+    player:{setView:noop,resetCamera:noop,setFloor:noop},teacher:{visible:false},
+    applyQuality:noop,audio:{setEnabled:noop},updateSound:noop,updateHUD:noop,persist:noop,
+    loadGame:()=>saved,storageAvailable:()=>true,toast:noop,showCertificate:noop
+  };
+  vm.createContext(context);
+  vm.runInContext(functionSource('start')+'\n'+functionSource('onChannelChange')+'\n'+channelsSource,context);
+  return {context,connections,chooser,q:context.$,setSaved:value=>{saved=value;},dispose:()=>context.channels.dispose()};
+}
+
+test('actual game start, continue and channel switching send the entered saved nickname',async t=>{
+  const h=setup();t.after(h.dispose);
+  h.context.start(false);await flush();
+  assert.equal(h.connections.at(-1).nickname,'수진의 퇴근');
+  const saved={...freshState('이어서 하는 닉네임'),completed:[1,4],elapsed:321,penalty:5,bossDraft:'작성 중인 요청'};
+  h.setSaved(saved);h.context.start(true);await flush();
+  assert.equal(h.connections.at(-1).nickname,saved.name);
+  await h.context.channels.select(2);await flush();
+  assert.deepEqual(h.connections.map(item=>item.nickname),['수진의 퇴근','이어서 하는 닉네임','이어서 하는 닉네임']);
+  assert.deepEqual(h.context.state,saved,'nickname reconnects keep saved game progress intact');
+});
+
+test('HUD shows the exact connected nickname and uses saved nickname while offline',()=>{
+  const h=setup();
+  const connected={connected:true,selected:2,count:3,nickname:'실제로 전달한 <이름>'};
+  h.context.mode='play';h.context.onChannelChange(connected);
+  assert.equal(h.q('#social-nickname').textContent,'내 닉네임 · 실제로 전달한 <이름>');
+  assert.equal(h.q('#social-nickname').title,connected.nickname);
+  assert.equal(h.chooser.at(-1).nickname,connected.nickname);
+  assert.equal(h.q('#social-bar').hidden,false);
+  assert.equal(h.q('[data-greet]').disabled,false);
+  h.context.onChannelChange({connected:false,offline:true,nickname:''});
+  assert.equal(h.q('#social-nickname').textContent,'내 닉네임 · 수진의 퇴근');
+  assert.equal(h.chooser.at(-1).nickname,'수진의 퇴근');
+  assert.equal(h.q('[data-greet]').disabled,true);
+  h.dispose();
+});

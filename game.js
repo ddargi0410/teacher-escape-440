@@ -12,7 +12,7 @@ import {createLearningRoom} from './learning-room.js';
 import {createRestRoom} from './rest-room.js';
 import {createPresence} from './presence.js';
 import {createChannels} from './channels.js';
-import {createChannelUI} from './channels-ui.js';
+import {createChannelUI} from './channels-ui.js?v=20261104-nickname2';
 import {PRESENCE_ENDPOINT} from './presence-config.js';
 import {freshState,loadGame,saveGame,storageAvailable} from './save.js';
 import {AudioManager} from './audio.js';
@@ -142,14 +142,14 @@ function onPresenceStatus(next){channels?.handlePresenceStatus(next);}
 function onChannelChange(next){
  if(!next.connected)clearGreetingFeedback();
  const label=next.connected?`채널 ${next.selected} · 함께 ${next.count}명`:next.loading?'채널 연결 중…':next.offline?'혼자 쉬는 중':'연결을 확인 중…';
- $('#social-status').textContent=label;$('#social-status').title=`내 닉네임: ${state.name}`;$('#social-bar').hidden=mode!=='play';
+ $('#social-status').textContent=label;const nickname=next.connected?next.nickname:state.name;$('#social-nickname').textContent=`내 닉네임 · ${nickname||state.name}`;$('#social-nickname').title=nickname||state.name;$('#social-bar').hidden=mode!=='play';
  $('#social-connect-label').textContent=next.connected?`채널 ${next.selected}`:'채널';
  $$('[data-greet]').forEach(button=>button.disabled=!next.connected);
- channelUI.update(next);
+ channelUI.update({...next,nickname:next.nickname||state.name});
 }
 function showTogether(){
  if(mode!=='play'||!overlay.hidden||missions.isOpen()||arcade.isOpen()||learning.isOpen()||encounter)return;
- messenger.suspend();player?.setActive(false);channelUI.open(channels.getSnapshot());void channels.refresh();
+ messenger.suspend();player?.setActive(false);channelUI.open({...channels.getSnapshot(),nickname:channels.getSnapshot().nickname||state.name});void channels.refresh();
 }
 async function reconnectChannels(){const bed=restingBed?.id;const ok=await channels.start();if(ok&&mode==='play'){channelUI.close();if(bed)lieDown(bed);}}
 async function selectChannel(id){

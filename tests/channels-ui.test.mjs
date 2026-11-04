@@ -63,3 +63,15 @@ test('keyboard focus stays in the picker and Escape closes without triggering sc
   assert.equal(prevented,2);assert.equal(stopped,2);assert.deepEqual(events,[['close']]);
   ui.close();ui.dispose();ui.dispose();assert.deepEqual(events,[['close']]);
 });
+
+
+test('the channel header shows the actual nickname as safe text and follows name updates',()=>{
+  const {q,ui,state,container}=setup({nickname:'<수진> & "퇴근"'});
+  assert.equal(q('.channel-nickname').textContent,'내 닉네임: <수진> & "퇴근"');
+  assert.equal(container.querySelectorAll('script').length,0);
+  ui.update({...state,nickname:'다음 출근 닉네임',offline:true,connected:false});
+  assert.equal(q('.channel-nickname').textContent,'내 닉네임: 다음 출근 닉네임');
+  ui.update({...state,nickname:''});
+  assert.equal(q('.channel-nickname').textContent,'입력한 닉네임으로 함께해요');
+  assert.doesNotMatch(q('.channel-nickname').textContent,/퇴근동료|퇴근 동료/);
+});
