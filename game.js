@@ -7,6 +7,7 @@ import {createMissionUI} from './missions-ui.js';
 import {createMinigameRunner} from './minigames/runner.js';
 import {NPC_LINES,getKnowledgeDetails,getArcadeData} from './minigames/content.js';
 import {createWorldFeedback} from './world-feedback.js';
+import {createSchoolMessenger} from './messenger.js';
 import {freshState,loadGame,saveGame,storageAvailable} from './save.js';
 import {AudioManager} from './audio.js';
 import {downloadCertificate,copyText} from './certificate.js';
@@ -23,6 +24,7 @@ let frame=0,saveClock=0,toastTimer,tutorialTime=0,endingTime=0,lastFocus=null,ov
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let sun,ambient,feedback;
 let encounter=null,npcSpeechClock=0,lastSpokenNPC=null;
+const messenger=createSchoolMessenger({getState:()=>state,onLocate:id=>{if(!busy())travelToMission(id)},onSound:()=>audio.play('notify')});
 const arcade=createMinigameRunner({container:$('#minigame-overlay'),onSuccess:recordSuccess,onFailure:missionFailure,onClose:()=>{activeMission=null;player?.setActive(mode==='play'&&overlay.hidden);}});
 function missionFailure(id,payload){state.penalty=Math.min(320,state.penalty+5);persist();audio.play('error');updateHUD();if(id>3)toast('✗ 퇴근 +5분 · 다시 도전해요.');}
 function recordSuccess(id,payload){
@@ -33,7 +35,7 @@ function recordSuccess(id,payload){
 function clearEncounter(){encounter=null;document.body.classList.remove('stumbling');if(teacher)teacher.rotation.z=0;feedback?.clear();}
 function onCrowdEvent(event){
  if(busy())return;
- if(event.type==='message'){feedback.notify(event.text);audio.play('notify');return;}
+ if(event.type==='message'){if(tutorialTime<=0)messenger.request();return;}
  encounter={...event,remaining:event.duration};feedback.speak(()=>world.getCharacterAnchor(event.actor),event.text);
  if(event.type==='principal'){state.penalty=Math.min(320,state.penalty+1);persist();updateHUD();audio.play('notify');}
  else{document.body.classList.add('stumbling');audio.play('error');}
@@ -50,6 +52,7 @@ const missions=createMissionUI({container:$('#mission-overlay'),getDraft:()=>sta
 });
 
 function showPanel(kind,html,wide=false){
+ messenger.suspend();
  lastFocus=document.activeElement;overlayKind=kind;overlay.innerHTML=`<section class="panel${wide?' wide':''}" role="dialog" aria-modal="true" aria-labelledby="panel-title">${html}</section>`;overlay.hidden=false;player?.setActive(false);
  overlay.querySelectorAll('[data-close]').forEach(b=>b.onclick=closePanel);
  requestAnimationFrame(()=>overlay.querySelector('input,button,select,textarea')?.focus());
@@ -67,22 +70,25 @@ function opening(){
 }
 function start(resume=true){
  if(resume)state=loadGame()||state;
+ messenger.reset();
  clearEncounter();world.resetCrowd?.();if(!state.finished)world.reset?.();player.setView(false);player.resetCamera();$('#tutorial-title').textContent='W A S D로 걸어 보세요';$('#tutorial-text').textContent='빛나는 표식이 오늘 처리할 업무입니다.';
  mode='play';$('#home').hidden=true;$('#hud').hidden=false;document.body.classList.add('playing');world.setCompleted(state.completed);world.setFloor(state.floor);player.setFloor(state.floor);teacher.visible=true;applyQuality();audio.setEnabled(state.settings.sound);updateSound();updateHUD();persist();
  if(state.finished)showCertificate();
  else if(!storageAvailable())toast('이 브라우저에서는 자동 저장이 제한됩니다. 현재 창을 유지해 주세요.');
 }
-function home(){persist();clearEncounter();arcade.close();closePanel();missions.close();mode='home';$('#home').hidden=false;$('#hud').hidden=true;document.body.classList.remove('playing');world.setFloor(null);teacher.visible=false;player.setActive(false);$('#continue-game').hidden=!loadGame();$('#tutorial').hidden=true}
+function home(){persist();messenger.reset();clearEncounter();arcade.close();closePanel();missions.close();mode='home';$('#home').hidden=false;$('#hud').hidden=true;document.body.classList.remove('playing');world.setFloor(null);teacher.visible=false;player.setActive(false);$('#continue-game').hidden=!loadGame();$('#tutorial').hidden=true}
 function changeFloor(floor){clearEncounter();lastSpokenNPC=null;state.floor=floor;world.setFloor(floor);player.setFloor(floor);updateHUD();persist();audio.play('click')}
 function elevator(){showPanel('elevator',`${closeButton}<div class="eyebrow">ELEVATOR · 교직원 전용</div><h2 id="panel-title">몇 층 업무부터 처리할까요?</h2><p>층 이동은 무료입니다. 업무만 유료입니다. 당신의 시간으로.</p><div class="elevator-floors">${[5,4,3,2,1].map(f=>`<button data-floor="${f}"><b>${f}F</b><span>${floorNames[f]}</span><small>${state.floor===f?'현재 층':'이동 →'}</small></button>`).join('')}</div>`);$$('[data-floor]').forEach(b=>b.onclick=()=>{changeFloor(Number(b.dataset.floor));closePanel()})}
 function openMission(id){
  if(state.completed.includes(id)){showKnowledge(id);return}
  if(id===10&&state.completed.length<9){toast(`교문 결재 대기 · 먼저 1–9번 업무를 마쳐 주세요. (${state.completed.length}/9)`);return}
+ messenger.suspend();
  activeMission=id;$('#tutorial').hidden=true;tutorialTime=0;player.setActive(false);audio.play('click');if(id<=3){arcade.open({...MISSIONS.find(m=>m.id===id),runtime:{playSound:type=>audio.play(type)}});}else missions.open(id);
 }
 function interact(){if(busy())return;updateInteraction();if(nearest?.id==='elevator')elevator();else if(nearest?.missionId)openMission(nearest.missionId);else toast('빛나는 표식 가까이 다가가세요. 지도(M)에서 바로 이동할 수도 있어요.')}
 function showMap(){showPanel('map',`${closeButton}<div class="eyebrow">SCHOOL MAP · FAST TRAVEL</div><h2 id="panel-title">업무 동선은 짧을수록 좋습니다.</h2><p>장소를 누르면 그 방 입구로 이동합니다. 도착 후 NPC에게 다가가 E를 누르세요.</p><div class="mission-list">${MISSIONS.map(m=>`<button class="mission-row ${state.completed.includes(m.id)?'done':''} ${m.id===10?'boss':''}" data-go="${m.id}"><span class="number">${String(m.id).padStart(2,'0')}</span><div><h3>${esc(m.id<=3?getArcadeData(m).arcade.title:m.shortTitle||m.title)}</h3><small>${m.floor}F · ${esc(m.room)}</small></div><span class="status">${state.completed.includes(m.id)?'✓ 결재':m.id===10&&state.completed.length<9?'잠김':'→'}</span></button>`).join('')}</div><div class="notice">10번 업무는 1–9번을 모두 완료하면 열립니다. 길을 잃어도 걱정 마세요. 지도 이동에는 벌칙이 없습니다.</div>`,true);
- $$('[data-go]').forEach(b=>b.onclick=()=>{const m=MISSIONS.find(m=>m.id===+b.dataset.go);changeFloor(m.floor);const item=world.interactables.find(i=>i.missionId===m.id);if(item)player.teleport({x:item.x,y:item.y,z:item.z+2.2});closePanel();toast(`${m.room} 도착 · 가까운 표식에서 E를 눌러 주세요.`)})}
+ $$('[data-go]').forEach(b=>b.onclick=()=>travelToMission(+b.dataset.go))}
+function travelToMission(id){const m=MISSIONS.find(m=>m.id===id);if(!m)return;changeFloor(m.floor);const item=world.interactables.find(i=>i.missionId===id);if(item)player.teleport({x:item.x,y:item.y,z:item.z+2.2});closePanel();toast(`${m.room} 도착 · 가까운 표식에서 E를 눌러 주세요.`)}
 function cardMarkup(m){return `<article class="knowledge-card"><div class="card-top"><span>KNOW-HOW ${String(m.id).padStart(2,'0')}</span><span>✓ 결재 완료</span></div><h3>${esc(m.card.title.replace(/^\d+\s*·\s*/,''))}</h3><p>${esc(m.card.body)}</p>${m.id<=3?`<details class="knowledge-details"><summary>문항·정답·해설 펼치기</summary>${getKnowledgeDetails(m).map(x=>`<p><strong>${esc(x.question)}</strong>${x.answer?`<br>정답: ${esc(x.answer)}`:''}<br>${esc(x.explanation)}</p>`).join('')}</details>`:''}</article>`}
 function showKnowledge(id){const m=MISSIONS.find(m=>m.id===id);showPanel('card',`${closeButton}<div class="eyebrow">KNOW-HOW CARD</div><h2 id="panel-title">이미 훌륭하게 처리한 업무예요.</h2>${cardMarkup(m)}<div class="actions"><button class="primary" data-close>다음 업무로 →</button></div>`)}
 function bag(){showPanel('bag',`${closeButton}<div class="eyebrow">MY KNOW-HOW · ${state.completed.length} / 10</div><h2 id="panel-title">퇴근길에 챙겨 갈 것들.</h2><p>어디서나 다시 보는 바이브 코딩 노하우. 수업자료 실습에서도 꺼내 쓰세요.</p><div class="bag-grid">${MISSIONS.map(m=>state.completed.includes(m.id)?cardMarkup(m):`<div class="empty-card">${String(m.id).padStart(2,'0')} · ${esc(m.room)}<br><br>이 업무를 마치면 카드가 열립니다.</div>`).join('')}</div>${state.bossDraft?'<div class="actions"><button class="secondary" id="bag-copy">내 프롬프트 복사하기 ↗</button></div>':''}`,true);if($('#bag-copy'))$('#bag-copy').onclick=copyPrompt}
@@ -100,7 +106,7 @@ function updateHUD(){
 function updateSound(){$$('.sound-toggle').forEach(b=>{b.querySelector('span').textContent=state.settings.sound?'ON':'OFF';b.setAttribute('aria-label',state.settings.sound?'소리 끄기':'소리 켜기')})}
 function applyQuality(){const quality=state.settings.quality;renderer.setPixelRatio(renderer.isSoftware?(quality==='low'?.65:quality==='high'?1:.85):Math.min(devicePixelRatio,quality==='low'?1:quality==='high'?2:1.35));renderer.shadowMap.enabled=quality!=='low'&&!renderer.isSoftware;sun.shadow.mapSize.set(quality==='high'?2048:1024,quality==='high'?2048:1024);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}renderer.setSize(innerWidth,innerHeight);scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}
 async function copyPrompt(){const ok=await copyText(state.bossDraft);toast(ok?'프롬프트를 복사했습니다. AI 대화창에 붙여 넣고 실습을 시작하세요.':'복사가 제한되었습니다. 아래 프롬프트를 길게 눌러 복사해 주세요.')}
-function beginEnding(){clearEncounter();arcade.close();missions.close();closePanel();mode='ending';endingTime=0;$('#hud').hidden=true;$('#ending-caption').hidden=false;world.setFloor(null);world.openGate();world.car.position.set(7,0,22);world.car.rotation.y=Math.PI/2;teacher.visible=false;player.setActive(false);audio.play('ending');persist()}
+function beginEnding(){messenger.reset();clearEncounter();arcade.close();missions.close();closePanel();mode='ending';endingTime=0;$('#hud').hidden=true;$('#ending-caption').hidden=false;world.setFloor(null);world.openGate();world.car.position.set(7,0,22);world.car.rotation.y=Math.PI/2;teacher.visible=false;player.setActive(false);audio.play('ending');persist()}
 function showCertificate(){mode='certificate';$('#ending-caption').hidden=true;$('#hud').hidden=true;player.setActive(false);
  showPanel('certificate',`<div class="certificate-header"><div class="seal">↗</div><div class="eyebrow" style="justify-content:center;margin-top:20px">OFFICIALLY OFF DUTY</div><h2 id="panel-title">퇴근 증명서</h2><p><strong>${esc(state.name.endsWith('선생님')?state.name:state.name+' 선생님')}</strong>,<br>업무 10건을 모두 처리하셨습니다.<br>이제 당신의 저녁으로 돌아가세요.</p></div><div class="end-stats"><div><small>실제 플레이</small><strong>${time(state.elapsed)}</strong></div><div><small>게임 속 퇴근</small><strong>${departure()}</strong></div><div><small>모은 노하우</small><strong>10 / 10</strong></div></div><p class="notice">${esc(MissionData.STORY?.ending?.[0]||'오늘 배운 내용을 내일의 수업으로. 마지막 단계는 저장하고 퇴근하기입니다.')}</p><div class="actions"><button class="primary" id="download-certificate">퇴근 증명서 이미지 저장 ↓</button><button class="secondary" id="copy-final">내 프롬프트 복사 ↗</button></div><label for="final-prompt">실습에 바로 쓰는 나의 프롬프트</label><textarea id="final-prompt" readonly>${esc(state.bossDraft)}</textarea><p>아래 프롬프트는 내가 작성한 요청문입니다. 실제 교육자료 생성·실행·내용 검증은 이어지는 실습에서 진행해 주세요.</p><div class="bag-grid">${MISSIONS.map(cardMarkup).join('')}</div><div class="actions"><button class="secondary" id="end-home">첫 화면으로</button><button class="secondary" id="end-replay">다시 도전하기</button></div>`,true);
  $('#download-certificate').onclick=async()=>{try{await downloadCertificate(state,MISSIONS);toast('퇴근 증명서를 PNG 이미지로 저장했습니다.')}catch{toast('이미지 저장이 제한됩니다. 현재 화면을 캡처해 주세요.')}};$('#copy-final').onclick=copyPrompt;$('#end-home').onclick=home;$('#end-replay').onclick=newGame;
@@ -144,17 +150,18 @@ function loop(ms){requestAnimationFrame(loop);const elapsedDt=Math.min(1,(ms-(fr
  }
  if(mode!=='home'){const target=Math.min(.7,state.penalty/320);nightAmount+=(target-nightAmount)*dt*.4;const c=new THREE.Color('#e9eadb').lerp(new THREE.Color('#445470'),nightAmount);scene.background.copy(c);scene.fog.color.copy(c);ambient.intensity=2.7-nightAmount*1.6;sun.intensity=3.1-nightAmount*2.5;}else{scene.background.set('#e9eadb');scene.fog.color.set('#e9eadb');ambient.intensity=2.7;sun.intensity=3.1;}
  world.update(dt,t,state.completed);if(!arcade.isOpen())renderer.render(scene,camera);feedback?.update(elapsedDt,mode==='play'&&overlay.hidden&&!missions.isOpen()&&!arcade.isOpen()&&!document.hidden);
+ messenger.update(elapsedDt,!busy()&&tutorialTime<=0&&!state.finished);
 }
 $('#start').onclick=newGame;$('#continue-game').onclick=()=>start(true);$('#home-guide').onclick=guide;$('#pause-button').onclick=pause;$('#map-button').onclick=()=>{if(!busy())showMap()};$('#bag-button').onclick=()=>{if(!busy())bag()};$('#hint-button').onclick=hint;$('#interact-button').onclick=interact;$('#touch-interact').onclick=interact;$('#tutorial-skip').onclick=()=>{tutorialTime=0;$('#tutorial').hidden=true};
 $$('.sound-toggle').forEach(b=>b.onclick=()=>{state.settings.sound=!state.settings.sound;audio.setEnabled(state.settings.sound);audio.unlock();audio.play('click');updateSound();persist()});
 window.addEventListener('keydown',e=>{
  const input=e.target.closest?.('input,textarea,select,[contenteditable=true]');
  if(e.key==='Tab'&&(!overlay.hidden||missions.isOpen()||arcade.isOpen())){const root=arcade.isOpen()?$('#minigame-overlay'):missions.isOpen()?$('#mission-overlay'):overlay;const focusable=[...root.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea,select,[tabindex="0"]')].filter(x=>x.offsetParent!==null);if(focusable.length){const first=focusable[0],last=focusable.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}
- if(e.code==='Escape'){if(arcade.isOpen()){arcade.close();return}if(missions.isOpen()){missions.close();activeMission=null;if(!state.finished)player.setActive(true)}else if(!overlay.hidden&&overlayKind!=='certificate'&&overlayKind!=='opening')closePanel();else pause();return}
+ if(e.code==='Escape'){if(arcade.isOpen()){arcade.close();return}if(missions.isOpen()){missions.close();activeMission=null;if(!state.finished)player.setActive(true)}else if(!overlay.hidden&&overlayKind!=='certificate'&&overlayKind!=='opening')closePanel();else if(messenger.isOpen())messenger.dismiss();else pause();return}
  if(input||e.repeat)return;
  if(!input&&e.code==='KeyH'&&mode==='play'){e.preventDefault();hint();return}
  if(busy())return;
  if(e.code==='KeyE'){e.preventDefault();interact()}else if(e.code==='KeyJ'){e.preventDefault();bag()}else if(e.code==='KeyM'){e.preventDefault();showMap()}else if(e.code==='Digit0'){player.setView(!player.firstPerson);toast(player.firstPerson?'1인칭 · 드래그로 둘러보세요.':'3인칭 · 선생님을 따라가는 시점')}else if(e.code==='KeyP')pause();
 });
-window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.hidden){persist();player?.setActive(false)}});
+window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.hidden){persist();messenger.suspend();player?.setActive(false)}});
 init();
