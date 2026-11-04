@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#263f3b"><meta name="description" content="퇴근을 건 10가지 미션! 학교를 직접 탐험하며 바이브 코딩을 배우는 초등교사 연수용 3D 게임.">
+<title>4시 40분의 기적 — 바이브 코딩으로 학교 탈출</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23263f3b'/%3E%3Ctext x='32' y='44' text-anchor='middle' font-size='38'%3E↗%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./missions.css">
+</head>
+<body>
+<canvas id="world" aria-label="노을 진 퇴근초등학교 3D 탐험 화면"></canvas>
+<div class="scene-shade" aria-hidden="true"></div>
+<main id="home">
+ <header class="topbar"><a class="brand" href="./"><span class="brand-icon">↗</span><span>AFTER SCHOOL<br><small>교사를 위한 작은 탈출</small></span></a><div class="top-actions"><button class="text-button" id="home-guide">게임 안내 <span>↗</span></button><button class="sound-toggle" aria-label="소리 켜기">♫ <span>OFF</span></button></div></header>
+ <section class="hero"><div class="hero-copy"><div class="eyebrow"><i></i> TEACHERS ONLY · VIBE CODING ADVENTURE</div><p class="hero-kicker">4시 40분의 기적</p><h1>수업은 끝났다.<br>이제 <em>퇴근</em>을<br>배울 시간.</h1><p class="hero-description">“선생님, 퇴근 전에 잠깐만요.”<br>오늘도 그 한마디에 교문이 잠겼다.<br><strong>바이브 코딩으로 10개의 업무를 끝내고 탈출하라!</strong></p><div class="hero-buttons"><button id="start" class="primary large">출근… 아니, 게임 시작 <span>↗</span></button><button id="continue-game" class="secondary" hidden>이어서 퇴근하기</button></div><div class="play-meta"><span>◷ 약 15–20분</span><span>⌘ PC · 태블릿</span><span>♧ 코딩 몰라도 OK</span></div></div>
+ <div class="scene-caption"><span class="status-dot"></span> 퇴근초등학교 <small>5층 · 오늘도 정상 근무 중</small></div>
+ <div class="message-slip"><span class="slip-pin"></span><small>교내 메신저 · 16:29</small><p>선생님, 간단한 거예요.<br><b>오늘 중으로만 부탁드려요 ^^</b></p><span>읽음 1 · 답장할 기력 0</span></div>
+ <div class="scene-orbit">실시간 3D 학교 <span>✦</span> 선생님들의 퇴근을 응원합니다</div>
+ </section>
+ <footer class="home-footer"><div><b>10</b><span>가지 미션<br><strong>업무를 끝내면 지식이 남는다</strong></span></div><div><b>05</b><span>층의 학교<br><strong>교실부터 최종 보스 교문까지</strong></span></div><div><b>∞</b><span>번의 재도전<br><strong>틀려도 괜찮아요. 야근만 늘어요.</strong></span></div><p>오늘의 학습 목표<br><strong>AI에게 잘 부탁하고, 제대로 확인하기.</strong></p></footer>
+</main>
+<section id="hud" hidden aria-label="게임 상태">
+ <div class="hud-top"><div class="location-panel"><span class="eyebrow">AFTER SCHOOL · <b id="floor-label">5F</b></span><h2 id="location-title">퇴근초등학교</h2><p id="objective">빛나는 업무 표식을 찾아가세요.</p></div><div class="progress-panel"><div><span>퇴근 결재</span><b id="progress-label">0 / 10</b></div><div id="progress-stamps"></div><small id="progress-caption">아직 퇴근할 수 없습니다.</small></div><div class="clock-panel"><span>예상 퇴근 시각 <small>게임 속 시계</small></span><strong id="departure">16:40</strong><div><span id="playtime">00:00</span><button id="pause-button" aria-label="일시정지">Ⅱ</button></div></div></div>
+ <div class="floor-rail" aria-label="층 안내"><span>FLOOR</span><div id="floor-buttons"></div><button id="map-button" title="학교 지도">지도<br><kbd>M</kbd></button></div>
+ <div id="tutorial" hidden><span class="tutorial-label">30초 퇴근 준비 운동</span><b id="tutorial-title">W A S D로 걸어 보세요</b><p id="tutorial-text">빛나는 표식이 오늘 처리할 업무입니다.</p><div><span id="tutorial-time">30초</span><button id="tutorial-skip">알겠어요 · 닫기</button></div></div>
+ <div id="interaction" hidden><span class="interact-icon">✦</span><div><small id="interact-kind">업무 접수</small><b id="interact-label"></b></div><button id="interact-button"><kbd>E</kbd> 살펴보기</button></div>
+ <div class="hud-bottom"><div class="hud-tools"><button id="bag-button">▣ <span>노하우 가방</span> <kbd>J</kbd><b id="bag-count">0</b></button><button id="hint-button">✧ <span>힌트</span> <kbd>H</kbd></button></div><div class="keyboard-guide"><span><kbd>WASD</kbd> 걷기</span><span>드래그 · 시선</span><span><kbd>0</kbd> 시점</span><span><kbd>Shift</kbd> 빠르게</span></div><button class="sound-toggle" aria-label="소리 켜기">♫ <span>OFF</span></button></div>
+ <div id="touch-controls"><div id="joystick" aria-label="이동 조이스틱"><span id="joystick-knob"></span></div><div class="touch-guide">왼쪽 이동 · 화면 드래그로 시선</div><button id="touch-interact" aria-label="가까운 대상 조사">E<br>조사</button></div>
+</section>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="app-overlay" class="overlay" hidden></div><div id="mission-overlay" class="overlay" hidden></div>
+<div id="ending-caption" hidden><span>업무 종료.</span><h2>선생님도, 하교합니다.</h2><p>내일의 일은 내일의 나에게.</p></div>
+<div id="boot-error" hidden role="alert"></div>
+<noscript><div class="noscript">이 게임을 실행하려면 브라우저의 JavaScript를 켜 주세요.</div></noscript>
+<script type="module" src="./game.js"></script>
+</body></html>
