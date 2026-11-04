@@ -4,11 +4,19 @@ import {getArcadeData} from './content.js';
 const loaders = {
   1: () => import('./m01.js'),
   2: () => import('./m02.js'),
-  3: () => import('./m03.js')
+  3: () => import('./m03.js'),
+  4: () => import('./m04.js'),
+  5: () => import('./m05.js'),
+  6: () => import('./m06.js'),
+  7: () => import('./m07.js'),
+  8: () => import('./m08.js'),
+  9: () => import('./m09.js'),
+  10: () => import('./m10.js')
 };
-export function createMinigameRunner({container,onSuccess,onFailure,onClose,loaders:moduleLoaders=loaders}) {
+export function createMinigameRunner({container,onSuccess,onFailure,onClose,onDraft,loaders:moduleLoaders=loaders}) {
   let current=null, controller=null, generation=0, timer=null, awarded=false;
-  const stop=()=>{clearTimeout(timer);timer=null;controller?.destroy?.();controller=null;};
+  let removeDraftListener=()=>{};
+  const stop=()=>{clearTimeout(timer);timer=null;if(current===10&&controller?.getDraft)onDraft?.(controller.getDraft());removeDraftListener();removeDraftListener=()=>{};controller?.destroy?.();controller=null;};
   function close(){
     if(current===null)return;
     generation++;stop();current=null;container.hidden=true;container.replaceChildren();
@@ -20,6 +28,9 @@ export function createMinigameRunner({container,onSuccess,onFailure,onClose,load
     container.innerHTML='<div class="arcade-mount"></div><button class="arcade-exit" aria-label="미니게임 나가기">×</button><span class="arcade-loading" role="status">◌</span>';
     container.querySelector('.arcade-exit').onclick=close;
     const mount=container.querySelector('.arcade-mount');
+    const draftListener=event=>{if(token===generation&&current===10&&typeof event.detail?.prompt==='string')onDraft?.(event.detail.prompt);};
+    mount.addEventListener?.('boss-draft',draftListener);
+    removeDraftListener=()=>mount.removeEventListener?.('boss-draft',draftListener);
     try{
       const module=await moduleLoaders[data.id]();
       if(token!==generation)return;

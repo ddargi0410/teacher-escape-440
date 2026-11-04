@@ -1,3 +1,5 @@
+import {getStage2Arcade} from './stage2-content.js';
+
 /*
  * Mini-game presentation copy. The complete questions, choices, answers and
  * explanations remain unchanged in ../missions-data.js.
@@ -116,6 +118,7 @@ export function getArcadeData(mission) {
       }))
     };
   }
+  arcade ||= getStage2Arcade(mission);
   return { ...mission, ...(arcade ? { arcade } : {}) };
 }
 
@@ -149,6 +152,7 @@ export function getKnowledgeDetails(mission) {
     }
   }
   if (mission.repair) details.push({ question: mission.repair.q, answer: mission.repair.options?.[mission.repair.answer], explanation: mission.repair.explanation });
+  details.push(...(getStage2Arcade(mission)?.details || []));
   if (mission.explanation) details.push({ question: '이 업무의 핵심', explanation: mission.explanation });
   return details;
 }

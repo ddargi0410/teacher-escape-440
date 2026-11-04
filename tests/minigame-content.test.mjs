@@ -55,11 +55,11 @@ test('NPC lines fit one 25-character bubble and all ten missions have lines', ()
   for (const lines of Object.values(NPC_LINES)) assert.ok(lines.every(line => length(line) <= 25));
 });
 
-test('adapters do not mutate source missions and 4–10 have no arcade override', () => {
+test('adapters do not mutate source missions and all ten have isolated arcade data', () => {
   const before = JSON.stringify(MISSIONS);
   for (const mission of MISSIONS) {
     const presentation = getArcadeData(mission);
-    if (mission.id > 3) assert.equal(presentation.arcade, undefined);
+    assert.ok(presentation.arcade?.title);
     const details = getKnowledgeDetails(mission);
     assert.ok(details.some(d => d.explanation === mission.explanation));
   }

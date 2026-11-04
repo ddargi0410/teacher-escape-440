@@ -36,7 +36,7 @@ function normalize(value) {
   state.elapsed = number(value.elapsed, 0, 0, 604800);
   state.penalty = number(value.penalty, 0, 0, 320);
   state.floor = Math.round(number(value.floor, 5, 1, 5));
-  state.bossDraft = typeof value.bossDraft === 'string' ? value.bossDraft.slice(0, 12000) : '';
+  state.bossDraft = typeof value.bossDraft === 'string' ? value.bossDraft : '';
   state.beginnerLearned = value.beginnerLearned === true;
   state.finished = value.finished === true && state.completed.length === 10;
   const settings = value.settings || {};
@@ -62,7 +62,7 @@ export function storageAvailable() {
 export function loadGame() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw || raw.length > 50000) return null;
+    if (!raw) return null;
     return normalize(JSON.parse(raw));
   } catch {
     return null;

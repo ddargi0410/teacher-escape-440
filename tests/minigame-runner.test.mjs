@@ -28,16 +28,17 @@ function fixture(loaders) {
     };
     return node;
   };
-  const success = [], failure = [];
+  const success = [], failure = [], drafts = [];
   let closes = 0;
   globalThis.document = doc;
   const runner = createMinigameRunner({
     container, loaders,
     onSuccess: (...args) => success.push(args),
     onFailure: (...args) => failure.push(args),
+    onDraft: value => drafts.push(value),
     onClose: () => closes++
   });
-  return { doc, container, runner, success, failure, listeners, get closes() { return closes; } };
+  return { doc, container, runner, success, failure, drafts, listeners, get closes() { return closes; } };
 }
 
 function fakeModule() {
@@ -154,5 +155,25 @@ test('a module load failure leaves a working exit and does not award anything', 
   f.container.querySelector('.arcade-exit').click();
   assert.equal(f.runner.isOpen(), false);
   assert.equal(f.closes, 1);
+  f.runner.dispose();
+});
+
+test('all seven new missions use their own module and preserve the boss draft on close', async () => {
+  const modules = Object.fromEntries(Array.from({length:7},(_,i)=>[i+4,fakeModule()]));
+  const f=fixture(Object.fromEntries(Object.entries(modules).map(([id,module])=>[id,async()=>module])));
+  for(let id=4;id<=10;id++){
+    const draft=id===10?'초등학교 5학년 생태 퀴즈를 HTML 파일로 만들어 줘.':'';
+    if(id===10){const original=modules[id].start;modules[id].start=args=>({...original(args),getDraft:()=>draft+' 수정 중'});}
+    await f.runner.open({...MISSIONS[id-1],initialPrompt:draft});
+    assert.equal(modules[id].starts.length,1);
+    assert.equal(modules[id].starts[0].data.id,id);
+    assert.ok(modules[id].starts[0].data.arcade.title);
+    assert.equal(modules[id].starts[0].data.initialPrompt,draft);
+    f.runner.close();
+  }
+  assert.equal(f.drafts.length,1);
+  assert.match(f.drafts[0],/수정 중$/);
+  assert.equal(f.success.length,0);
+  assert.equal(f.failure.length,0);
   f.runner.dispose();
 });
