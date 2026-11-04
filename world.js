@@ -3,6 +3,7 @@ import {createCrowd,animateCharacter} from './crowd.js';
 import {createSchoolDetails} from './school-details.js';
 import {roomFrontWallSegments} from './stairs.js';
 import {characterAppearance} from './character-appearance.js';
+import {createOvertimeWorld} from './overtime-world.js';
 
 // A small, entirely procedural school. No downloaded models or textures.
 const COLORS = {
@@ -470,6 +471,7 @@ export function createWorld(scene) {
   const aerial=cyl(roof,10,1.1,4,.035,.035,2.2,'#e6dbc1',6);box(roof,10,2,4,1.1,.06,.06,'#e6dbc1');
 
   const crowd=createCrowd({floors,questObjects,teacher,mesh,geo,mat});
+  const overtime=createOvertimeWorld({root:world,floors,teacher,box,mesh,geo,mat});
 
   // Merge fixed scenery by material. The detailed school stays inexpensive to
   // draw, while NPCs, quest markers, lift sprites, car and gate remain movable.
@@ -477,6 +479,7 @@ export function createWorld(scene) {
   const moving=new Set([car,gateLeft,gateRight,flag]);
   for(const q of animated)for(const object of [q.npc,q.ring,q.crystal,q.number])moving.add(object);
   for(const actor of crowd.actors)moving.add(actor.model);
+  for(const object of overtime.moving)moving.add(object);
   function batchStatic(parent){
     const batches=new Map(),inverse=new THREE.Matrix4().copy(parent.matrixWorld).invert();
     function visit(node){
@@ -543,6 +546,7 @@ export function createWorld(scene) {
     get characters(){return crowd.actors;},
     getNPC:crowd.getNPC, getNPCAnchor:crowd.getNPCAnchor, getCharacterAnchor:crowd.getAnchor,
     updateCrowd:crowd.update, resetCrowd:crowd.reset, animateCharacter,
+    updateOvertime:(minutes,dt,options={})=>overtime.update(minutes,dt,{...options,floor:currentFloor}),
     useCorridorAction:(kind,position)=>crowd.useAction(kind,position,currentFloor),
     heroTarget:new THREE.Vector3(0,8,1), heroCamera:new THREE.Vector3(42,31,44),
     get floor(){return currentFloor;},
@@ -562,7 +566,7 @@ export function createWorld(scene) {
     reset(){
       gateOpen=false;gateAngle=0;gateLeft.rotation.y=0;gateRight.rotation.y=0;
       car.position.set(7,0,22.2);car.rotation.set(0,0,0);car.visible=true;
-      setCompleted([]);crowd.reset();
+      setCompleted([]);crowd.reset();overtime.update(0,0);
     },
     update(dt,time,ids){
       if(ids)setCompleted(ids);

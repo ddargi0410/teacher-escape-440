@@ -17,5 +17,6 @@ export function characterAppearance(id='',role='teacher',color='#e3bb82'){
   if(role==='parent')look.outfit=(seed%2?'cardigan':'vest');
   if(role==='principal')Object.assign(look,{top:'#526f67',pants:'#374744',hair:'#93958c',haircut:'crop',glasses:'round',outfit:'jacket',height:1.04,build:1.07,tie:'#bd745d'});
   if(role==='vice')Object.assign(look,{top:'#8f7d9f',pants:'#514c63',hair:'#403832',haircut:'bob',glasses:'square',outfit:'vest',height:.98,build:.96,tie:'#d5ad66'});
+  if(role==='security')Object.assign(look,{top:'#354e6a',trim:'#60768d',pants:'#283b50',hair:'#a6a9a2',haircut:'crop',glasses:false,outfit:'jacket',height:1,build:1.02});
   return look;
 }

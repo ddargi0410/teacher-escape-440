@@ -6,7 +6,7 @@ export const GREETINGS = Object.freeze({
 const ACTIONS = new Set(['idle','walk','rest','learn','mission']);
 const BEDS = new Set(['bed-1','bed-2','bed-3','bed-4','bed-5']);
 const COLORS = ['#8faac4','#bda1bf','#8fb89c','#d4ae77','#c59087','#a5a3cb'];
-const cleanName = value => Array.from(String(value || '').replace(/[\u0000-\u001f\u007f]/g,'').trim()).slice(0,16).join('') || '퇴근 동료';
+const cleanName = value => Array.from(String(value || '').replace(/[\u0000-\u001f\u007f]/g,'').trim()).slice(0,24).join('') || '퇴근 동료';
 
 function secureIdentity(api) {
   if(typeof api?.getRandomValues!=='function')return null;

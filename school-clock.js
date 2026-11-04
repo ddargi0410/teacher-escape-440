@@ -13,3 +13,11 @@ export function schoolTime(state) {
   const minutes = schoolMinutes(state);
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
+export function overtimeMinutes(state) {
+  return Math.max(0, schoolMinutes(state) - TARGET_MINUTES);
+}
+export function overtimeLabel(state) {
+  const minutes = overtimeMinutes(state);
+  const hours = Math.floor(minutes / 60);
+  return `${hours ? `${hours}시간 ` : ''}${minutes % 60}분`;
+}

@@ -1,4 +1,4 @@
-/** Browser-only progress. No names, answers or results are sent to a server. */
+/** Browser-only progress, answers and results. The entered nickname is also used by live presence. */
 const STORAGE_KEY = 'teacher-escape-440-v1';
 const VERSION = 1;
 

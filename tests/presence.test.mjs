@@ -58,6 +58,35 @@ test('snapshots exclude self, reject malformed players and prune departed peers'
   assert.equal(sanitizePresencePlayer(remote('bad',{z:900})),null);
 });
 
+test('entered nicknames are sent and displayed verbatim through heartbeats and reconnects',async t=>{
+  const f=fixture();t.after(()=>f.api.dispose());
+  const nickname='정시퇴근을꿈꾸는여섯학년담임선생님';
+  f.peers([remote('named-peer',{nickname}),remote('unnamed-peer',{nickname:''})]);
+  assert.equal(await f.api.connect({room:'TEACHERS',nickname:`  ${nickname}\n  `}),true);
+  assert.equal(f.requests[0].body.nickname,nickname);
+  assert.equal(f.api.getSnapshotStatus().nickname,nickname);
+  assert.equal(f.labels.children[0].children[1].textContent,nickname);
+  assert.equal(f.labels.children[1].children[1].textContent,'퇴근 동료');
+  await f.advance(1000);assert.equal(f.requests.at(-1).body.nickname,nickname);
+  f.doc.hidden=true;f.doc.dispatchEvent(new Event('visibilitychange'));
+  f.doc.hidden=false;f.doc.dispatchEvent(new Event('visibilitychange'));await flush();
+  assert.equal(f.requests.at(-1).body.nickname,nickname);
+  assert.equal(f.labels.children[0].children[1].textContent,nickname);
+  await f.api.connect({room:'TEACHERS-2',nickname});
+  assert.equal(f.requests.at(-1).body.nickname,nickname);
+});
+
+test('nickname rendering keeps literal text safe and enforces the input length bound',async t=>{
+  const f=fixture();t.after(()=>f.api.dispose());
+  const nickname='<img src=x onerror=x>';
+  f.peers([remote('literal',{nickname}),remote('long',{nickname:'가'.repeat(30)})]);
+  await f.connect();
+  assert.equal(f.labels.children[0].children[1].textContent,nickname);
+  assert.equal(f.labels.children[0].children[1].children.length,0);
+  assert.equal(f.labels.children[1].children[1].textContent,'가'.repeat(24));
+  assert.equal(sanitizePresencePlayer(remote('empty',{nickname:'\n\t'})).nickname,'퇴근 동료');
+});
+
 test('cancellation rejects a late response from a disconnected session',async t=>{
   let resolve;
   const f=fixture(request=>request.body.leave?Promise.resolve({ok:true,json:async()=>({})}):new Promise(done=>resolve=()=>done({ok:true,json:async()=>({self:request.body.id,players:[remote()],serverTime:100000})})));

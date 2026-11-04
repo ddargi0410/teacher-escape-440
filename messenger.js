@@ -1,7 +1,7 @@
 import {MISSIONS} from './missions-data.js';
 import {createReminderScheduler} from './messenger-scheduler.js';
 import {createMessengerHistory} from './messenger-history.js';
-import {displaySender} from './messenger-data.js';
+import {displaySender,COMPUTER_SUCCESS_NOTE} from './messenger-data.js';
 
 /** A local school-messenger prop. No real messages are sent or received. */
 export function createSchoolMessenger({getState,onLocate,onSound,onArchiveChange,onHistoryChange,storage,random,now}) {
@@ -201,6 +201,10 @@ export function createSchoolMessenger({getState,onLocate,onSound,onArchiveChange
       sync(scheduler.tick(dt,{...getState(),enabled:allowed&&archive.hidden}));
     },
     request(){if(!disposed&&allowed&&archive.hidden)sync(scheduler.request(getState()));},
+    notifyMissionSuccess(id){
+      if(disposed||id!==5||history.list().some(entry=>entry.subject===COMPUTER_SUCCESS_NOTE.subject))return false;
+      return scheduler.enqueue('computer-success',COMPUTER_SUCCESS_NOTE);
+    },
     suspend(){allowed=false;hide();},
     reset({clearHistory=false}={}){
       if(disposed)return;

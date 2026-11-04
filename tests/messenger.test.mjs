@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {REMINDERS,BANTER} from '../messenger-data.js';
+import {REMINDERS,BANTER,COMPUTER_SUCCESS_NOTE} from '../messenger-data.js';
 import {createReminderScheduler} from '../messenger-scheduler.js';
 
 const create=()=>createReminderScheduler({random:()=>0});
@@ -72,7 +72,7 @@ test('received target remains until acknowledgment even if completed while hidde
   assert.equal(play(s,10000,[1]),message);
   assert.equal(s.request({completed:[1]}),message);
   s.dismiss();
-  assert.equal(play(s,34,[1]),null);
+  assert.equal(play(s,14,[1]),null);
   assert.equal(play(s,1,[1]).missionId,2);
 });
 
@@ -118,7 +118,7 @@ test('unrelated copy stays short and cannot masquerade as a new mission',()=>{
   assert.ok(BANTER.length>=6);
   for(const message of BANTER){
     assert.equal(message.missionId,undefined);assert.equal(message.lines.length,2);
-    for(const line of message.lines)assert.ok([...line].length<=30,line);
+    for(const line of message.lines)assert.ok([...line].length<=32,line);
     assert.ok(message.sender&&message.subject&&message.reply);
   }
 });
@@ -128,4 +128,42 @@ test('banter senders use fictional name(position) and consistent staff identitie
   assert.equal(REMINDERS[1][0].sender,REMINDERS[2][0].sender);
   assert.equal(REMINDERS[1][1].sender,BANTER[0].sender);
   assert.equal(REMINDERS[8][1].sender,BANTER[5].sender);
+});
+
+test('new school-life notes include all twelve requested situations',()=>{
+  const copy=BANTER.map(item=>`${item.subject} ${item.lines.join(' ')}`).join('\n');
+  for(const phrase of ['간단히 10분만 하겠습니다.','장소가 시청각실로 변경되었습니다.',
+    '협의회 취소… 가 아니라 그대로 진행합니다.','학급 현황 조사, 16:30까지 제출 바랍니다.',
+    '2층 복사기 용지 걸림.','선생님 요거트 포함','오늘 우리 아이 표정이 좀 안 좋던데',
+    '우리 아이가 오늘 칭찬을 못 받았다고 해서요.','어젯밤 22:47 수신',
+    '지금 연수 중인데요?','학급자치비 개산급 영수증 제출바랍니다~','발송 시각 16:29']){
+    assert.ok(copy.includes(phrase),phrase);
+  }
+  assert.equal(BANTER.length,20,'the original eight notes are preserved');
+});
+
+test('chatter can arrive within 15–25 active seconds after acknowledgment',()=>{
+  const s=createReminderScheduler({random:()=>.5});
+  assert.equal(play(s,22).kind,'mission');s.dismiss();
+  assert.equal(play(s,19.9),null);
+  assert.equal(s.tick(1000,{enabled:false,completed:[]}),null);
+  assert.equal(play(s,.1).kind,'banter');
+  s.dismiss();assert.equal(play(s,20).kind,'mission');
+});
+
+test('completion notes queue once behind unread messages and wait for active play',()=>{
+  const s=create(),original=play(s,18);
+  const note={...COMPUTER_SUCCESS_NOTE,lines:[...COMPUTER_SUCCESS_NOTE.lines]};
+  assert.equal(s.enqueue('computer-success',note),true);
+  note.lines[0]='changed after queue';
+  assert.equal(s.enqueue('computer-success',COMPUTER_SUCCESS_NOTE),false);
+  assert.equal(play(s,10000),original);
+  s.dismiss();assert.equal(s.request(),null,'manual reminders must not jump the queue');
+  assert.equal(s.tick(10000,{enabled:false}),null);
+  const delivered=play(s,0);
+  assert.equal(delivered.lines[0],'와... 선생님, 내년에 정보부장 하실래요?');
+  assert.equal(delivered.missionId,null);assert.equal(delivered.kind,'banter');
+  s.dismiss();assert.equal(s.enqueue('computer-success',COMPUTER_SUCCESS_NOTE),false);
+  s.reset();assert.equal(s.enqueue('computer-success',COMPUTER_SUCCESS_NOTE),true);
+  assert.equal(s.tick(0,{enabled:true,finished:true}),null);
 });

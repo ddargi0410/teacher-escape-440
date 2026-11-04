@@ -2,10 +2,38 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.js';
 import {createWorld} from '../world.js';
-import {pointBlocked,hasLineOfSight,inPrincipalView,animateCharacter} from '../crowd.js';
+import {pointBlocked,hasLineOfSight,inPrincipalView,animateCharacter,CROWD_LINES,chooseCrowdLine} from '../crowd.js';
 const noop=()=>{};
 globalThis.document={createElement:()=>({width:0,height:0,getContext:()=>new Proxy({},{get:()=>noop,set:()=>true})})};
 function makeWorld(){return createWorld(new THREE.Scene());}
+
+test('requested student and parent phrases can all be randomly selected without consecutive repeats',()=>{
+ const requested={child:['선생님 안녕하세요','선생님 쟤가 때려요','선생님 쟤 뛰어요'],parent:['우리아이 마음은 읽어주셨어요?','선생님은 아이 키워보셨나요?','우리 애가 그런애가 아닌데..']};
+ for(const [kind,phrases]of Object.entries(requested)){
+  const pool=CROWD_LINES[kind];
+  const sampled=pool.map((_,i)=>chooseCrowdLine(kind,null,()=>(i+.5)/pool.length));
+  assert.deepEqual(sampled,pool);
+  for(const phrase of phrases)assert.ok(sampled.includes(phrase));
+  for(const previous of pool){
+   for(const value of [0,.3,.7,1])assert.notEqual(chooseCrowdLine(kind,previous,()=>value),previous);
+  }
+ }
+});
+
+test('student chatter changes while existing stumble timing and reset remain intact',()=>{
+ const w=makeWorld(),child=w.characters.find(a=>a.id==='child-5-0'),events=[];
+ w.characters.forEach(a=>{a.pause=1000;});
+ const position=child.model.position.clone();
+ for(let n=0;n<300;n++)w.updateCrowd(.05,{position,floor:5,enabled:true,onEvent:e=>events.push(e)});
+ const chatter=events.filter(e=>e.actor===child.model);
+ assert.equal(chatter.length,3);
+ chatter.forEach((event,i)=>{
+  assert.equal(event.type,'stumble');assert.equal(event.duration,1);assert.equal(event.penalty,undefined);
+  assert.ok(CROWD_LINES.child.includes(event.text));
+  if(i)assert.notEqual(event.text,chatter[i-1].text);
+ });
+ w.resetCrowd();assert.equal(child.lastLine,null);
+});
 
 test('all authored route segments clear the actual school colliders',()=>{
  const w=makeWorld();

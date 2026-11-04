@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {schoolTime, schoolMinutes, TARGET_MINUTES} from '../school-clock.js';
+import {schoolTime, schoolMinutes, overtimeMinutes, overtimeLabel, TARGET_MINUTES} from '../school-clock.js';
 import {freshState, saveGame, loadGame} from '../save.js';
 
 test('a fresh day begins at 16:00, and a quick finish can precede the 16:40 goal', () => {
@@ -26,6 +26,22 @@ test('the doubled clock stays bounded at 22:00 and ignores invalid input', () =>
   assert.equal(schoolTime({elapsed: 3 * 60 * 60, penalty: 0}), '22:00');
   assert.equal(schoolTime({elapsed: 604800, penalty: 360}), '22:00');
   assert.equal(schoolTime({elapsed: -20, penalty: NaN}), '16:00');
+});
+test('overtime begins after 16:40 and uses the same doubled clock and penalties', () => {
+  assert.equal(overtimeMinutes({elapsed: 19 * 60}), 0);
+  assert.equal(overtimeMinutes({elapsed: 20 * 60}), 0);
+  assert.equal(overtimeMinutes({elapsed: 20 * 60 + 29.999}), 0);
+  assert.equal(overtimeMinutes({elapsed: 20 * 60 + 30}), 1);
+  assert.equal(overtimeMinutes({elapsed: 20 * 60, penalty: 5}), 5);
+  assert.equal(overtimeMinutes({elapsed: 17.5 * 60, penalty: 5}), 0);
+  assert.equal(overtimeMinutes({elapsed: 3 * 60 * 60}), 320);
+  assert.equal(overtimeMinutes({elapsed: -1, penalty: Infinity}), 0);
+});
+test('overtime labels show minutes and hours, including a zero-overtime finish', () => {
+  assert.equal(overtimeLabel({elapsed: 5 * 60}), '0분');
+  assert.equal(overtimeLabel({elapsed: 20 * 60, penalty: 5}), '5분');
+  assert.equal(overtimeLabel({elapsed: 50 * 60}), '1시간 0분');
+  assert.equal(overtimeLabel({elapsed: 50 * 60, penalty: 5}), '1시간 5분');
 });
 test('continuing uses saved active time and penalties instead of resetting the clock', () => {
   let raw;

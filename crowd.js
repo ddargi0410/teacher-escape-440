@@ -12,6 +12,18 @@ export const CROWD_ROUTES = Object.freeze({
   vice: [[-7,3.35],[-9,3.35],[-9,4.85],[-7,4.85]]
 });
 export const PRINCIPAL_VIEW = Object.freeze({range:7,halfAngle:Math.PI*42/180});
+export const CROWD_LINES = Object.freeze({
+  child: Object.freeze(['선생님 안녕하세요', '선생님 쟤가 때려요', '선생님 쟤 뛰어요', '선생님! 쟤가 먼저 했어요!']),
+  parent: Object.freeze(['우리아이 마음은 읽어주셨어요?', '선생님은 아이 키워보셨나요?', '우리 애가 그런애가 아닌데..', '우리 아이 마음도 읽으셨나요?', '퇴근하셨어도 답장은 되죠?', '지금 잠깐 통화 가능하시죠?'])
+});
+
+// Each encounter draws anew, but the same actor does not repeat its last line.
+export function chooseCrowdLine(kind,previous=null,random=Math.random){
+  const options=(CROWD_LINES[kind]||[]).filter(line=>line!==previous);
+  if(!options.length)return '';
+  const sample=Math.max(0,Math.min(1,Number(random())||0));
+  return options[Math.min(options.length-1,Math.floor(sample*options.length))];
+}
 
 export function animateCharacter(model,phase,speed=1) {
   const amount=Math.min(1,Math.max(0,speed));
@@ -54,7 +66,7 @@ export function createCrowd({floors,questObjects,teacher,mesh,geo,mat,random=Mat
   let clock=0,globalGrace=4,lastFloor=null,principalDirection=-1,actionCooldown=0,actionsEnabled=false;
   function addActor({id,model,floor,route,speed=.75,kind='npc',missionId=null,wait=1.8}){
     const a={id,model,floor,route:route.map(([x,z])=>({x,z})),speed,kind,missionId,wait,index:1,pause:wait,phase:0,cooldown:0,lock:0,updates:0,
-      defeated:false,respawnRemaining:0,respawns:0,lineIndex:0};
+      defeated:false,respawnRemaining:0,respawns:0,lastLine:null};
     model.name=id;model.userData.crowdActor=a;model.position.set(a.route[0].x,0,a.route[0].z);actors.push(a);return a;
   }
   for(const [id,q]of questObjects){
@@ -175,14 +187,15 @@ export function createCrowd({floors,questObjects,teacher,mesh,geo,mat,random=Mat
       syncQuest(a);
       if(globalGrace>0||a.cooldown>0)continue;
       if(a.kind==='child'&&distance<.72){
-        a.cooldown=5;a.lock=.6;onEvent?.({type:'stumble',duration:1,actor:a.model,text:'선생님! 쟤가 먼저 했어요!'});
+        a.lastLine=chooseCrowdLine('child',a.lastLine,random);
+        a.cooldown=5;a.lock=.6;onEvent?.({type:'stumble',duration:1,actor:a.model,text:a.lastLine});
       }else if(a.kind==='principal'&&inPrincipalView(a.model.position,a.model.rotation.y,position,floors.get(floor).colliders)){
         a.cooldown=20;a.lock=5;onEvent?.({type:'principal',duration:5,actor:a.model,text:'선생님, 잠깐만요~',penalty:1});
       }else if(a.kind==='vice'&&distance<2.1){
         a.cooldown=18;onEvent?.({type:'message',actor:a.model,text:'선생님, 쪽지 확인 부탁드려요!'});
       }else if(a.kind==='parent'&&distance<2.3){
-        const lines=['우리 아이 마음도 읽으셨나요?','퇴근하셨어도 답장은 되죠?','지금 잠깐 통화 가능하시죠?'];
-        a.cooldown=12;a.lock=2;onEvent?.({type:'complaint',duration:2,actor:a.model,text:lines[a.lineIndex++%lines.length]});
+        a.lastLine=chooseCrowdLine('parent',a.lastLine,random);
+        a.cooldown=12;a.lock=2;onEvent?.({type:'complaint',duration:2,actor:a.model,text:a.lastLine});
       }
     }
     if(principal.floor===floor)updateCone();
@@ -190,7 +203,7 @@ export function createCrowd({floors,questObjects,teacher,mesh,geo,mat,random=Mat
   function reset(){
     clock=0;globalGrace=4;lastFloor=null;principalDirection=-1;actionCooldown=0;actionsEnabled=false;
     principal.floor=5;floors.get(5).inside.add(principal.model);
-    for(const a of actors){a.index=1;a.pause=a.wait;a.phase=0;a.cooldown=a.kind==='vice'?8:a.kind==='parent'?5:0;a.lock=0;a.updates=0;a.defeated=false;a.respawnRemaining=0;a.respawns=0;a.lineIndex=0;a.model.visible=true;a.model.position.set(a.route[0].x,0,a.route[0].z);a.model.rotation.set(0,0,0);animateCharacter(a.model,0,0);syncQuest(a);}
+    for(const a of actors){a.index=1;a.pause=a.wait;a.phase=0;a.cooldown=a.kind==='vice'?8:a.kind==='parent'?5:0;a.lock=0;a.updates=0;a.defeated=false;a.respawnRemaining=0;a.respawns=0;a.lastLine=null;a.model.visible=true;a.model.position.set(a.route[0].x,0,a.route[0].z);a.model.rotation.set(0,0,0);animateCharacter(a.model,0,0);syncQuest(a);}
     updateCone();
   }
   reset();

@@ -134,7 +134,7 @@ export class SoftwareRenderer {
         if(!material.isMeshBasicMaterial){
           const direction=facing>=0?1:-1;
           const diffuse=Math.max(0,(-.43*normalx+.81*normaly+.4*normalz)*direction);
-          light=.64+.36*diffuse+Math.min(.12,(material.emissiveIntensity||0)*.3);
+          light=(.64+.36*diffuse)*(1-Math.max(0,Math.min(1,scene.userData.schoolNight||0))*.48)+Math.min(.12,(material.emissiveIntensity||0)*.3);
         }
         const a=vertex(ia),b=vertex(ib),c=vertex(ic);
         if(az<near||bz<near||cz<near){

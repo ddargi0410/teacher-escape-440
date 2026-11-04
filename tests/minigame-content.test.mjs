@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { MISSIONS, STORY } from '../missions-data.js';
-import { getArcadeData, getKnowledgeDetails, NPC_LINES } from '../minigames/content.js';
+import { getArcadeData, getKnowledgeDetails, NPC_LINES, chooseNPCLine } from '../minigames/content.js';
 
 const length = text => [...text].length;
 
@@ -55,6 +55,18 @@ test('phone choices retain the source answer order and fit short reading windows
 test('NPC lines fit one 25-character bubble and all ten missions have lines', () => {
   assert.equal(Object.keys(NPC_LINES).length, 10);
   for (const lines of Object.values(NPC_LINES)) assert.ok(lines.every(line => length(line) <= 25));
+});
+
+test('grade leader and information chief remarks participate in random single-line conversations',()=>{
+  const requested={2:['자기야 믹스커피는 두 봉지야'],5:['저 컴퓨터 전공 아닌데 정보부장이에요','리모컨이 안되면 건전지를 교체하시기 바랍니다']};
+  for(const [id,phrases]of Object.entries(requested)){
+    const pool=NPC_LINES[id];
+    const choices=pool.map((_,i)=>chooseNPCLine(id,()=>(i+.5)/pool.length));
+    assert.deepEqual(choices,pool);
+    phrases.forEach(line=>assert.ok(choices.includes(line)));
+    for(const previous of pool)assert.notEqual(chooseNPCLine(id,()=>0,previous),previous);
+  }
+  assert.equal(chooseNPCLine(99,()=>1),'퇴근 전에 이것만요!');
 });
 
 test('adapters do not mutate source missions and all ten have isolated arcade data', () => {

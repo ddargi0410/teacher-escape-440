@@ -93,7 +93,7 @@ test('location confirms once and routes without completing the mission',()=>{
 test('confirmation closes immediately and starts the next-message wait only afterward',()=>{
   const f=fixture();f.show();f.view.update(10000,true);f.click('ack');
   assert.equal(f.view.isOpen(),false);f.view.request();assert.equal(f.view.isOpen(),false);
-  f.view.update(34.9,true);assert.equal(f.view.isOpen(),false);
+  f.view.update(14.9,true);assert.equal(f.view.isOpen(),false);
   f.view.update(.1,true);assert.equal(f.view.isOpen(),true);
   assert.deepEqual(f.state.completed,[]);assert.equal(f.sounds,2);f.view.dispose();
 });
@@ -176,4 +176,34 @@ test('legacy inbox senders display current names without changing stored message
   assert.match(f.archive.querySelector('.messenger-history-time').textContent,/^나수합\(학년부장\) ·/);
   assert.equal(storage.getItem(MESSENGER_STORAGE_KEY),saved);
   assert.equal(f.view.historyCount(),1);f.view.dispose();
+});
+
+test('computer success sends one persistent personal note after returning from the minigame',()=>{
+  const storage=memoryStorage(),f=fixture({storage});
+  assert.equal(f.view.notifyMissionSuccess(4),false);
+  assert.equal(f.view.notifyMissionSuccess(5),true);
+  assert.equal(f.view.notifyMissionSuccess(5),false);
+  f.view.update(500,false);assert.equal(f.view.isOpen(),false);assert.equal(f.view.historyCount(),0);
+  f.view.update(0,true);
+  assert.equal(f.field('sender').textContent,'오류나(정보부장)');
+  assert.equal(f.field('line-one').textContent,'와... 선생님, 내년에 정보부장 하실래요?');
+  assert.equal(f.box.querySelector('[data-note="go"]').hidden,true);
+  assert.equal(f.view.historyCount(),1);assert.equal(f.sounds,1);
+  f.view.update(10000,true);assert.equal(f.view.historyCount(),1);
+  f.click('ack');f.view.dispose();
+  const resumed=fixture({storage});
+  assert.equal(resumed.view.notifyMissionSuccess(5),false,'saved congratulations must not be sent again');
+  resumed.view.reset({clearHistory:true});
+  assert.equal(resumed.view.notifyMissionSuccess(5),true,'a new game can receive its own congratulations');
+  resumed.view.dispose();
+});
+
+test('success note waits for the current unread note to be acknowledged',()=>{
+  const f=fixture();f.show();const original=f.field('subject').textContent;
+  f.view.notifyMissionSuccess(5);f.view.update(0,true);
+  assert.equal(f.field('subject').textContent,original);assert.equal(f.sounds,1);
+  f.click('ack');f.view.update(0,true);
+  assert.equal(f.field('subject').textContent,'[컴퓨터실] 내년 업무 희망 조사');
+  assert.equal(f.sounds,2);assert.equal(f.view.historyCount(),2);
+  f.view.dispose();
 });

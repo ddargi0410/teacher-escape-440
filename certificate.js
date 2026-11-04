@@ -1,4 +1,4 @@
-import {schoolTime} from './school-clock.js';
+import {schoolTime, overtimeLabel, overtimeMinutes} from './school-clock.js';
 
 function elapsedLabel(seconds) {
   const value = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -70,27 +70,31 @@ export async function downloadCertificate(state, missions) {
   ctx.fillStyle = '#53645b';
   ctx.font = `400 27px ${face}`;
   ctx.fillText('10가지 업무를 해결하고, AI에게 일을 맡기는 요령을 익혔습니다.', 100, 600);
-  const stats = [
-    ['실제 플레이 시간', elapsedLabel(state.elapsed)],
-    ['게임 속 퇴근 시각', schoolTime(state)],
-    ['챙겨 가는 노하우', '10장 / 10장']
-  ];
-  stats.forEach(([label, value], index) => {
-    const x = 100 + index * 474;
-    roundRect(ctx, x, 650, 450, 130, 16, '#e3e9d8');
-    ctx.fillStyle = '#53645b';
-    ctx.font = `500 23px ${face}`;
-    ctx.fillText(label, x + 25, 690);
-    ctx.fillStyle = '#143b34';
-    ctx.font = `800 38px ${face}`;
-    ctx.fillText(value, x + 25, 747);
-  });
+  roundRect(ctx, 100, 640, 683, 180, 18, '#143b34');
+  ctx.fillStyle = '#d2e1d8';
+  ctx.font = `600 26px ${face}`;
+  ctx.fillText('게임 속 퇴근 시각', 132, 685);
+  ctx.fillStyle = '#fffaf0';
+  ctx.font = `900 88px ${face}`;
+  ctx.fillText(schoolTime(state), 128, 785);
+  const workedLate = overtimeMinutes(state) > 0;
+  roundRect(ctx, 817, 640, 683, 180, 18, workedLate ? '#f0d6b8' : '#e3e9d8');
+  ctx.fillStyle = workedLate ? '#7a431c' : '#53645b';
+  ctx.font = `600 26px ${face}`;
+  ctx.fillText('야근 시간 · 16:40 이후', 849, 685);
+  ctx.fillStyle = workedLate ? '#7a431c' : '#143b34';
+  ctx.font = `900 62px ${face}`;
+  ctx.fillText(overtimeLabel(state), 849, 780);
+  ctx.fillStyle = '#53645b';
+  ctx.font = `500 24px ${face}`;
+  ctx.fillText(`실제 플레이 시간  ${elapsedLabel(state.elapsed)}`, 100, 870);
+  ctx.fillText('챙겨 가는 노하우  10장 / 10장', 817, 870);
   ctx.fillStyle = '#143b34';
   ctx.font = `800 34px ${face}`;
-  ctx.fillText('퇴근 가방에 챙긴 10가지', 100, 857);
+  ctx.fillText('퇴근 가방에 챙긴 10가지', 100, 925);
   (Array.isArray(missions) ? missions : []).slice(0, 10).forEach((mission, index) => {
     const x = 100 + (index % 2) * 717;
-    const y = 895 + Math.floor(index / 2) * 196;
+    const y = 963 + Math.floor(index / 2) * 190;
     roundRect(ctx, x, y, 683, 178, 14, '#ffffff');
     ctx.fillStyle = '#e7efe0';
     ctx.beginPath();
