@@ -1,15 +1,17 @@
-import {AVATAR_PRESETS,normalizeAvatarId,getAvatarAppearance} from './character-appearance.js?v=20261106-immersive1';
+import {AVATAR_PRESETS,normalizeAvatarId,getAvatarAppearance} from './character-appearance.js?v=20261106-cute1';
 
 let pickerSequence=0;
 
 /** A small portrait made from the same colors and hair choices as the 3D rig. */
 export function avatarPortrait(value){
   const a=getAvatarAppearance(value);
-  const hairBack=a.haircut==='bob'?`<path d="M27 37Q26 14 48 14T69 37L72 66Q48 79 24 66Z" fill="${a.hair}"/>`:a.haircut==='ponytail'?`<ellipse cx="67" cy="48" rx="10" ry="24" fill="${a.hair}"/>`:'';
-  const extra=a.haircut==='bun'?`<circle cx="48" cy="14" r="10" fill="${a.hair}"/>`:a.haircut==='curly'?`<path d="M25 37C17 28 24 16 33 18C33 5 47 7 49 14C57 4 71 15 65 22C78 27 72 39 65 39Z" fill="${a.hair}"/>`:'';
-  const glasses=a.glasses?`<g fill="none" stroke="#34413e" stroke-width="1.7">${a.glasses==='round'?'<circle cx="38" cy="42" r="7"/><circle cx="58" cy="42" r="7"/>':'<rect x="30" y="36" width="16" height="12" rx="2"/><rect x="50" y="36" width="16" height="12" rx="2"/>'}<path d="M45 41h6M28 40h-3M67 40h4"/></g>`:'';
-  const shirt=a.outfit==='sweater'?`<path d="M39 68q9 5 18 0" fill="none" stroke="${a.trim}" stroke-width="4"/>`:`<path d="M39 66l9 12 9-12-3 30H42Z" fill="${a.trim}"/>`;
-  return `<svg viewBox="0 0 96 96" aria-hidden="true" focusable="false"><circle cx="48" cy="48" r="46" fill="${a.top}" opacity=".11"/>${hairBack}<path d="M15 96V85q0-19 23-20h20q23 1 23 20v11Z" fill="${a.top}"/>${shirt}<rect x="42" y="55" width="12" height="16" rx="5" fill="${a.skin}"/><ellipse cx="48" cy="40" rx="21" ry="25" fill="${a.skin}"/><path d="M27 38Q22 13 48 13T69 36Q56 24 42 29L28 40Z" fill="${a.hair}"/>${extra}<g fill="#34413e"><ellipse cx="38" cy="42" rx="2.1" ry="2.7"/><ellipse cx="58" cy="42" rx="2.1" ry="2.7"/></g>${glasses}<path d="M43 54q5 4 10 0" fill="none" stroke="#a46d59" stroke-width="1.4" stroke-linecap="round"/><path d="M47 44v6h3" fill="none" stroke="#b78165" stroke-width="1.2" stroke-linecap="round"/><rect x="25" y="78" width="9" height="12" rx="1" fill="#f4efe0"/><path d="M27 81h5" stroke="#739185" stroke-width="2"/></svg>`;
+  // Big round head, tiny bell body: the same cosy proportions as the 3D rig.
+  const hairBack=a.haircut==='bob'?`<ellipse cx="25" cy="50" rx="9" ry="16" fill="${a.hair}"/><ellipse cx="71" cy="50" rx="9" ry="16" fill="${a.hair}"/>`:a.haircut==='ponytail'?`<ellipse cx="74" cy="46" rx="8" ry="15" fill="${a.hair}"/>`:'';
+  const extra=a.haircut==='bun'?`<circle cx="48" cy="9" r="9" fill="${a.hair}"/>`:a.haircut==='curly'?`<g fill="${a.hair}"><circle cx="30" cy="22" r="10"/><circle cx="48" cy="15" r="11"/><circle cx="66" cy="22" r="10"/></g>`:'';
+  const fringe=a.haircut==='sweep'?`<path d="M23 40Q22 14 48 12T73 36Q60 22 40 30Q30 34 23 40Z" fill="${a.hair}"/>`:`<path d="M23 42Q21 13 48 12T73 42Q70 30 60 28Q50 34 36 29Q27 32 23 42Z" fill="${a.hair}"/>`;
+  const glasses=a.glasses?`<g fill="none" stroke="#2c2826" stroke-width="1.6">${a.glasses==='round'?'<circle cx="38" cy="46" r="7"/><circle cx="58" cy="46" r="7"/>':'<rect x="30" y="40" width="16" height="12" rx="2"/><rect x="50" y="40" width="16" height="12" rx="2"/>'}<path d="M45 45h6"/></g>`:'';
+  const collar=a.outfit==='sweater'?`<path d="M40 74q8 4 16 0" fill="none" stroke="${a.trim}" stroke-width="3"/>`:a.outfit==='vest'?`<path d="M42 73l6 8 6-8Z" fill="${a.trim}"/>`:`<path d="M44 73l4 9 4-9Z" fill="${a.trim}"/>`;
+  return `<svg viewBox="0 0 96 96" aria-hidden="true" focusable="false"><circle cx="48" cy="48" r="46" fill="${a.top}" opacity=".16"/><path d="M28 96Q27 76 36 72h24q9 4 8 24Z" fill="${a.top}"/>${collar}${hairBack}<ellipse cx="48" cy="45" rx="26" ry="25" fill="${a.skin}"/><ellipse cx="22.5" cy="47" rx="3.5" ry="5" fill="${a.skin}"/><ellipse cx="73.5" cy="47" rx="3.5" ry="5" fill="${a.skin}"/>${fringe}${extra}<g fill="#2c2826"><ellipse cx="38" cy="47" rx="3" ry="4.2"/><ellipse cx="58" cy="47" rx="3" ry="4.2"/></g><g fill="#fff"><circle cx="37.2" cy="45.4" r="1.1"/><circle cx="57.2" cy="45.4" r="1.1"/></g><g fill="#f3a3a0" opacity=".85"><ellipse cx="31" cy="55" rx="4.5" ry="2.6"/><ellipse cx="65" cy="55" rx="4.5" ry="2.6"/></g>${glasses}<path d="M44 58q4 3.4 8 0" fill="none" stroke="#2c2826" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 }
 
 export function createCharacterPicker({container,value,onChange}={}){

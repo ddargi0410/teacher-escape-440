@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 import {SoftwareRenderer} from '../software-renderer.js?v=20261106-immersive1';
-import {wantsSoftwareRenderer} from '../visual-test.js?v=20261106-visual1';
+import {wantsSoftwareRenderer} from '../visual-test.js?v=20261106-cute1';
 
 // Local checklist, not an AI judge. No minimum/maximum prompt length.
 const SHIELDS = [

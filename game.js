@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
-import {createWorld} from './world.js?v=20261106-immersive1';
+import {createWorld} from './world.js?v=20261106-cute1';
 import {SoftwareRenderer} from './software-renderer.js?v=20261106-immersive1';
-import {createPlayer} from './player.js?v=20261106-immersive1';
+import {createPlayer} from './player.js?v=20261106-cute1';
 import * as MissionData from './missions-data.js';
 import {createMissionUI} from './missions-ui.js';
 import {createMinigameRunner} from './minigames/runner.js?v=20261106-immersive1';
@@ -9,23 +9,24 @@ import {chooseNPCLine,getKnowledgeDetails,getArcadeData} from './minigames/conte
 import {createWorldFeedback} from './world-feedback.js';
 import {createSchoolMessenger} from './messenger.js';
 import {createLearningRoom} from './learning-room.js';
-import {createRestRoom} from './rest-room.js?v=20261106-immersive1';
-import {createPresence} from './presence.js?v=20261106-immersive1';
+import {createRestRoom} from './rest-room.js?v=20261106-cute1';
+import {createPresence} from './presence.js?v=20261106-cute1';
 import {createChannels} from './channels.js';
 import {createChannelUI} from './channels-ui.js?v=20261104-nickname2';
 import {PRESENCE_ENDPOINT as CONFIGURED_PRESENCE_ENDPOINT} from './presence-config.js';
 import {freshState,loadGame as loadSavedGame,saveGame as saveSavedGame,storageAvailable} from './save.js?v=20261106-immersive1';
 import {AudioManager} from './audio.js';
 import {downloadCertificate,copyText} from './certificate.js?v=20261106-visual-export1';
-import {schoolTime,overtimeMinutes,overtimeLabel} from './school-clock.js';
+import {schoolTime,schoolMinutes,overtimeMinutes,overtimeLabel} from './school-clock.js';
+import {daylight,lightingFor} from './daylight.js?v=20261106-cute1';
 import {adjacentFloors,canUseStairs} from './stairs.js';
 import {getMissionBriefing} from './minigames/briefings.js';
 import {createHonors} from './honors.js?v=20261106-honors1';
 import {createHallOfFameView} from './hall-of-fame-view.js?v=20261106-immersive1';
-import {createCharacterPicker} from './character-picker.js?v=20261106-immersive1';
+import {createCharacterPicker} from './character-picker.js?v=20261106-cute1';
 import {publishAnalyticsNickname} from './analytics-identity.js?v=20261106-nicknames1';
 
-import {readVisualTestRoute} from './visual-test.js?v=20261106-visual1';
+import {readVisualTestRoute} from './visual-test.js?v=20261106-cute1';
 
 const visualTest=readVisualTestRoute();
 const PRESENCE_ENDPOINT=visualTest.enabled?'':CONFIGURED_PRESENCE_ENDPOINT;
@@ -40,7 +41,8 @@ const floorNames={5:'교실 · 학년 연구실',4:'교무실 · 도서관',3:'�
 const canvas=$('#world'),overlay=$('#app-overlay'),audio=new AudioManager();
 let state=loadGame()||freshState(),mode='home',world,player,renderer,scene,camera,teacher,nearest=null,activeMission=null;
 if(visualTest.enabled)state.settings.quality=visualTest.quality;
-let frame=0,saveClock=0,toastTimer,tutorialTime=0,endingTime=0,lastFocus=null,overlayKind='',nightAmount=0;
+let frame=0,saveClock=0,toastTimer,tutorialTime=0,endingTime=0,lastFocus=null,overlayKind='',nightAmount=0,goldenAmount=0,outdoorAmount=0;
+const lighting={};
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let sun,ambient,feedback,greetingFeedbackTimer;
 let encounter=null,npcSpeechClock=0,lastSpokenNPC=null;
@@ -49,7 +51,7 @@ let honors,hallOfFame,characterPicker=null;
 let presence,channels,restingBed=null,restView='shoulder',wantsChannelRest=false,pendingDestination=null;
 const channelUI=createChannelUI({container:$('#channels-overlay'),onSelect:selectChannel,onClose:()=>{wantsChannelRest=false;player?.setActive(mode==='play'&&!busy());},onRefresh:()=>channels?.refresh(),onSolo:()=>{channels?.stop();channelUI.close();},onReconnect:reconnectChannels});
 const learning=createLearningRoom({container:$('#learning-overlay'),onClose:()=>{player?.setActive(mode==='play'&&overlay.hidden);},onLearned:()=>{state.beginnerLearned=true;$('#learning-button').textContent='🌱 배움터 ✓';persist();toast('기초 체험 완료 · 이제 미션에서 써먹어 봐요.')}});
-const rest=createRestRoom({audio,getBed:id=>world?.getBed(id),onEnter:(bed,posture)=>{clearEncounter();messenger.suspend();restView=player.cameraMode;player.setCameraMode('shoulder');player.setActive(false);player.teleport(bed.bedPose,{preserveCamera:true});world.setRestPose(teacher,bed.id,posture);restingBed=bed;honors?.sync();},onPosture:(bed,posture)=>{world.setRestPose(teacher,bed.id,posture);},onLeave:bed=>{world?.clearRestPose(teacher);restingBed=null;honors?.sync();if(player){player.endRestCamera?.();player.teleport(bed.exitPoint);player.setCameraMode(restView);player.setActive(mode==='play'&&overlay.hidden);}}});
+const rest=createRestRoom({audio,getBed:id=>world?.getBed(id),onView:(bed,view)=>{player?.setRestView?.(view);},onResetView:()=>{player?.resetRestLook?.();},onEnter:(bed,posture)=>{clearEncounter();messenger.suspend();restView=player.cameraMode;player.setCameraMode('shoulder');player.setActive(false);player.teleport(bed.bedPose,{preserveCamera:true});world.setRestPose(teacher,bed.id,posture);restingBed=bed;honors?.sync();},onPosture:(bed,posture)=>{world.setRestPose(teacher,bed.id,posture);},onLeave:bed=>{world?.clearRestPose(teacher);restingBed=null;honors?.sync();if(player){player.endRestCamera?.();player.teleport(bed.exitPoint);player.setCameraMode(restView);player.setActive(mode==='play'&&overlay.hidden);}}});
 const messenger=createSchoolMessenger({getState:()=>state,onLocate:id=>{if(!busy())jumpToMission(id)},onSound:()=>{audio.play('notify');world?.notifyMessage?.();},onArchiveChange:open=>player?.setActive(!open&&!busy()),onHistoryChange:count=>{$('#messenger-count').textContent=String(count)}});
 const arcade=createMinigameRunner({container:$('#minigame-overlay'),onSuccess:recordSuccess,onFailure:missionFailure,onDraft:text=>{state.bossDraft=text;persist();},onClose:finishMissionView});
 function missionFailure(id,payload){state.penalty=Math.min(360,state.penalty+5);persist();audio.play('error');updateHUD();}
@@ -227,11 +229,11 @@ function init(){
  document.body.dataset.renderer=renderer.isSoftware?'software':'webgl';canvas.dataset.renderer=document.body.dataset.renderer;
  if(visualTest.enabled)document.body.dataset.visualTest='true';
  renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.17;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
- scene=new THREE.Scene();scene.background=new THREE.Color('#e9eadb');scene.fog=new THREE.Fog('#e9eadb',70,170);
+ scene=new THREE.Scene();scene.background=new THREE.Color('#e9eef0');scene.fog=new THREE.Fog('#e9eef0',70,170);
  camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,220);
- ambient=new THREE.HemisphereLight('#fff1d5','#749888',2.7);scene.add(ambient);
+ ambient=new THREE.HemisphereLight('#fff4e6','#d8c8b4',2.7);scene.add(ambient);
  sun=new THREE.DirectionalLight('#ffdbac',3.1);sun.position.set(-18,42,28);sun.castShadow=true;sun.shadow.camera.left=-42;sun.shadow.camera.right=42;sun.shadow.camera.top=42;sun.shadow.camera.bottom=-42;sun.shadow.camera.near=1;sun.shadow.camera.far=100;sun.shadow.bias=-.00045;sun.shadow.normalBias=.04;scene.add(sun);
- const fill=new THREE.DirectionalLight('#b9d7d0',1);fill.position.set(25,16,-18);scene.add(fill);
+ const fill=new THREE.DirectionalLight('#d6e2f2',1);fill.position.set(25,16,-18);scene.add(fill);
  world=createWorld(scene);feedback=createWorldFeedback({camera});hallOfFame=createHallOfFameView({camera,world});
  honors=createHonors({endpoint:PRESENCE_ENDPOINT?new URL('./honors',PRESENCE_ENDPOINT).href:'',getState:()=>state,getActivity:()=>({visible:mode==='play'&&!state.finished&&overlay.hidden&&!document.hidden,resting:!!restingBed&&rest.isOpen()}),onStateChange:persist,onData:data=>hallOfFame.setData(data),onStatus:status=>hallOfFame.setStatus(status)});honors.start();
  teacher=world.createTeacher('#d9bc75',{avatarId:state.avatarId});scene.add(teacher);teacher.visible=false;
@@ -270,12 +272,18 @@ function loop(ms){requestAnimationFrame(loop);if(visualTest.enabled)document.bod
   endingTime+=elapsedDt;const p=Math.min(1,endingTime/5);world.car.position.x=7+p*30;camera.position.set(31+p*8,15,37);camera.lookAt(8+p*16,2,20);if(endingTime>5.5)showCertificate();
  }
  const overtime=mode==='home'?0:overtimeMinutes(state);
- const nightTarget=overtime>0?Math.min(.9,.28+overtime/40):0;
- nightAmount+=(nightTarget-nightAmount)*Math.min(1,elapsedDt*.6);
- if(mode==='home')nightAmount=0;
- const sky=new THREE.Color(restingBed&&overtime===0?'#e0eddf':'#e9eadb').lerp(new THREE.Color('#17253f'),nightAmount);
- scene.background.copy(sky);scene.fog.color.copy(sky);scene.userData.schoolNight=nightAmount;
- ambient.intensity=(restingBed?2.9:2.7)-nightAmount*1.7;sun.intensity=(restingBed?2.6:3.1)-nightAmount*2.6;
+ // The sky follows the school clock: golden from 16:15, sunset at 16:40, night by 17:15.
+ const sunTarget=mode==='home'?{golden:0,night:0}:daylight(schoolMinutes(state));
+ const ease=Math.min(1,elapsedDt*.8);
+ goldenAmount+=(sunTarget.golden-goldenAmount)*ease;nightAmount+=(sunTarget.night-nightAmount)*ease;
+ if(mode==='home'){goldenAmount=0;nightAmount=0;}
+ const outdoorTarget=mode==='ending'||mode==='certificate'?1:world.isOutdoors?.(camera.position)?1:0;
+ outdoorAmount+=(outdoorTarget-outdoorAmount)*Math.min(1,elapsedDt*2.5);
+ lightingFor({golden:goldenAmount,night:nightAmount,outdoors:outdoorAmount,resting:!!restingBed,home:mode==='home'},lighting);
+ scene.background.copy(lighting.sky);scene.fog.color.copy(lighting.sky);scene.userData.schoolNight=nightAmount*(.55+.45*outdoorAmount);
+ ambient.intensity=lighting.ambient;ambient.color.copy(lighting.ambientColor);ambient.groundColor.copy(lighting.ground);
+ sun.intensity=lighting.sunIntensity;sun.color.copy(lighting.sunColor);sun.position.copy(lighting.sunPosition);
+ world.setDaylight?.({golden:goldenAmount,night:nightAmount,window:lighting.window});
  world.updateOvertime(overtime,dt,{active:mode==='play'&&!busy()});
  rest.update(elapsedDt);channels?.update(elapsedDt,{visible:mode==='play'&&!document.hidden});presence?.update(elapsedDt,{visible:mode==='play'&&overlay.hidden&&!missions.isOpen()&&!arcade.isOpen()&&!learning.isOpen()&&!document.hidden,floor:state.floor});
  if(restingBed){const conflict=presence?.getBedConflict?.(restingBed.id);if(conflict){rest.close();if(conflict.freeBedId)lieDown(conflict.freeBedId);toast(conflict.freeBedId?'같이 눕다가 겹쳤네요. 옆 빈 침대로 이동했어요.':'침대가 모두 쉬는 중이에요. 잠깐만 기다려 주세요.');}}
@@ -322,6 +330,10 @@ function runVisualTestRoute(){
    world.setCompleted(state.completed);beginEnding();
    if(visualTest.scene==='certificate'){camera.position.set(31,15,37);camera.lookAt(8,2,20);renderWorld();showCertificate();}
   }
+ }
+ if(visualTest.clock!==null&&visualTest.clock!==undefined&&mode!=='home'){
+  state.elapsed=Math.max(0,(visualTest.clock-16*60)*60/2);updateClock();
+  const sky=daylight(visualTest.clock);goldenAmount=sky.golden;nightAmount=sky.night;
  }
  document.body.dataset.gameMode=mode;
 }

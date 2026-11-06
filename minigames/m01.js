@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 import {SoftwareRenderer} from '../software-renderer.js?v=20261106-immersive1';
-import {wantsSoftwareRenderer} from '../visual-test.js?v=20261106-visual1';
+import {wantsSoftwareRenderer} from '../visual-test.js?v=20261106-cute1';
 
 // This room is deliberately self-contained: it does not move or modify the
 // exploration scene, save record, mission data, or another minigame's controls.

@@ -1,5 +1,5 @@
 /** Browser-only progress, answers and results. The entered nickname is also used by live presence. */
-import {normalizeAvatarId} from './character-appearance.js?v=20261106-immersive1';
+import {normalizeAvatarId} from './character-appearance.js?v=20261106-cute1';
 const STORAGE_KEY = 'teacher-escape-440-v1';
 const VERSION = 1;
 

@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import {AVATAR_PRESETS} from './character-appearance.js?v=20261106-immersive1';
+import {AVATAR_PRESETS} from './character-appearance.js?v=20261106-cute1';
 
 export const GREETINGS = Object.freeze({
   wave: '👋 안녕하세요!', cheer: '✊ 퇴근까지 힘내요!', thanks: '🌿 수고 많으셨어요!'
@@ -209,7 +209,7 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
           world.animateCharacter?.(peer.model,phase,data.action==='walk'?1:0);
         }
         if(!resting)(peer.model.userData.arms||[]).forEach((arm,index)=>arm.rotation.z=peer.armZ[index]);
-        if(greetingActive&&!resting){const arm=peer.model.userData.arms?.[1];if(arm){arm.rotation.z=-2.2;arm.rotation.x=Math.sin(phase*1.5)*.3;}}
+        if(greetingActive&&!resting){const arm=peer.model.userData.arms?.[1];if(arm){arm.rotation.z=2.3;arm.rotation.x=Math.sin(phase*1.5)*.3;}}
         peer.bubble.hidden=!greetingActive;
         projection.copy(peer.model.position);projection.y+=resting?1:2.65;projection.project(camera);
         const offscreen=projection.z>1||projection.z< -1||Math.abs(projection.x)>1.05||Math.abs(projection.y)>1.05;

@@ -84,8 +84,8 @@ export function createCrowd({floors,questObjects,teacher,mesh,geo,mat,random=Mat
     // player's floor moves, so adding encounters costs no off-floor simulation.
     const parentModel=teacher(inside,0,0,0,floor%2?'#b87d81':'#aa82ad',false,{id:`complaint-parent-${floor}`,role:'parent'});
     const hand=parentModel.userData.arms?.[1]||parentModel;
-    mesh(hand,geo('BoxGeometry',.16,.28,.055),mat('#405258'),0,-.43,.16);
-    mesh(hand,geo('BoxGeometry',.12,.21,.012),mat('#deebe2'),0,-.43,.195);
+    mesh(hand,geo('BoxGeometry',.13,.22,.045),mat('#e0533f'),0,-.36,.12);
+    mesh(hand,geo('BoxGeometry',.1,.17,.012),mat('#e8f4ff'),0,-.36,.148);
     const caller=addActor({id:`complaint-parent-${floor}`,model:parentModel,floor,route:CROWD_ROUTES.parent,speed:.58,kind:'parent',wait:1.7});
     caller.cooldown=5;
   }

@@ -22,6 +22,13 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   const hiddenRenderBodies = [];
   let focusStarted = false;
   let restingCameraId = null;
+  // Free look while lying down: orbit around the resting teacher, or look
+  // around from the pillow with the teacher's own eyes. Both turn a full 360°.
+  const restLook = { yaw: 0, elevation: 0, distance: 0, eyeYaw: Math.PI, eyePitch: .2, view: 'orbit', base: null };
+  const restEye = new THREE.Vector3();
+  const restForward = new THREE.Vector3();
+  const REST_ORBIT = Object.freeze({ minElevation: -.02, maxElevation: 1.25, minDistance: 1.7, maxDistance: 5.2 });
+  const arrowKeys = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
   const stick = { x: 0, y: 0 };
   let enabled = true;
   let cameraMode = 'shoulder';
@@ -88,7 +95,8 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   }
 
   listen(window, 'keydown', event => {
-    if (!enabled || editing(event.target) || !controlKeys.has(event.code)) return;
+    if (editing(event.target) || !controlKeys.has(event.code)) return;
+    if (!enabled && !(restingCameraId && arrowKeys.has(event.code))) return;
     event.preventDefault();
     keys.add(event.code);
   });
@@ -97,18 +105,19 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   listen(document, 'visibilitychange', () => { if (document.hidden) clearInput(); });
 
   listen(canvas, 'pointerdown', event => {
-    if (!enabled || drag || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    if ((!enabled && !restingCameraId) || drag || (event.pointerType === 'mouse' && event.button !== 0)) return;
     drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
     try { canvas.setPointerCapture(event.pointerId); } catch {}
     canvas.classList.add('is-looking');
     event.preventDefault();
   });
   listen(canvas, 'pointermove', event => {
-    if (!enabled || !drag || drag.id !== event.pointerId) return;
+    if ((!enabled && !restingCameraId) || !drag || drag.id !== event.pointerId) return;
     const dx = event.clientX - drag.x;
     const dy = event.clientY - drag.y;
     drag.x = event.clientX;
     drag.y = event.clientY;
+    if (restingCameraId) { turnRestLook(-dx * .005, dy * .004); event.preventDefault(); return; }
     orbitYaw -= dx * 0.005;
     if (firstPerson) firstPitch = THREE.MathUtils.clamp(firstPitch - dy * 0.004, -0.9, 0.9);
     else if(cameraMode==='overview') elevation = THREE.MathUtils.clamp(elevation + dy * .004, .40, 1.13);
@@ -126,6 +135,11 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   listen(canvas, 'lostpointercapture', endDrag);
   listen(canvas, 'contextmenu', event => { if (enabled) event.preventDefault(); });
   listen(canvas, 'wheel', event => {
+    if (restingCameraId && Number.isFinite(event.deltaY)) {
+      event.preventDefault();
+      if (restLook.view === 'orbit') restLook.distance = THREE.MathUtils.clamp(restLook.distance + event.deltaY * .004, REST_ORBIT.minDistance, REST_ORBIT.maxDistance);
+      return;
+    }
     if (!enabled || firstPerson || !Number.isFinite(event.deltaY)) return;
     event.preventDefault();
     const rig = cameraMode==='overview' ? OVERVIEW_CAMERA : WALK_CAMERA;
@@ -233,6 +247,38 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
     return (world.colliders || []).filter(c => c.blocksSight !== false).map(c => ({ ...c, minY: base, maxY: base + 3.5 }));
   }
 
+  function turnRestLook(yaw, pitch) {
+    if (!restingCameraId) return;
+    if (restLook.view === 'eyes') {
+      restLook.eyeYaw += yaw;
+      restLook.eyePitch = THREE.MathUtils.clamp(restLook.eyePitch - pitch, -.75, 1.35);
+    } else {
+      restLook.yaw += yaw;
+      restLook.elevation = THREE.MathUtils.clamp(restLook.elevation + pitch, REST_ORBIT.minElevation, REST_ORBIT.maxElevation);
+    }
+  }
+
+  function resetRestLook(pose) {
+    const base = pose || restLook.base;
+    if (!base) return;
+    const dx = base.position.x - base.target.x, dy = base.position.y - base.target.y, dz = base.position.z - base.target.z;
+    const distance = Math.hypot(dx, dy, dz) || 4;
+    restLook.base = { position: { ...base.position }, target: { ...base.target } };
+    restLook.yaw = Math.atan2(dx, dz);
+    restLook.elevation = Math.asin(THREE.MathUtils.clamp(dy / distance, -1, 1));
+    restLook.distance = distance;
+    // From the pillow, start by looking along the bed toward the room.
+    restLook.eyeYaw = Math.atan2(dx, dz) + Math.PI;
+    restLook.eyePitch = .06;
+  }
+
+  function restEyePosition(out) {
+    const head = model?.userData?.head;
+    if (!head?.localToWorld) return null;
+    head.updateWorldMatrix?.(true, false);
+    return head.localToWorld(out.set(0, .04, .5));
+  }
+
   function updateRestCamera(bed, dt, { snap = false } = {}) {
     if (disposed || !validCameraPose(bed?.cameraPose)) return false;
     const pose = bed.cameraPose;
@@ -242,9 +288,34 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
       world.setCameraMode?.('shoulder');
       camera.getWorldDirection(restTarget).multiplyScalar(4).add(camera.position);
       focusStarted = false;
+      resetRestLook(pose);
     }
-    desiredCamera.set(pose.position.x, pose.position.y, pose.position.z);
+    if (keys.has('ArrowLeft')) turnRestLook(1.65 * step, 0);
+    if (keys.has('ArrowRight')) turnRestLook(-1.65 * step, 0);
+    // Up always means "look higher": raise the orbit, or lift the eyes.
+    const lift = restLook.view === 'eyes' ? -1 : 1;
+    if (keys.has('ArrowUp')) turnRestLook(0, lift * .9 * step);
+    if (keys.has('ArrowDown')) turnRestLook(0, -lift * .9 * step);
+    if (restLook.view === 'eyes' && restEyePosition(restEye)) {
+      const blend = snap ? 1 : 1 - Math.exp(-6 * step);
+      camera.position.lerp(restEye, blend);
+      restForward.set(
+        -Math.sin(restLook.eyeYaw) * Math.cos(restLook.eyePitch),
+        Math.sin(restLook.eyePitch),
+        -Math.cos(restLook.eyeYaw) * Math.cos(restLook.eyePitch)
+      ).multiplyScalar(4).add(restEye);
+      restTarget.lerp(restForward, blend);
+      if (Math.abs(camera.fov - 70) > .01) { camera.fov += (70 - camera.fov) * blend; camera.updateProjectionMatrix(); }
+      if (model) model.visible = true;
+      camera.lookAt(restTarget);
+      return true;
+    }
     cameraOrigin.set(pose.target.x, pose.target.y, pose.target.z);
+    desiredCamera.set(
+      cameraOrigin.x + Math.sin(restLook.yaw) * Math.cos(restLook.elevation) * restLook.distance,
+      cameraOrigin.y + Math.sin(restLook.elevation) * restLook.distance,
+      cameraOrigin.z + Math.cos(restLook.yaw) * Math.cos(restLook.elevation) * restLook.distance
+    );
     keepCameraClear(cameraOrigin, desiredCamera, getCameraColliders(), safeCamera, .14);
     const blend = snap ? 1 : 1 - Math.exp(-3.2 * step);
     camera.position.lerp(safeCamera, blend);
@@ -271,6 +342,7 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
 
   function update(dt, active = true) {
     if (disposed || !enabled || !active || document.hidden) {
+      if (restingCameraId && !disposed && !document.hidden) return;
       if (moving || keys.size || drag || stickPointer !== null) clearInput();
       return;
     }
@@ -325,7 +397,10 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   function setActive(value) {
     const wasEnabled = enabled;
     enabled = !!value;
-    if (!enabled && (wasEnabled || keys.size || drag || stickPointer !== null)) clearInput();
+    if (enabled) return;
+    // Lying down keeps its own look input; only walking input is released.
+    if (restingCameraId) { if (wasEnabled || stickPointer !== null) { resetStick(); moving = false; } return; }
+    if (wasEnabled || keys.size || drag || stickPointer !== null) clearInput();
   }
 
   function setView(value) {
@@ -356,8 +431,11 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
     // Only hide the render subtree, and only for the synchronous draw. Patrol,
     // encounters, interaction targeting and other systems still see the actor.
     try {
+      // Looking out through the resting teacher's eyes: hide only that head.
+      const restingHead = restingCameraId && restLook.view === 'eyes' ? model?.userData?.head : null;
+      if (restingHead?.visible) { restingHead.visible = false; hiddenRenderBodies.push(restingHead); }
       if (cameraMode === 'shoulder' && !restingCameraId) {
-        for (const actor of world.characters || []) {
+        for (const actor of world.cameraOccluders || world.characters || []) {
           const actorModel=actor.model;
           if (!actorModel?.visible || actor.floor!==currentFloor) continue;
           const body=actorModel.userData?.body||actorModel.getObjectByName?.('character-body');
@@ -404,7 +482,11 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
     resetCamera,
     updateRestCamera,
     withCameraOcclusion,
-    endRestCamera() { restingCameraId = null; focusStarted = false; world.setCameraMode?.(cameraMode); },
+    endRestCamera() { restingCameraId = null; focusStarted = false; if (drag) { try { canvas.releasePointerCapture(drag.id); } catch {} drag = null; canvas.classList.remove('is-looking'); } for (const key of arrowKeys) keys.delete(key); world.setCameraMode?.(cameraMode); },
+    get restView() { return restLook.view; },
+    setRestView(value) { if (value !== 'orbit' && value !== 'eyes') return false; restLook.view = value; return true; },
+    resetRestLook() { resetRestLook(); },
+    get restLook() { return { yaw: restLook.yaw, elevation: restLook.elevation, distance: restLook.distance, eyeYaw: restLook.eyeYaw, eyePitch: restLook.eyePitch, view: restLook.view }; },
     focusOn(target,dt){
       if(!focusStarted){camera.getWorldDirection(focusTarget);focusTarget.multiplyScalar(10).add(camera.position);focusStarted=true;}
       const p=target.getWorldPosition?target.getWorldPosition(new THREE.Vector3()):target.clone();

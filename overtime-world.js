@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import {animateCharacter} from './crowd.js';
+import {animateCharacter} from './crowd.js?v=20261106-cute1';
 
 // Visual atmosphere only: the corridor remains walkable and missions stay open.
 export function createOvertimeWorld({root,floors,teacher,box,mesh,geo,mat}) {
@@ -8,7 +8,7 @@ export function createOvertimeWorld({root,floors,teacher,box,mesh,geo,mat}) {
     const lights=new THREE.Group();lights.name=`overtime-lights-${floor}`;inside.add(lights);moving.add(lights);
     for(const [index,x] of [-10,-6,-2,2,6,10].entries()){
       const fixture=new THREE.Group();fixture.name=`corridor-light-${floor}-${index}`;lights.add(fixture);
-      box(fixture,x,3.18,4.7,1.5,.12,.48,'#66746e');
+      box(fixture,x,3.18,4.7,1.5,.12,.48,'#6d737a');
       const lamp=mesh(fixture,geo('BoxGeometry',1.34,.07,.36),new THREE.MeshBasicMaterial({color:'#fff2bd'}),x,3.1,4.7,false);
       lamp.name='lamp';
       const pool=mesh(fixture,geo('CircleGeometry',1.9,10),new THREE.MeshBasicMaterial({color:'#ffefb5',transparent:true,opacity:.1,depthWrite:false}),x,.18,4.7,false);
@@ -19,10 +19,12 @@ export function createOvertimeWorld({root,floors,teacher,box,mesh,geo,mat}) {
   const guard=teacher(root,-10,0,4.7,'#66788f',false,{id:'night-security',role:'security'});
   guard.name='overtime-security-guard';guard.visible=false;moving.add(guard);
   // The peaked cap and reflective waist strip distinguish the evening patrol.
-  box(guard,0,2.18,-.02,.67,.17,.55,'#35485d');
-  box(guard,0,2.12,.31,.7,.045,.27,'#35485d');
-  box(guard,0,.91,.19,.6,.065,.025,'#f1dfa4');
-  const torch=new THREE.Group();torch.name='security-flashlight';torch.position.set(.4,1.34,.65);torch.rotation.x=.24;guard.add(torch);
+  const capHolder=guard.userData.head||guard;
+  mesh(capHolder,geo('CylinderGeometry',.43,.47,.2,16),mat('#35485d'),0,.36,-.03,false);
+  const visor=mesh(capHolder,geo('CylinderGeometry',.24,.24,.035,12,1,false,-Math.PI/2,Math.PI),mat('#2b3b4d'),0,.28,.3,false);visor.scale.set(1.3,1,1);
+  mesh(capHolder,geo('CylinderGeometry',.05,.05,.03,8),mat('#f2c14e'),0,.4,.42,false).rotation.x=Math.PI/2;
+  const band=mesh(guard,geo('CylinderGeometry',.338,.338,.06,18,1,true),mat('#f1dfa4'),0,.64,0,false);band.scale.z=.82;
+  const torch=new THREE.Group();torch.name='security-flashlight';torch.position.set(.42,1.0,.52);torch.rotation.x=.12;guard.add(torch);
   const barrel=mesh(torch,geo('CylinderGeometry',.08,.08,.34,8),mat('#2e3e4b'),0,0,0,false);barrel.rotation.x=Math.PI/2;
   const lens=mesh(torch,geo('CircleGeometry',.075,12),new THREE.MeshBasicMaterial({color:'#fff6ce',side:THREE.DoubleSide}),0,0,.18,false);
   lens.name='flashlight-lens';

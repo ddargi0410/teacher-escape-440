@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 import {SoftwareRenderer} from '../software-renderer.js?v=20261106-immersive1';
-import {wantsSoftwareRenderer} from '../visual-test.js?v=20261106-visual1';
+import {wantsSoftwareRenderer} from '../visual-test.js?v=20261106-cute1';
 
 const BOUNDS={minX:-6.3,maxX:6.3,minZ:-2.25,maxZ:4.8};
 const SHELF={x:0,z:-3.25},BIN={x:5.65,z:-2.8};

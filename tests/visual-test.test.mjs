@@ -28,7 +28,7 @@ test('local routes accept only finite mission and scene values',()=>{
 
 test('fallback and rest variants are explicit local options with safe defaults',()=>{
  const route=readVisualTestRoute(location('http://localhost/?test=1&scene=rest&bed=5&posture=side&renderer=software'));
- assert.deepEqual(route,{enabled:true,scene:'rest',mission:null,renderer:'software',bed:'bed-5',posture:'side',quality:'medium'});
+ assert.deepEqual(route,{enabled:true,scene:'rest',mission:null,renderer:'software',bed:'bed-5',posture:'side',quality:'medium',clock:null});
  assert.equal(wantsSoftwareRenderer(location('http://localhost/?test=1&renderer=software')),true);
  assert.equal(wantsSoftwareRenderer(location('http://localhost/?renderer=software')),false);
  assert.equal(readVisualTestRoute(location('http://localhost/?test=1&bed=99&posture=invalid')).bed,'bed-4');
@@ -40,4 +40,11 @@ test('visual quality presets are finite and ignored outside explicit local QA',(
  assert.equal(readVisualTestRoute(location('http://localhost/?test=1&quality=ultra')).quality,'medium');
  assert.equal(readVisualTestRoute(location('https://ddargi0410.github.io/?test=1&quality=low')).quality,'medium');
  assert.equal(readVisualTestRoute(location('http://localhost/?quality=low')).quality,'medium');
+});
+
+test('local daylight checks accept only school-clock times between 16:00 and 22:00',()=>{
+ assert.equal(readVisualTestRoute(location('http://localhost/?test=1&clock=17:20')).clock,17*60+20);
+ assert.equal(readVisualTestRoute(location('http://localhost/?test=1&clock=22:00')).clock,22*60);
+ for(const value of ['15:59','22:01','7:00','17:60','abc',''])assert.equal(readVisualTestRoute(location(`http://localhost/?test=1&clock=${value}`)).clock,null);
+ assert.equal(readVisualTestRoute(location('https://ddargi0410.github.io/?test=1&clock=21:00')).clock,null);
 });

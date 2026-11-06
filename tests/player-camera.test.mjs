@@ -216,3 +216,57 @@ test('authored school spawns and all five bed compositions have real space behin
     assert.ok(safe.distanceTo(new THREE.Vector3(pose.target.x,pose.target.y,pose.target.z)) < 5.5);
   }
 });
+
+test('lying down still turns a full 360° around the bed with drag, arrow keys and wheel',()=>{
+  const f=fixture();f.player.setActive(false);
+  const bed={id:'bed-2',cameraPose:{position:{x:3,y:2.3,z:2},target:{x:0,y:1.3,z:-1}}};
+  f.player.updateRestCamera(bed,.05,{snap:true});
+  const target=new THREE.Vector3(0,1.3,-1),distance=()=>f.camera.position.distanceTo(target);
+  const angle=()=>Math.atan2(f.camera.position.x-target.x,f.camera.position.z-target.z);
+  const start=angle(),startDistance=distance();
+  const settle=()=>{for(let i=0;i<240;i++){f.player.setActive(false);f.player.update(1/60,false);f.player.updateRestCamera(bed,1/60);}};
+  // The game loop keeps the walking controls inactive every frame while resting.
+  f.canvas.dispatch('pointerdown',{pointerType:'mouse',button:0,pointerId:7,clientX:0,clientY:0});
+  f.player.setActive(false);f.player.update(1/60,false);
+  f.canvas.dispatch('pointermove',{pointerId:7,clientX:-(Math.PI/2)/.005,clientY:0});
+  f.canvas.dispatch('pointerup',{pointerId:7});settle();
+  const turned=Math.atan2(Math.sin(angle()-start),Math.cos(angle()-start));
+  assert.ok(Math.abs(turned-Math.PI/2)<.02,`quarter turn while lying (${turned})`);
+  assert.ok(Math.abs(distance()-startDistance)<.02,'orbit keeps its distance');
+  f.canvas.dispatch('pointerdown',{pointerType:'mouse',button:0,pointerId:8,clientX:0,clientY:0});
+  f.canvas.dispatch('pointermove',{pointerId:8,clientX:-(Math.PI*1.5)/.005,clientY:0});
+  f.canvas.dispatch('pointerup',{pointerId:8});settle();
+  assert.ok(f.camera.position.distanceTo(new THREE.Vector3(3,2.3,2))<.02,'a full circle returns to the original composition');
+  f.window.dispatch('keydown',{code:'ArrowLeft'});
+  for(let i=0;i<30;i++){f.player.setActive(false);f.player.update(1/60,false);f.player.updateRestCamera(bed,1/60);}
+  f.window.dispatch('keyup',{code:'ArrowLeft'});settle();
+  const arrowTurn=Math.atan2(Math.sin(angle()-start),Math.cos(angle()-start));
+  assert.ok(Math.abs(arrowTurn-1.65*.5)<.05,`arrow keys turn the resting view too (${arrowTurn})`);
+  f.canvas.dispatch('wheel',{deltaY:-400});settle();
+  assert.ok(distance()<startDistance-1,'wheel brings the camera closer to the bed');
+  f.player.resetRestLook();settle();
+  assert.ok(f.camera.position.distanceTo(new THREE.Vector3(3,2.3,2))<.02,'reset returns to the authored composition');
+  f.player.endRestCamera();f.player.setActive(true);f.player.update(.05);
+  const walking=f.player.yaw;f.canvas.dispatch('pointerdown',{pointerType:'mouse',button:0,pointerId:9,clientX:0,clientY:0});
+  f.canvas.dispatch('pointermove',{pointerId:9,clientX:40,clientY:0});f.player.update(.05);
+  assert.ok(f.player.yaw<walking,'walking look resumes after standing');
+  f.player.dispose();
+});
+
+test('the pillow view looks out from the resting eyes and hides only that head while drawing',()=>{
+  const f=fixture();const head=new THREE.Group();head.position.set(0,1.4,-1);f.model.add(head);f.model.userData.head=head;
+  const bed={id:'bed-1',cameraPose:{position:{x:3,y:2.3,z:2},target:{x:0,y:1.3,z:-1}}};
+  f.player.setActive(false);assert.equal(f.player.setRestView('eyes'),true);assert.equal(f.player.setRestView('nope'),false);
+  for(let i=0;i<120;i++)f.player.updateRestCamera(bed,1/60);
+  const eye=head.localToWorld(new THREE.Vector3(0,.04,.5));
+  assert.ok(f.camera.position.distanceTo(eye)<.02,'camera sits at the teacher eyes');
+  const before=new THREE.Vector3();f.camera.getWorldDirection(before);
+  f.canvas.dispatch('pointerdown',{pointerType:'mouse',button:0,pointerId:3,clientX:0,clientY:0});
+  f.canvas.dispatch('pointermove',{pointerId:3,clientX:-Math.PI/.005,clientY:0});f.canvas.dispatch('pointerup',{pointerId:3});
+  for(let i=0;i<240;i++)f.player.updateRestCamera(bed,1/60);
+  const after=new THREE.Vector3();f.camera.getWorldDirection(after);
+  assert.ok(before.x*after.x+before.z*after.z<0,'turning half way looks the other way from the pillow');
+  f.player.withCameraOcclusion(()=>assert.equal(head.visible,false));assert.equal(head.visible,true);
+  f.player.setRestView('orbit');f.player.withCameraOcclusion(()=>assert.equal(head.visible,true));
+  f.player.dispose();
+});

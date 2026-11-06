@@ -5,7 +5,7 @@ export function createHallOfFameWorld({parent,box,cyl,mesh,geo,mat,teacher,sign}
   const anchors={},statues={},colliders=[];
   const palettes={
     fastest:{body:'#c5a04d',skin:'#ebc56d',hair:'#9c7438',detail:'#75572e',edge:'#e9ce8d'},
-    rest:{body:'#598d7f',skin:'#8fb7a1',hair:'#456d63',detail:'#31564e',edge:'#b9d3b0'},
+    rest:{body:'#7d9cc4',skin:'#b8cbe6',hair:'#5a7aa6',detail:'#3d5a85',edge:'#d3e0f2'},
   };
   function metalTeacher(group,kind,x,y,z) {
     const palette=palettes[kind];
@@ -25,10 +25,10 @@ export function createHallOfFameWorld({parent,box,cyl,mesh,geo,mat,teacher,sign}
     group.name='hall-of-fame-'+kind;group.position.set(x,0,11.25);
     group.userData.honorKind=kind;group.userData.pose=kind==='fastest'?'running-with-briefcase':'reclining-on-bed';
     parent.add(group);
-    box(group,0,.20,0,width+.38,.30,2.90,'#c6c9b4');
-    box(group,0,.42,0,width+.14,.18,2.64,'#e2dfc6');
-    box(group,0,.86,0,width,.72,2.36,'#758b7c');
-    box(group,0,1.27,0,width+.14,.13,2.52,'#ede4c6');
+    box(group,0,.20,0,width+.38,.30,2.90,'#c9c6c0');
+    box(group,0,.42,0,width+.14,.18,2.64,'#e6e2da');
+    box(group,0,.86,0,width,.72,2.36,'#8a8f99');
+    box(group,0,1.27,0,width+.14,.13,2.52,'#efe9dc');
     box(group,0,1.36,0,width,.06,2.36,palette.edge,{metalness:.35,roughness:.6});
     box(group,0,.85,1.194,width-.44,.42,.055,palette.detail);
     sign(group,label,0,.85,1.23,width-.55,.34,'#fff3d2',palette.detail);
@@ -50,7 +50,7 @@ export function createHallOfFameWorld({parent,box,cyl,mesh,geo,mat,teacher,sign}
   runner.userData.arms[0].rotation.x=-1.12;runner.userData.arms[1].rotation.x=.58;
   // The briefcase is held by the lowered arm, rather than floating beside it.
   const caseArm=runner.userData.arms[1];
-  const briefcase=new THREE.Group();briefcase.name='honor-briefcase';briefcase.position.set(0,-.91,.02);caseArm.add(briefcase);
+  const briefcase=new THREE.Group();briefcase.name='honor-briefcase';briefcase.position.set(0,-.5,.04);briefcase.scale.setScalar(.78);caseArm.add(briefcase);
   box(briefcase,0,0,0,.66,.44,.25,palettes.fastest.detail,{metalness:.45,roughness:.55});
   box(briefcase,0,.03,.135,.61,.045,.025,palettes.fastest.edge);
   for(const side of [-1,1])box(briefcase,side*.12,.29,0,.045,.15,.06,palettes.fastest.edge);
@@ -68,12 +68,13 @@ export function createHallOfFameWorld({parent,box,cyl,mesh,geo,mat,teacher,sign}
   box(bed,0,1.76,0,3.08,.18,1.22,palettes.rest.hair);
   box(bed,0,1.91,0,3,.16,1.18,palettes.rest.edge);
   box(bed,1.46,2.14,0,.10,.60,1.25,palettes.rest.hair);
-  box(bed,1.12,2.05,0,.56,.14,.76,'#d9e1c4');
-  const sleeper=metalTeacher(resting,'rest',-1.03,2.06,0);
+  box(bed,1.12,2.05,0,.56,.14,.76,'#e8eef8');
+  const sleeper=metalTeacher(resting,'rest',-.62,2.2,0);
   sleeper.name='honor-sleeper';sleeper.rotation.set(-Math.PI/2,0,-Math.PI/2);
   sleeper.userData.arms[0].rotation.z=-1.9;
   sleeper.userData.arms[1].rotation.x=-.74;
   sleeper.userData.legs[0].rotation.x=-.10;sleeper.userData.legs[1].rotation.x=-.10;
+  if(sleeper.userData.head)sleeper.userData.head.position.z+=.12;
   // A folded bronze blanket and slippers strengthen the bedside silhouette.
   box(bed,-1.18,2.04,.04,.44,.12,1.03,palettes.rest.body);
   for(const z of [-.18,.18])box(resting,-1.38,1.45,z+.68,.33,.12,.19,palettes.rest.detail);

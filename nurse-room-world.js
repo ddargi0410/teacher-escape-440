@@ -102,64 +102,64 @@ export function createNurseRoom({inside,colliders,beds,interactables,helpers,cx=
   // Warm vinyl floor, painted plaster, a real suspended ceiling and skirting.
   box(room,cx,.035,0,11.8,.10,15.5,'#ded9cc');
   for(let n=0;n<22;n++)box(room,14.25+n*.535,.092,0,.51,.012,15.35,n%3===0?'#e1ddd2':'#e7e3d9');
-  box(architecture,cx,3.08,0,12,.16,15.6,'#eeeee8');
+  box(architecture,cx,3.08,0,12,.16,15.6,'#f7f6f2');
   cameraColliders.push({x:cx,z:0,w:12,d:15.6,minY:3,maxY:3.16});
   for(const z of [-6,-2,2,6]){
     box(architecture,cx,2.985,z,1.05,.025,1.55,'#fffdf0',{emissive:'#fff9e6',emissiveIntensity:.32});
     for(const x of [17,23])box(architecture,x,2.985,z,.55,.022,1.2,'#f9f8ed');
   }
-  wall(25.92,1.5,0,.22,3,15.7,'#e8e7dc');
-  wall(cx,1.5,7.86,12,3,.22,'#ece9df');
-  wall(14.08,1.5,-2.4,.22,3,10.8,'#ece9df');
-  wall(14.08,1.5,7.1,.22,3,1.4,'#ece9df');
-  box(architecture,14.08,2.7,4.7,.22,.6,3.4,'#ece9df');
+  wall(25.92,1.5,0,.22,3,15.7,'#f3f1ec');
+  wall(cx,1.5,7.86,12,3,.22,'#f6f3ee');
+  wall(14.08,1.5,-2.4,.22,3,10.8,'#f6f3ee');
+  wall(14.08,1.5,7.1,.22,3,1.4,'#f6f3ee');
+  box(architecture,14.08,2.7,4.7,.22,.6,3.4,'#f6f3ee');
   cameraColliders.push({x:14.08,z:4.7,w:.22,d:3.4,minY:2.4,maxY:3});
   for(const x of [14.22,25.78]){
-    if(x<20){box(room,x,.6,-2.4,.035,1.05,10.8,'#bdcfc0');box(room,x,.6,7.1,.035,1.05,1.4,'#bdcfc0');}
-    else box(room,x,.6,0,.035,1.05,15.6,'#bdcfc0');
+    if(x<20){box(room,x,.6,-2.4,.035,1.05,10.8,'#bfe0f5');box(room,x,.6,7.1,.035,1.05,1.4,'#bfe0f5');}
+    else box(room,x,.6,0,.035,1.05,15.6,'#bfe0f5');
   }
-  box(room,cx,.6,7.72,11.7,1.05,.04,'#bdcfc0');
-  for(const x of [14.24,25.76])box(room,x,.15,0,.035,.15,15.4,'#9ea89a');
-  box(room,cx,.15,7.7,11.6,.15,.035,'#9ea89a');
+  box(room,cx,.6,7.72,11.7,1.05,.04,'#bfe0f5');
+  for(const x of [14.24,25.76])box(room,x,.15,0,.035,.15,15.4,'#9aa3ad');
+  box(room,cx,.15,7.7,11.6,.15,.035,'#9aa3ad');
 
   // Three classroom-scale openings: sill1.04m, top2.6m, with proper wall piers.
-  wall(cx,.52,-7.74,12,1.04,.23,'#e9e7dc');
-  wall(cx,2.8,-7.74,12,.4,.23,'#e9e7dc');
-  for(const [x,w] of [[14.45,.9],[18.1,.6],[21.9,.6],[25.55,.9]])wall(x,1.82,-7.74,w,1.56,.23,'#e9e7dc');
+  wall(cx,.52,-7.74,12,1.04,.23,'#f3f1ec');
+  wall(cx,2.8,-7.74,12,.4,.23,'#f3f1ec');
+  for(const [x,w] of [[14.45,.9],[18.1,.6],[21.9,.6],[25.55,.9]])wall(x,1.82,-7.74,w,1.56,.23,'#f3f1ec');
   // The room boundary remains impassable at window height for gameplay.
   collide(colliders,cx,-7.9,12,.25);
   for(const x of [16.2,20,23.8]){
     windows.push({x,y:1.82,z:-7.72,width:3.05,height:1.56,sill:1.04,top:2.6});
-    for(const xx of [x-1.55,x,x+1.55])box(architecture,xx,1.82,-7.63,.045,1.62,.1,'#e2e2d7');
-    for(const y of [1.04,1.82,2.60])box(architecture,x,y,-7.61,3.14,.05,.1,'#e2e2d7');
-    box(architecture,x,1,-7.47,3.32,.10,.44,'#c4c5b8');
+    for(const xx of [x-1.55,x,x+1.55])box(architecture,xx,1.82,-7.63,.045,1.62,.1,'#f2f3f4');
+    for(const y of [1.04,1.82,2.60])box(architecture,x,y,-7.61,3.14,.05,.1,'#f2f3f4');
+    box(architecture,x,1,-7.47,3.32,.10,.44,'#e6e8ea');
     // No opaque glass billboard: a tiny tint preserves lake visibility.
-    const pane=box(architecture,x,1.82,-7.65,3.04,1.52,.008,'#cee2df',{transparent:true,opacity:.055,depthWrite:false});pane.castShadow=false;pane.name='infirmary-window';pane.userData.window=windows[windows.length-1];
-    cyl(architecture,x,2.78,-7.36,.026,.026,3.4,'#b5b4a7',8).rotation.z=Math.PI/2;
+    const pane=box(architecture,x,1.82,-7.65,3.04,1.52,.008,'#dcefff',{transparent:true,opacity:.055,depthWrite:false});pane.castShadow=false;pane.name='infirmary-window';pane.userData.window=windows[windows.length-1];
+    cyl(architecture,x,2.78,-7.36,.026,.026,3.4,'#b8c0c8',8).rotation.z=Math.PI/2;
     for(const side of [-1,1])for(let fold=0;fold<4;fold++){
-      const curtain=box(architecture,x+side*(1.39-fold*.065),1.85,-7.35+((fold%2)*.04),.095,1.75,.05,fold%2?'#d8dfd0':'#e5e9db');curtain.name='linen-window-curtain';
+      const curtain=box(architecture,x+side*(1.39-fold*.065),1.85,-7.35+((fold%2)*.04),.095,1.75,.05,fold%2?'#fbe1e7':'#fff0f3');curtain.name='linen-window-curtain';
     }
   }
-  sign(architecture,'보건실',14.24,2.1,6.75,1.8,.45,'#476459','#f4f1e7').rotation.y=Math.PI/2;
-  sign(architecture,'오늘은 천천히',cx,2.83,-7.59,2.8,.22,'#6b8171','#e9e7dc');
+  sign(architecture,'보건실',14.24,2.1,6.75,1.8,.45,'#2f6fa3','#f4f1e7').rotation.y=Math.PI/2;
+  sign(architecture,'오늘은 천천히',cx,2.83,-7.59,2.8,.22,'#6f86a6','#f3f1ec');
 
   // Beds sit in two rows with 1.9m side aisles and a broad cross aisle.
-  const palette=['#a9bfa9','#9ebac3','#c6afb2','#b4adc8','#d2c4a0'];
+  const palette=['#ffb88a','#8ec5e8','#f5a8b8','#c3b1ec','#f6d27a'];
   for(const [index,layout] of NURSE_BED_LAYOUT.entries()){
     const {id,x,z}=layout;
-    box(room,x,.53,z,1.91,.25,3.4,'#b5c2b7');
+    box(room,x,.53,z,1.91,.25,3.4,'#dfe7ee');
     soft(room,shapes.mattress,x,.77,z,'#f3f1e8');
     soft(room,shapes.pillow,x,.98,z-1.15,'#fffaf0');
     for(const dx of [-.78,.78])for(const dz of [-1.38,1.38]){
-      cyl(room,x+dx,.28,z+dz,.047,.047,.52,'#9da99c',8);
+      cyl(room,x+dx,.28,z+dz,.047,.047,.52,'#b8c0c8',8);
       cyl(room,x+dx,.09,z+dz,.08,.08,.12,'#737e74',8).rotation.z=Math.PI/2;
     }
-    box(room,x,.91,z-1.73,1.94,.86,.1,'#a1b8ab');
-    box(room,x,1.3,z-1.73,1.94,.055,.12,'#d3dbce');
-    box(room,x,.61,z+1.73,1.94,.4,.08,'#a1b8ab');
+    box(room,x,.91,z-1.73,1.94,.86,.1,'#8ec5e8');
+    box(room,x,1.3,z-1.73,1.94,.055,.12,'#eef3f7');
+    box(room,x,.61,z+1.73,1.94,.4,.08,'#8ec5e8');
     const duvet=new THREE.Group();duvet.name=`rest-duvet-${index+1}`;duvet.position.set(x,.94,z+.65);room.add(duvet);moving.push(duvet);
     const cloth=soft(duvet,shapes.duvet,0,0,0,palette[index]);cloth.name='draped-blanket';
-    const fold=soft(duvet,shapes.fold,0,.035,-.87,'#e2e8d9');duvet.userData.fold=fold;duvet.userData.cloth=cloth;duvets.set(id,duvet);
+    const fold=soft(duvet,shapes.fold,0,.035,-.87,'#ffffff');duvet.userData.fold=fold;duvet.userData.cloth=cloth;duvets.set(id,duvet);
     collide(colliders,x,z,1.96,3.6,false);
     cameraColliders.push({x,z,w:1.96,d:3.6,minY:0,maxY:1.03});
     const exitPoint={x,y:0,z:z+2.25};
@@ -175,21 +175,21 @@ export function createNurseRoom({inside,colliders,beds,interactables,helpers,cx=
   }
 
   // Nurse's working corner keeps the space recognisably a school infirmary.
-  solid(15.25,.8,6.9,1.7,1.6,.62,'#e2dfd1',false);
+  solid(15.25,.8,6.9,1.7,1.6,.62,'#f2efe9',false);
   box(room,15.25,1.64,6.9,1.8,.09,.72,'#bfae8c');
-  for(const x of [14.9,15.6]){box(room,x,1.02,6.56,.55,.62,.025,'#edeadf');box(room,x,1.04,6.53,.18,.025,.03,'#829185');}
+  for(const x of [14.9,15.6]){box(room,x,1.02,6.56,.55,.62,.025,'#edeadf');box(room,x,1.04,6.53,.18,.025,.03,'#8a929c');}
   cyl(room,15.8,1.83,6.9,.12,.12,.28,'#f9f6e9',10);
   box(room,15.4,1.72,6.85,.4,.08,.28,'#dbd4ba');
-  solid(24.7,1.1,6.85,1.65,2.2,.65,'#dbe1d5');
-  for(const y of [.5,1.1,1.7]){box(room,24.7,y,6.5,1.5,.045,.025,'#b9c8b7');box(room,24.7,y+.13,6.48,.11,.08,.02,'#85978b');}
-  sign(architecture,'구급함',24.7,2.33,7.68,1.2,.34,'#688676','#ece9df').rotation.y=Math.PI;
-  box(architecture,24.7,2.74,7.68,.13,.36,.03,'#b37566');box(architecture,24.7,2.74,7.67,.36,.13,.04,'#b37566');
+  solid(24.7,1.1,6.85,1.65,2.2,.65,'#eef3f7');
+  for(const y of [.5,1.1,1.7]){box(room,24.7,y,6.5,1.5,.045,.025,'#cfd8e2');box(room,24.7,y+.13,6.48,.11,.08,.02,'#8a929c');}
+  sign(architecture,'구급함',24.7,2.33,7.68,1.2,.34,'#d0465a','#f6f3ee').rotation.y=Math.PI;
+  box(architecture,24.7,2.74,7.68,.13,.36,.03,'#e0533f');box(architecture,24.7,2.74,7.67,.36,.13,.04,'#e0533f');
   // A quiet bench and tissue box, rather than a huge wall of glass.
   box(room,25.15,.47,3.6,.85,.13,1.6,'#c8bb9e');box(room,25.53,.9,3.6,.1,.8,1.6,'#c8bb9e');
-  for(const z of [3.05,4.15])box(room,25.15,.25,z,.65,.5,.075,'#95a58f');
+  for(const z of [3.05,4.15])box(room,25.15,.25,z,.65,.5,.075,'#9aa3ad');
   collide(colliders,25.15,3.6,1,1.6,false);
-  sign(architecture,'잠깐 쉬어도 괜찮아요',cx,2.5,7.72,4.9,.48,'#5f7864','#ece9df').rotation.y=Math.PI;
-  sign(architecture,'물 한 잔 · 깊은 숨 한 번',cx,1.98,7.71,3.6,.28,'#81917b','#ece9df').rotation.y=Math.PI;
+  sign(architecture,'잠깐 쉬어도 괜찮아요',cx,2.5,7.72,4.9,.48,'#2f6fa3','#f6f3ee').rotation.y=Math.PI;
+  sign(architecture,'물 한 잔 · 깊은 숨 한 번',cx,1.98,7.71,3.6,.28,'#6f86a6','#f6f3ee').rotation.y=Math.PI;
 
   // Varied living plants: low flowers by beds, taller leaves at room corners.
   plant(14.8,-6.7,1.18,false,'#c9b291');plant(25.1,-6.7,1.3,false,'#d4d0bd');
@@ -220,7 +220,7 @@ export function createNurseRoom({inside,colliders,beds,interactables,helpers,cx=
   if(typeof Image!=='undefined'){
     const texture=new THREE.TextureLoader().load(new URL('./assets/environment/lake-view.webp',import.meta.url).href);
     texture.colorSpace=THREE.SRGBColorSpace;
-    const backdrop=new THREE.Mesh(new THREE.PlaneGeometry(60,40),new THREE.MeshBasicMaterial({map:texture,color:'#e9f0e3',fog:true}));
+    const backdrop=new THREE.Mesh(new THREE.PlaneGeometry(60,40),new THREE.MeshBasicMaterial({map:texture,color:'#ffffff',fog:true}));
     backdrop.name='lake-panorama';backdrop.position.set(cx,4,-39);landscape.add(backdrop);
   }
   // Fallback distant hills also hide the water-plane edges in oblique views.
@@ -254,12 +254,13 @@ export function createNurseRoom({inside,colliders,beds,interactables,helpers,cx=
     }
     const original=snapshot(model),p=bed.bedPose;
     const facing=bed.cameraPose.position.x>p.x?1:-1;
-    model.position.set(p.x,side?1.15:p.y,p.z);model.rotation.set(-Math.PI/2,side?facing*Math.PI/2:0,0);model.visible=true;
+    model.position.set(p.x,side?1.09:p.y,p.z);model.rotation.set(-Math.PI/2,side?facing*Math.PI/2:0,0);model.visible=true;
     (model.userData.arms||[]).forEach((arm,n)=>{
       const upper=(facing===1?n===0:n===1);
       arm.rotation.x=side?-.10:-.035;
-      arm.rotation.z=side?(upper?facing*.42:-facing*.08):(n?-.06:.06);
-      if(side&&!upper)arm.position.x=facing*.22;
+      // Short arms rest beside the round body rather than inside it.
+      arm.rotation.z=side?(upper?facing*.5:-facing*.08):(n?.3:-.3);
+      if(side&&!upper)arm.position.x=facing*.2;
     });
     (model.userData.forearms||[]).forEach((arm,n)=>{const upper=(facing===1?n===0:n===1);arm.rotation.x=side?(upper?-.42:-.18):-.16;});
     (model.userData.legs||[]).forEach((leg,n)=>{leg.rotation.x=side?-.20:-.035;if(side)leg.position.x=(n?1:-1)*.08;});
@@ -268,7 +269,8 @@ export function createNurseRoom({inside,colliders,beds,interactables,helpers,cx=
     for(const shoe of model.userData.footwear||[])shoe.visible=false;
     if(model.userData.head){
       model.userData.head.rotation.y=side?facing*.05:.06;model.userData.head.rotation.z=side?-facing*.04:.02;
-      if(side)model.userData.head.position.x=-facing*.20;else model.userData.head.position.z=.20;
+      // The big round head settles onto the pillow instead of sinking through it.
+      if(side)model.userData.head.position.x=-facing*.12;else model.userData.head.position.z=.3;
     }
     model.userData.restingBed=id;model.userData.restPosture=side?'side':'back';
     sleepers.set(model,{id,posture:side?'side':'back',body:model.userData.body,original,phase:Number(id.slice(-1))*.7});refreshDuvets();return true;
@@ -282,7 +284,19 @@ export function createNurseRoom({inside,colliders,beds,interactables,helpers,cx=
     }
     if(changed)refreshDuvets();
   }
+  // The lake beyond the windows must follow the time of day too. Give the
+  // landscape its own materials (one per original) so tinting stays local.
+  const skyTinted=new Map();
+  landscape.traverse(node=>{
+    if(!node.isMesh||Array.isArray(node.material))return;
+    if(!skyTinted.has(node.material)){const own=node.material.clone();skyTinted.set(node.material,{material:own,base:own.color.clone()});}
+    node.material=skyTinted.get(node.material).material;
+  });
+  function setSkyTint(color){
+    if(!color?.isColor)return;
+    for(const {material,base} of skyTinted.values())material.color.copy(base).multiply(color);
+  }
   function setCameraMode(mode){cameraMode=mode;architecture.visible=mode!=='overview';landscape.visible=backdropEnabled&&mode!=='overview';}
   function setBackdropVisible(value){backdropEnabled=!!value;landscape.visible=backdropEnabled&&cameraMode!=='overview';}
-  return {root:room,cameraColliders,windows,moving,beds,cutawayGroups:[architecture],backdropGroup:landscape,setCameraMode,setBackdropVisible,setRestPose,clearRestPose,updateResting};
+  return {root:room,cameraColliders,windows,moving,beds,cutawayGroups:[architecture],backdropGroup:landscape,setCameraMode,setBackdropVisible,setSkyTint,setRestPose,clearRestPose,updateResting};
 }
