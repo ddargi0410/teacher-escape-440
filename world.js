@@ -4,6 +4,7 @@ import {createSchoolDetails} from './school-details.js';
 import {roomFrontWallSegments} from './stairs.js';
 import {characterAppearance} from './character-appearance.js';
 import {createOvertimeWorld} from './overtime-world.js';
+import {createHallOfFameWorld} from './hall-of-fame-world.js';
 
 // A small, entirely procedural school. No downloaded models or textures.
 const COLORS = {
@@ -192,6 +193,7 @@ export function createWorld(scene) {
   [[-28,-6,1.1],[-28,3,1],[-18,14,.95],[28,-6,1.15],[28,4,1],[17,15,.85],[-7,-13,.8],[7,-13,.9]].forEach(v=>tree(...v));
   function bench(x,z,rot=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=rot;exterior.add(g);for(let j=0;j<3;j++)box(g,0,.65,-.36+j*.25,2.6,.13,.18,'#ab7955');for(let j=0;j<2;j++)box(g,0,1.1+j*.23,-.5,2.6,.16,.1,'#ab7955');for(const dx of [-.9,.9])box(g,dx,.3,0,.12,.6,.9,'#526a5b');}
   bench(-10,12);bench(10,12,Math.PI);plant(exterior,-13,0,11,1.5);plant(exterior,13,0,11,1.5);
+  const hallOfFame=createHallOfFameWorld({parent:exterior,box,cyl,mesh,geo,mat,teacher,sign});
   // One original school plaque and flagpole; no external graphics.
   cyl(exterior,-16,4.2,-5,.055,.055,8.4,'#ddd6bc',8);
   const flag=box(exterior,-15.2,7.6,-5,1.6,.85,.035,'#f0e9d5');
@@ -476,7 +478,7 @@ export function createWorld(scene) {
   // Merge fixed scenery by material. The detailed school stays inexpensive to
   // draw, while NPCs, quest markers, lift sprites, car and gate remain movable.
   world.updateMatrixWorld(true);
-  const moving=new Set([car,gateLeft,gateRight,flag]);
+  const moving=new Set([car,gateLeft,gateRight,flag,...Object.values(hallOfFame.statues)]);
   for(const q of animated)for(const object of [q.npc,q.ring,q.crystal,q.number])moving.add(object);
   for(const actor of crowd.actors)moving.add(actor.model);
   for(const object of overtime.moving)moving.add(object);
@@ -510,12 +512,15 @@ export function createWorld(scene) {
       parts.forEach(g=>g.dispose());
     }
   }
+  for(const statue of Object.values(hallOfFame.statues))batchStatic(statue);
   batchStatic(exterior);batchStatic(roof);
   for(const f of floors.values())for(const group of [f.shell,f.front,f.cap,f.inside])batchStatic(group);
 
   function setFloor(floor) {
     currentFloor=Number.isInteger(floor)&&floor>=1&&floor<=5?floor:null;
     roof.visible=currentFloor===null;
+    // Ground-floor monuments need no draw calls in the upstairs cutaways.
+    for(const statue of Object.values(hallOfFame.statues))statue.visible=currentFloor===null||currentFloor===1;
     for(const [n,f] of floors){
       f.root.visible=currentFloor===null||n<=currentFloor;
       f.inside.visible=currentFloor===n;
@@ -535,6 +540,7 @@ export function createWorld(scene) {
   }
   const api={
     root:world, car, specialRooms,
+    hallOfFameAnchors:hallOfFame.anchors,hallOfFameStatues:hallOfFame.statues,
     getBed(id){return beds.get(id)||null;},
     setRestPose(model,id,posture='back'){
       const bed=beds.get(id);if(!model||!bed)return false;
@@ -552,7 +558,7 @@ export function createWorld(scene) {
     get floor(){return currentFloor;},
     get colliders(){
       if(currentFloor===null)return [];
-      const list=floors.get(currentFloor).colliders;
+      const list=currentFloor===1?[...floors.get(1).colliders,...hallOfFame.colliders]:floors.get(currentFloor).colliders;
       if(currentFloor===1&&!gateOpen)return [...list,{x:0,z:16,w:26.6,d:.25}];
       return list;
     },

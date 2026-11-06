@@ -31,7 +31,7 @@ function setup(){
     async connect({room,nickname}){connections.push({room,nickname});status={state:'online',room,nickname,connected:true,count:1};return true;}
   };
   const context={
-    state:freshState('수진의 퇴근'),mode:'home',document,presence,
+    state:freshState('수진의 퇴근'),mode:'home',document,presence,honors:null,
     $:selector=>document.body.querySelector(selector),$$:selector=>document.body.querySelectorAll(selector),
     createChannels:options=>createChannels({...options,runtime:{document,fetch:async()=>({ok:false}),now:()=>0}}),
     PRESENCE_ENDPOINT:'https://relay.example/api/presence',

@@ -20,6 +20,7 @@ export function freshState(name = '퇴근희망 교사') {
     floor: 1,
     bossDraft: '',
     finished: false,
+    honorsRunId: null,
     beginnerLearned: false,
     settings: { quality: 'medium', sound: false, relaxed: false }
   };
@@ -39,6 +40,7 @@ function normalize(value) {
   state.bossDraft = typeof value.bossDraft === 'string' ? value.bossDraft : '';
   state.beginnerLearned = value.beginnerLearned === true;
   state.finished = value.finished === true && state.completed.length === 10;
+  state.honorsRunId = typeof value.honorsRunId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.honorsRunId) ? value.honorsRunId.toLowerCase() : null;
   const settings = value.settings || {};
   state.settings = {
     quality: ['low', 'medium', 'high'].includes(settings.quality) ? settings.quality : 'medium',

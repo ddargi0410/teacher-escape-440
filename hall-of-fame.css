@@ -1,0 +1,22 @@
+.hall-of-fame-labels{position:fixed;inset:0;z-index:21;pointer-events:none;font-family:inherit;word-break:keep-all}
+.hall-of-fame-plate{position:absolute;width:310px;padding:11px 15px 12px;border:2px solid #cda757;border-radius:13px;background:#fffbedf5;color:#314b3e;text-align:center;box-shadow:0 4px 0 #785b3038,0 8px 18px #142b3521;line-height:1.35}
+.hall-of-fame-plate:after{position:absolute;left:calc(var(--hall-pointer-x,50%) - 7px);width:12px;height:12px;background:#fffbed;border:solid #cda757;content:"";transform:rotate(45deg)}
+.hall-of-fame-plate[data-side="above"]:after{bottom:-8px;border-width:0 2px 2px 0}
+.hall-of-fame-plate[data-side="below"]:after{top:-8px;border-width:2px 0 0 2px}
+.hall-of-fame-plate:before{position:absolute;left:var(--hall-pointer-x,50%);width:2px;height:var(--hall-line-height,0px);background:#b38b45aa;content:""}
+.hall-of-fame-plate[data-side="above"]:before{top:calc(100% + 7px)}
+.hall-of-fame-plate[data-side="below"]:before{bottom:calc(100% + 7px)}
+.hall-of-fame-rest{border-color:#729d89;background:#f0faf3f5;box-shadow:0 4px 0 #426a5838,0 8px 18px #142b3521}
+.hall-of-fame-rest:after{background:#f0faf3;border-color:#729d89}
+.hall-of-fame-rest:before{background:#668f7eaa}
+.hall-of-fame-category{margin:0;font-size:10px;font-weight:800;letter-spacing:.8px;color:#8b682c}
+.hall-of-fame-rest .hall-of-fame-category{color:#527b65}
+.hall-of-fame-title{margin:5px 0 3px;font-size:14px;font-weight:700;color:#5a624e}
+.hall-of-fame-nickname{display:block;margin:3px 0 6px;font-size:clamp(28px,2.7vw,36px);font-weight:900;line-height:1.15;letter-spacing:-1px;color:#263e33;word-break:keep-all;overflow-wrap:anywhere;text-wrap:balance}
+.hall-of-fame-rest .hall-of-fame-nickname{color:#255447}
+.hall-of-fame-long{padding-top:9px;padding-bottom:9px}
+.hall-of-fame-long .hall-of-fame-nickname{font-size:30px}
+.hall-of-fame-record{margin:0;font-size:11px;font-weight:600;color:#69725d;font-variant-numeric:tabular-nums}
+.hall-of-fame-waiting .hall-of-fame-nickname{font-size:22px;line-height:1.25;letter-spacing:-.6px}
+@media(max-width:600px){.hall-of-fame-plate{width:245px;padding:10px 12px}.hall-of-fame-title{font-size:12px}.hall-of-fame-category{font-size:9px}.hall-of-fame-nickname,.hall-of-fame-long .hall-of-fame-nickname{font-size:28px}.hall-of-fame-waiting .hall-of-fame-nickname{font-size:20px}.hall-of-fame-record{font-size:10px}}
+@media(prefers-contrast:more){.hall-of-fame-plate{background:#fffbed;border-width:3px;color:#172c23}.hall-of-fame-rest{background:#f0faf3}.hall-of-fame-title,.hall-of-fame-record{color:#294238}}
