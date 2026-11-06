@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.js';
-import {SoftwareRenderer} from '../software-renderer.js';
+import {SoftwareRenderer} from '../software-renderer.js?v=20261106-immersive1';
 import {start} from '../minigames/m01.js';
 import {createDocument} from './dom-stub.mjs';
 

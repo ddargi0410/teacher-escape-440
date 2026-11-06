@@ -1,4 +1,5 @@
 /** Browser-only progress, answers and results. The entered nickname is also used by live presence. */
+import {normalizeAvatarId} from './character-appearance.js?v=20261106-immersive1';
 const STORAGE_KEY = 'teacher-escape-440-v1';
 const VERSION = 1;
 
@@ -14,6 +15,7 @@ export function freshState(name = '퇴근희망 교사') {
   return {
     version: VERSION,
     name: nameOf(name),
+    avatarId: normalizeAvatarId(),
     completed: [],
     elapsed: 0,
     penalty: 0,
@@ -22,13 +24,14 @@ export function freshState(name = '퇴근희망 교사') {
     finished: false,
     honorsRunId: null,
     beginnerLearned: false,
-    settings: { quality: 'medium', sound: false, relaxed: false }
+    settings: { quality: 'medium', sound: false, relaxed: false, cameraMode: 'shoulder' }
   };
 }
 
 function normalize(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || value.version !== VERSION) return null;
   const state = freshState(value.name);
+  state.avatarId = normalizeAvatarId(value.avatarId);
   const completed = Array.isArray(value.completed)
     ? [...new Set(value.completed.filter(id => Number.isInteger(id) && id >= 1 && id <= 10))]
     : [];
@@ -45,7 +48,8 @@ function normalize(value) {
   state.settings = {
     quality: ['low', 'medium', 'high'].includes(settings.quality) ? settings.quality : 'medium',
     sound: settings.sound === true,
-    relaxed: settings.relaxed === true
+    relaxed: settings.relaxed === true,
+    cameraMode: ['shoulder','overview','first'].includes(settings.cameraMode) ? settings.cameraMode : 'shoulder'
   };
   return state;
 }

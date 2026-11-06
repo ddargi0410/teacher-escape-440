@@ -23,9 +23,10 @@ const overlaps = (a, b) => {
   return a.left < b.left + b.width + gap && a.left + a.width + gap > b.left
     && a.top < b.top + b.height + gap && a.top + a.height + gap > b.top;
 };
+// The shoulder camera can see through corridor windows; keep award labels outdoors.
 const nearHall = ({visible, floor, position, width, height}) => visible && floor === 1 && position
   && finite(width) && finite(height) && Number.isFinite(position.x) && Number.isFinite(position.z)
-  && width >= 240 && height >= 300 && position.z >= 5.4 && position.z <= 17.3 && Math.abs(position.x) <= 14;
+  && width >= 240 && height >= 300 && position.z >= 8.4 && position.z <= 17.3 && Math.abs(position.x) <= 14;
 
 function projectBounds(bounds, camera, width, height) {
   const points = [];
@@ -99,7 +100,8 @@ export function projectHallOfFameLabels({camera, anchors, visible, floor, positi
     const cardWidth = Math.min(sizes[item.kind]?.width || (mobile ? 245 : 310), width - 24);
     const cardHeight = sizes[item.kind]?.height || 164;
     const naturalLeft = item.x - cardWidth / 2;
-    const lefts = [naturalLeft];
+    // Keep a visible edge anchor attached while fitting its card inside the screen.
+    const lefts = [naturalLeft, Math.max(6, Math.min(width - cardWidth - 6, naturalLeft))];
     for (const reserved of protectedRects) lefts.push(reserved.left - cardWidth - 12, reserved.left + reserved.width + 12);
     const visibleLefts = [...new Set(lefts)].filter(left => left >= 6 && left + cardWidth <= width - 6
       && item.x >= left + 16 && item.x <= left + cardWidth - 16);

@@ -30,7 +30,30 @@ export class SoftwareRenderer {
     this._pixels=null;this._depth=null;
   }
   setClearColor(color){this._background=new THREE.Color(color).getStyle();}
-  dispose(){this._cache=new WeakMap();this._colorCache=new WeakMap();}
+  dispose(){this._cache=new WeakMap();this._colorCache=new WeakMap();this._textureCache=new WeakMap();}
+
+  _textureData(map){
+    const image=map?.image;
+    if(!image||image.complete===false)return null;
+    const width=image.naturalWidth??image.width,height=image.naturalHeight??image.height;
+    // A pending image is retried after load, never cached as an empty texture.
+    if(!(width>0&&height>0))return null;
+    const previous=this._textureCache.get(map);
+    if(previous&&previous.image===image&&previous.width===width&&previous.height===height&&previous.version===map.version)return previous.pixels;
+    try{
+      let pixels;
+      if(image.data&&image.data.length===width*height*4)pixels={data:image.data,width,height};
+      else if(image.getContext)pixels=image.getContext('2d').getImageData(0,0,width,height);
+      else {const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;const context=canvas.getContext('2d');context.drawImage(image,0,0,width,height);pixels=context.getImageData(0,0,width,height);}
+      this._textureCache.set(map,{image,width,height,version:map.version,pixels});return pixels;
+    }catch{return null;}
+  }
+
+  _textureInfo(map){
+    const pixels=this._textureData(map);if(!pixels)return null;
+    if(map.matrixAutoUpdate!==false)map.updateMatrix();
+    return {pixels,matrix:map.matrix.elements,wrapS:map.wrapS,wrapT:map.wrapT,flipY:map.flipY};
+  }
 
   _meshData(object){
     const geometry=object.geometry,positions=geometry.attributes.position;
@@ -95,34 +118,37 @@ export class SoftwareRenderer {
       if((a.x<0&&b.x<0&&c.x<0)||(a.x>w&&b.x>w&&c.x>w)||(a.y<0&&b.y<0&&c.y<0)||(a.y>h&&b.y>h&&c.y>h))return;
       const area=Math.abs((b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x));if(area<.16)return;
       const depth=(a.z+b.z+c.z)/3;
-      let r=rgb[0]*light,g=rgb[1]*light,bl=rgb[2]*light;
-      if(fogRgb){const amount=fog.isFog?Math.max(0,Math.min(1,(depth-fog.near)/(fog.far-fog.near))):1-Math.exp(-fog.density*fog.density*depth*depth);r=r*(1-amount)+fogRgb[0]*amount;g=g*(1-amount)+fogRgb[1]*amount;bl=bl*(1-amount)+fogRgb[2]*amount;}
-      const face={a,b,c,depth,texture,rgb:[Math.min(255,r)|0,Math.min(255,g)|0,Math.min(255,bl)|0],alpha:material.opacity??1,transparent:material.transparent};
+      let r=rgb[0]*light,g=rgb[1]*light,bl=rgb[2]*light, fogAmount=0;
+      if(fogRgb&&material.fog!==false)fogAmount=fog.isFog?Math.max(0,Math.min(1,(depth-fog.near)/(fog.far-fog.near))):1-Math.exp(-fog.density*fog.density*depth*depth);
+      const fogTint=fogRgb?fogRgb.map(c=>c*fogAmount):[0,0,0];
+      const textureTint=[r,g,bl].map(c=>c/255*(1-fogAmount));
+      r=r*(1-fogAmount)+fogTint[0];g=g*(1-fogAmount)+fogTint[1];bl=bl*(1-fogAmount)+fogTint[2];
+      const face={a,b,c,depth,texture,textureTint,fogTint,rgb:[Math.min(255,r)|0,Math.min(255,g)|0,Math.min(255,bl)|0],alpha:material.opacity??1,transparent:material.transparent};
       (depthTest?triangles:overlay).push(face);
     };
 
     scene.traverseVisible(object=>{
       if(object.isSprite){
-        const m=object.material,image=m.map?.image;if(!image||m.opacity===0)return;
+        const m=object.material,texture=this._textureInfo(m.map);if(!texture||m.opacity===0)return;
         const e=object.matrixWorld.elements,x=e[12],y=e[13],z=e[14],sx=Math.hypot(e[0],e[1],e[2])*.5,sy=Math.hypot(e[4],e[5],e[6])*.5;
         const points=[[-1,-1,0,0],[1,-1,1,0],[1,1,1,1],[-1,1,0,1]].map(([xx,yy,u,vv])=>{
           const worldx=x+cm[0]*xx*sx+cm[4]*yy*sy,worldy=y+cm[1]*xx*sx+cm[5]*yy*sy,worldz=z+cm[2]*xx*sx+cm[6]*yy*sy;
-          const pos=viewPoint(worldx,worldy,worldz);return {...project(...pos),u,v:vv};
+          const pos=viewPoint(worldx,worldy,worldz),tx=texture.matrix;return {...project(...pos),u:tx[0]*u+tx[3]*vv+tx[6],v:tx[1]*u+tx[4]*vv+tx[7]};
         });
         if(points.some(point=>point.z<near)||points.every(point=>point.z>far))return;
-        const rgb=this._rgb(m);addTriangle(points[0],points[1],points[2],m,rgb,1,image,m.depthTest!==false);addTriangle(points[0],points[2],points[3],m,rgb,1,image,m.depthTest!==false);return;
+        const rgb=this._rgb(m);addTriangle(points[0],points[1],points[2],m,rgb,1,texture,m.depthTest!==false);addTriangle(points[0],points[2],points[3],m,rgb,1,texture,m.depthTest!==false);return;
       }
       if(!object.isMesh||!object.material||object.material.visible===false)return;
       const material=Array.isArray(object.material)?object.material[0]:object.material;
       if(material.opacity===0)return;
       const data=this._meshData(object);if(!data)return;
       const {points,view,screen,indices,faceCount,centers,normals,uv}=data;
-      const rgb=this._rgb(material),texture=material.map?.image;
+      const rgb=this._rgb(material),texture=this._textureInfo(material.map),tx=texture?.matrix;
       for(let i=0;i<points.length;i+=3){
         const x=points[i],y=points[i+1],z=points[i+2],vx=v[0]*x+v[4]*y+v[8]*z+v[12],vy=v[1]*x+v[5]*y+v[9]*z+v[13],vz=v[2]*x+v[6]*y+v[10]*z+v[14],s=i/3*2;
         view[i]=vx;view[i+1]=vy;view[i+2]=vz;screen[s]=hw+p[0]*vx/(-vz)*hw;screen[s+1]=hh-p[5]*vy/(-vz)*hh;
       }
-      const vertex=index=>{const j=index*3,s=index*2;return {x:screen[s],y:screen[s+1],z:-view[j+2],vx:view[j],vy:view[j+1],vz:view[j+2],u:uv?uv[s]:0,v:uv?uv[s+1]:0};};
+      const vertex=index=>{const j=index*3,s=index*2,u=uv?uv[s]:0,vv=uv?uv[s+1]:0;return {x:screen[s],y:screen[s+1],z:-view[j+2],vx:view[j],vy:view[j+1],vz:view[j+2],u:tx?tx[0]*u+tx[3]*vv+tx[6]:u,v:tx?tx[1]*u+tx[4]*vv+tx[7]:vv};};
       for(let f=0;f<faceCount;f++){
         const j=f*3,normalx=normals[j],normaly=normals[j+1],normalz=normals[j+2];
         const facing=normalx*(cm[12]-centers[j])+normaly*(cm[13]-centers[j+1])+normalz*(cm[14]-centers[j+2]);
@@ -134,7 +160,8 @@ export class SoftwareRenderer {
         if(!material.isMeshBasicMaterial){
           const direction=facing>=0?1:-1;
           const diffuse=Math.max(0,(-.43*normalx+.81*normaly+.4*normalz)*direction);
-          light=(.64+.36*diffuse)*(1-Math.max(0,Math.min(1,scene.userData.schoolNight||0))*.48)+Math.min(.12,(material.emissiveIntensity||0)*.3);
+          const emissive=material.emissive?Math.max(material.emissive.r,material.emissive.g,material.emissive.b)*(material.emissiveIntensity||0):0;
+          light=(.64+.36*diffuse)*(1-Math.max(0,Math.min(1,scene.userData.schoolNight||0))*.48)+Math.min(.12,emissive*.3);
         }
         const a=vertex(ia),b=vertex(ib),c=vertex(ic);
         if(az<near||bz<near||cz<near){
@@ -150,15 +177,6 @@ export class SoftwareRenderer {
     const bg=this._rgb({color:scene.background?.isColor?scene.background:new THREE.Color(this._background)});
     pixels32.fill((255<<24)|((bg[2]|0)<<16)|((bg[1]|0)<<8)|(bg[0]|0));
     depthBuffer.fill(0);
-    const textureData=image=>{
-      if(!image)return null;
-      let result=this._textureCache.get(image);if(result)return result;
-      try{
-        if(image.getContext)result=image.getContext('2d').getImageData(0,0,image.width,image.height);
-        else {const c=document.createElement('canvas');c.width=image.width;c.height=image.height;const q=c.getContext('2d');q.drawImage(image,0,0);result=q.getImageData(0,0,c.width,c.height);}
-        this._textureCache.set(image,result);return result;
-      }catch{return null;}
-    };
     const raster=(face,onTop=false)=>{
       const {a,b,c}=face;
       const minX=Math.max(0,Math.floor(Math.min(a.x,b.x,c.x))),maxX=Math.min(w-1,Math.ceil(Math.max(a.x,b.x,c.x)));
@@ -167,7 +185,8 @@ export class SoftwareRenderer {
       const d0x=(b.y-c.y)/den,d0y=(c.x-b.x)/den,d1x=(c.y-a.y)/den,d1y=(a.x-c.x)/den;
       const iz0=1/a.z,iz1=1/b.z,iz2=1/c.z;
       const u0=a.u*iz0,u1=b.u*iz1,u2=c.u*iz2,v0=a.v*iz0,v1=b.v*iz1,v2=c.v*iz2;
-      const tex=textureData(face.texture),writeDepth=!face.transparent&&face.alpha>=1&&!onTop;
+      const sampling=face.texture,tex=sampling?.pixels,writeDepth=!face.transparent&&face.alpha>=1&&!onTop;
+      const tint=face.textureTint, haze=face.fogTint;
       const diz=d0x*(iz0-iz2)+d1x*(iz1-iz2),duz=d0x*(u0-u2)+d1x*(u1-u2),dvz=d0x*(v0-v2)+d1x*(v1-v2);
       const packed=(255<<24)|(face.rgb[2]<<16)|(face.rgb[1]<<8)|face.rgb[0];
       const edges=[[a,b],[b,c],[c,a]];
@@ -185,8 +204,15 @@ export class SoftwareRenderer {
           if(!onTop&&iz<depthBuffer[pixel]-.0000001)continue;
           let r=face.rgb[0],g=face.rgb[1],bl=face.rgb[2],alpha=face.alpha;
           if(tex){
-            const tx=Math.max(0,Math.min(tex.width-1,(uz/iz*tex.width)|0)),ty=Math.max(0,Math.min(tex.height-1,((1-vz/iz)*tex.height)|0)),ti=(ty*tex.width+tx)*4;
-            alpha*=tex.data[ti+3]/255;if(alpha<.01)continue;r=tex.data[ti];g=tex.data[ti+1];bl=tex.data[ti+2];
+            let u=uz/iz,vv=vz/iz;
+            if(sampling.wrapS===THREE.RepeatWrapping)u-=Math.floor(u);
+            else if(sampling.wrapS===THREE.MirroredRepeatWrapping){u=((u%2)+2)%2;if(u>1)u=2-u;}
+            if(sampling.wrapT===THREE.RepeatWrapping)vv-=Math.floor(vv);
+            else if(sampling.wrapT===THREE.MirroredRepeatWrapping){vv=((vv%2)+2)%2;if(vv>1)vv=2-vv;}
+            if(sampling.flipY)vv=1-vv;
+            const tx=Math.max(0,Math.min(tex.width-1,(u*tex.width)|0)),ty=Math.max(0,Math.min(tex.height-1,(vv*tex.height)|0)),ti=(ty*tex.width+tx)*4;
+            alpha*=tex.data[ti+3]/255;if(alpha<.01)continue;
+            r=Math.min(255,Math.round(tex.data[ti]*tint[0]+haze[0]));g=Math.min(255,Math.round(tex.data[ti+1]*tint[1]+haze[1]));bl=Math.min(255,Math.round(tex.data[ti+2]*tint[2]+haze[2]));
           }
           const pi=pixel*4;
           if(alpha>=.999){pixels32[pixel]=(255<<24)|(bl<<16)|(g<<8)|r;if(writeDepth)depthBuffer[pixel]=iz;}

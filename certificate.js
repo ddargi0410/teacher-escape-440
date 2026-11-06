@@ -6,16 +6,32 @@ function elapsedLabel(seconds) {
 }
 
 
-function wrapText(ctx, text, x, y, width, lineHeight, maxLines = Infinity) {
-  let line = '';
+export function certificateTextLines(ctx, text, width) {
   const lines = [];
-  for (const character of String(text)) {
-    if (character === '\n' || ctx.measureText(line + character).width > width) {
-      lines.push(line);
-      line = character === '\n' ? '' : character;
-    } else line += character;
+  const paragraphs=String(text).split(/\r?\n/);
+  for(const paragraph of paragraphs){
+    let line='';
+    for(const word of paragraph.trim().split(/\s+/).filter(Boolean)){
+      if(ctx.measureText(word).width>width){
+        if(line){lines.push(line);line='';}
+        // Only a token wider than the entire card may split inside a word.
+        for(const character of word){
+          if(line&&ctx.measureText(line+character).width>width){lines.push(line);line='';}
+          line+=character;
+        }
+        continue;
+      }
+      const next=line?`${line} ${word}`:word;
+      if(line&&ctx.measureText(next).width>width){lines.push(line);line=word;}
+      else line=next;
+    }
+    if(line||paragraphs.length>1)lines.push(line);
   }
-  if (line) lines.push(line);
+  return lines;
+}
+
+function wrapText(ctx, text, x, y, width, lineHeight, maxLines = Infinity) {
+  const lines=certificateTextLines(ctx,text,width);
   const visible = lines.slice(0, maxLines);
   if (lines.length > maxLines && visible.length) {
     let last = visible.at(-1);
@@ -59,10 +75,12 @@ export async function downloadCertificate(state, missions) {
   ctx.fillText('오늘의 업무는 끝났습니다. 내일의 업무는 내일의 나에게.', 100, 349);
   roundRect(ctx, 1120, 100, 370, 165, 20, '#c6e594');
   ctx.fillStyle = '#143b34';
+  ctx.textAlign = 'center';
   ctx.font = `900 57px ${face}`;
-  ctx.fillText('퇴근 승인', 1170, 178);
+  ctx.fillText('퇴근 승인', 1305, 178, 322);
   ctx.font = `600 23px ${face}`;
-  ctx.fillText('10 / 10 MISSIONS CLEARED', 1157, 220);
+  ctx.fillText('10 / 10 MISSIONS CLEARED', 1305, 220, 322);
+  ctx.textAlign = 'left';
   ctx.fillStyle = '#143b34';
   ctx.font = `800 49px ${face}`;
   const name = typeof state.name === 'string' ? state.name.slice(0, 24) : '퇴근희망 교사';

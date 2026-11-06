@@ -56,3 +56,22 @@ test('coffee game is won by moving mug under five matching falling cards',()=>{
     assert.equal(wins.length,1,JSON.stringify(h.context.draws));assert.equal(wins[0].collected.length,5);h.step(4);assert.equal(wins.length,1);
   }finally{game?.destroy();h.restore();}
 });
+
+test('coffee error feedback appears once and the target hint stays above falling cards',()=>{
+  const h=harness(),data=getArcadeData(MISSIONS[1]),failures=[];let game;
+  try{
+    game=coffee({container:h.container,data,onFail:p=>failures.push(p)});
+    game.hint();h.step(.05);
+    assert.ok(h.context.draws.some(d=>d.text==='화면 위 초록 칸과 맞는 카드!'&&d.y===72),'the requested hint remains visible in the instruction row');
+    for(let n=0;n<180&&!failures.length;n++){
+      h.step(.05);
+      const wrong=h.context.draws.find(d=>d.y>145&&d.y<600&&data.arcade.cards.some(c=>c.label===d.text&&c.slot!==data.arcade.slots[0].id));
+      if(wrong)h.canvas().dispatch('pointermove',{clientX:wrong.x,clientY:wrong.y,pointerType:'mouse'});
+    }
+    assert.equal(failures.length,1);
+    assert.equal(h.context.draws.some(d=>d.text===failures[0].tip),false,'the canvas must not repeat the feedback strip');
+    const target=h.context.draws.find(d=>d.text===`↓ ${data.arcade.slots[0].label}`);
+    assert.ok(target&&target.y<70,'the target label stays in the clear top HUD row');
+    assert.ok(h.context.draws.some(d=>d.text.startsWith('✓ ')),'the green matching-card hint remains visible');
+  }finally{game?.destroy();h.restore();}
+});

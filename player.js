@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import { WALK_CAMERA, OVERVIEW_CAMERA, keepCameraClear, validCameraPose } from './camera-rig.js?v=20261106-immersive1';
 
 /**
  * Buildless, camera-relative controls. The teacher model faces +Z at rotation 0.
@@ -13,14 +14,29 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   const desiredCamera = new THREE.Vector3();
   const lookTarget = new THREE.Vector3();
   const focusTarget = new THREE.Vector3();
+  const cameraOrigin = new THREE.Vector3();
+  const safeCamera = new THREE.Vector3();
+  const restTarget = new THREE.Vector3();
+  const actorCameraPosition = new THREE.Vector3();
+  const actorCameraScale = new THREE.Vector3();
+  const hiddenRenderBodies = [];
   let focusStarted = false;
+  let restingCameraId = null;
   const stick = { x: 0, y: 0 };
   let enabled = true;
+  let cameraMode = 'shoulder';
   let firstPerson = false;
-  let orbitYaw = 0;
-  let elevation = 0.72;
+  let orbitYaw = WALK_CAMERA.yaw;
+  let elevation = WALK_CAMERA.elevation;
+  let cameraDistance = WALK_CAMERA.distance;
+  let shoulderTooClose = false;
   let firstPitch = 0;
-  let teacherYaw = Math.PI;
+  const modeViews = {
+    shoulder:{yaw:WALK_CAMERA.yaw,elevation:WALK_CAMERA.elevation,distance:WALK_CAMERA.distance,pitch:0},
+    overview:{yaw:OVERVIEW_CAMERA.yaw,elevation:OVERVIEW_CAMERA.elevation,distance:OVERVIEW_CAMERA.distance,pitch:0},
+    first:{yaw:WALK_CAMERA.yaw,elevation:WALK_CAMERA.elevation,distance:WALK_CAMERA.distance,pitch:0}
+  };
+  let teacherYaw = Math.PI / 2;
   let moving = false;
   let moved = false;
   let gait = 0;
@@ -64,6 +80,9 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   }
 
   function resetLegs() {
+    // A paused walking controller must not straighten a sleeping character's
+    // knees and arms each frame. The bed owns those joint poses until standing.
+    if (model?.userData?.restingBed) return;
     for (const limbs of [model?.userData?.legs,model?.userData?.arms])
       if (Array.isArray(limbs)) for (const limb of limbs) if (limb?.rotation) limb.rotation.x = 0;
   }
@@ -92,7 +111,8 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
     drag.y = event.clientY;
     orbitYaw -= dx * 0.005;
     if (firstPerson) firstPitch = THREE.MathUtils.clamp(firstPitch - dy * 0.004, -0.9, 0.9);
-    else elevation = THREE.MathUtils.clamp(elevation + dy * 0.004, 0.40, 1.13);
+    else if(cameraMode==='overview') elevation = THREE.MathUtils.clamp(elevation + dy * .004, .40, 1.13);
+    else elevation = THREE.MathUtils.clamp(elevation + dy * 0.003, -.08, .45);
     event.preventDefault();
   });
   const endDrag = event => {
@@ -105,6 +125,12 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   listen(canvas, 'pointercancel', endDrag);
   listen(canvas, 'lostpointercapture', endDrag);
   listen(canvas, 'contextmenu', event => { if (enabled) event.preventDefault(); });
+  listen(canvas, 'wheel', event => {
+    if (!enabled || firstPerson || !Number.isFinite(event.deltaY)) return;
+    event.preventDefault();
+    const rig = cameraMode==='overview' ? OVERVIEW_CAMERA : WALK_CAMERA;
+    cameraDistance = THREE.MathUtils.clamp(cameraDistance + event.deltaY * (cameraMode==='overview'?.012:.004), rig.minDistance, rig.maxDistance);
+  }, { passive: false });
 
   if (joystick) {
     joystick.style.touchAction = 'none';
@@ -152,6 +178,9 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
 
   function updateCamera(dt, snap = false) {
     focusStarted = false;
+    restingCameraId = null;
+    const fov = firstPerson ? 68 : cameraMode==='overview' ? OVERVIEW_CAMERA.fov : WALK_CAMERA.fov;
+    if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
     if (firstPerson) {
       desiredCamera.set(position.x, position.y + 1.66, position.z);
       lookTarget.set(
@@ -159,25 +188,85 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
         position.y + 1.66 + Math.sin(firstPitch),
         position.z - Math.cos(orbitYaw) * Math.cos(firstPitch)
       );
-    } else {
-      const distance = 17.7;
-      lookTarget.set(position.x, position.y + 0.8, position.z);
+    } else if(cameraMode==='overview') {
+      lookTarget.set(position.x,position.y+OVERVIEW_CAMERA.targetHeight,position.z);
       desiredCamera.set(
-        position.x + Math.sin(orbitYaw) * Math.cos(elevation) * distance,
-        position.y + 0.8 + Math.sin(elevation) * distance,
-        position.z + Math.cos(orbitYaw) * Math.cos(elevation) * distance
+        position.x+Math.sin(orbitYaw)*Math.cos(elevation)*cameraDistance,
+        position.y+OVERVIEW_CAMERA.targetHeight+Math.sin(elevation)*cameraDistance,
+        position.z+Math.cos(orbitYaw)*Math.cos(elevation)*cameraDistance
       );
+    } else {
+      const distance = cameraDistance;
+      const rightX = Math.cos(orbitYaw), rightZ = -Math.sin(orbitYaw);
+      cameraOrigin.set(position.x, position.y + WALK_CAMERA.targetHeight, position.z);
+      lookTarget.set(position.x + rightX * .28, position.y + WALK_CAMERA.targetHeight, position.z + rightZ * .28);
+      desiredCamera.set(
+        position.x + rightX * WALK_CAMERA.shoulder + Math.sin(orbitYaw) * Math.cos(elevation) * distance,
+        position.y + WALK_CAMERA.targetHeight + Math.sin(elevation) * distance,
+        position.z + rightZ * WALK_CAMERA.shoulder + Math.cos(orbitYaw) * Math.cos(elevation) * distance
+      );
+      keepCameraClear(cameraOrigin, desiredCamera, getCameraColliders(), desiredCamera);
     }
     if (snap || firstPerson) camera.position.copy(desiredCamera);
     else camera.position.lerp(desiredCamera, 1 - Math.exp(-9 * dt));
+    // A safe destination alone is not enough: smoothing around a corner must
+    // also stay on this side of its wall rather than crossing through it.
+    if (cameraMode==='shoulder') {
+      keepCameraClear(cameraOrigin, camera.position, getCameraColliders(), camera.position);
+      const clearance=camera.position.distanceTo(cameraOrigin);
+      // A wall can compress the camera into the teacher's head. Temporarily
+      // use a clear near-person view; hysteresis prevents flicker at the edge.
+      shoulderTooClose=shoulderTooClose ? clearance<2.1 : clearance<1.85;
+      const closeBlend=THREE.MathUtils.clamp((2.1-clearance)/.8,0,1);
+      lookTarget.x-=Math.sin(orbitYaw)*.6*closeBlend;
+      lookTarget.z-=Math.cos(orbitYaw)*.6*closeBlend;
+      lookTarget.y+=.3*closeBlend;
+    } else shoulderTooClose=false;
+    if (model) model.visible = cameraMode==='overview' || (cameraMode==='shoulder'&&!shoulderTooClose);
     camera.lookAt(lookTarget);
   }
 
-  function teleport(point) {
+  function getCameraColliders() {
+    const colliders = world.cameraColliders;
+    if (Array.isArray(colliders)) return colliders;
+    const base = (currentFloor - 1) * 4;
+    return (world.colliders || []).filter(c => c.blocksSight !== false).map(c => ({ ...c, minY: base, maxY: base + 3.5 }));
+  }
+
+  function updateRestCamera(bed, dt, { snap = false } = {}) {
+    if (disposed || !validCameraPose(bed?.cameraPose)) return false;
+    const pose = bed.cameraPose;
+    const step = Math.max(0, Math.min(Number(dt) || 0, .1));
+    if (restingCameraId !== bed.id) {
+      restingCameraId = bed.id;
+      world.setCameraMode?.('shoulder');
+      camera.getWorldDirection(restTarget).multiplyScalar(4).add(camera.position);
+      focusStarted = false;
+    }
+    desiredCamera.set(pose.position.x, pose.position.y, pose.position.z);
+    cameraOrigin.set(pose.target.x, pose.target.y, pose.target.z);
+    keepCameraClear(cameraOrigin, desiredCamera, getCameraColliders(), safeCamera, .14);
+    const blend = snap ? 1 : 1 - Math.exp(-3.2 * step);
+    camera.position.lerp(safeCamera, blend);
+    // Rest transitions cannot travel through partitions or the outside facade.
+    keepCameraClear(cameraOrigin, camera.position, getCameraColliders(), camera.position, .14);
+    restTarget.lerp(cameraOrigin, blend);
+    const fov = THREE.MathUtils.clamp(Number(pose.fov) || 58, 48, 64);
+    if (Math.abs(camera.fov - fov) > .01) {
+      camera.fov += (fov - camera.fov) * blend;
+      camera.updateProjectionMatrix();
+    }
+    if (model) model.visible = true;
+    camera.lookAt(restTarget);
+    return true;
+  }
+
+  function teleport(point, { preserveCamera = false, lookYaw } = {}) {
     clearInput();
+    if (Number.isFinite(lookYaw)) orbitYaw = lookYaw;
     position.set(Number(point.x) || 0, Number(point.y) || 0, Number(point.z) || 0);
     model?.position.copy(position);
-    updateCamera(0, true);
+    if (!preserveCamera) updateCamera(0, true);
   }
 
   function update(dt, active = true) {
@@ -190,11 +279,11 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
     if (keys.has('ArrowRight')) orbitYaw -= 1.65 * dt;
     if (keys.has('ArrowUp')) {
       if (firstPerson) firstPitch = Math.min(0.9, firstPitch + dt);
-      else elevation = Math.min(1.13, elevation + dt * 0.65);
+      else elevation = Math.min(cameraMode==='overview'?1.13:.45, elevation + dt * (cameraMode==='overview'?.65:.45));
     }
     if (keys.has('ArrowDown')) {
       if (firstPerson) firstPitch = Math.max(-0.9, firstPitch - dt);
-      else elevation = Math.max(0.40, elevation - dt * 0.65);
+      else elevation = Math.max(cameraMode==='overview'?.40:-.08, elevation - dt * (cameraMode==='overview'?.65:.45));
     }
     let side = (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0) + stick.x;
     let forward = (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0) - stick.y;
@@ -234,22 +323,64 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   }
 
   function setActive(value) {
+    const wasEnabled = enabled;
     enabled = !!value;
-    if (!enabled) clearInput();
+    if (!enabled && (wasEnabled || keys.size || drag || stickPointer !== null)) clearInput();
   }
 
   function setView(value) {
-    firstPerson = !!value;
-    if (model) model.visible = !firstPerson;
+    return setCameraMode(value ? 'first' : 'shoulder');
+  }
+
+  function setCameraMode(value) {
+    if(!Object.hasOwn(modeViews,value))return false;
+    modeViews[cameraMode]={yaw:orbitYaw,elevation,distance:cameraDistance,pitch:firstPitch};
+    const selected=modeViews[value];cameraMode=value;firstPerson=value==='first';
+    orbitYaw=selected.yaw;elevation=selected.elevation;cameraDistance=selected.distance;firstPitch=selected.pitch;
+    world.setCameraMode?.(value);
     clearInput();
     updateCamera(0, true);
+    return true;
   }
 
   function resetCamera() {
-    orbitYaw = 0;
-    elevation = 0.72;
+    const rig=cameraMode==='overview'?OVERVIEW_CAMERA:WALK_CAMERA;
+    orbitYaw = rig.yaw;
+    elevation = rig.elevation;
+    cameraDistance = rig.distance;
     firstPitch = 0;
     updateCamera(0, true);
+  }
+
+  function withCameraOcclusion(render) {
+    // Only hide the render subtree, and only for the synchronous draw. Patrol,
+    // encounters, interaction targeting and other systems still see the actor.
+    try {
+      if (cameraMode === 'shoulder' && !restingCameraId) {
+        for (const actor of world.characters || []) {
+          const actorModel=actor.model;
+          if (!actorModel?.visible || actor.floor!==currentFloor) continue;
+          const body=actorModel.userData?.body||actorModel.getObjectByName?.('character-body');
+          if (!body?.visible) continue;
+          actorModel.getWorldPosition(actorCameraPosition);
+          actorModel.getWorldScale(actorCameraScale);
+          const actorScale=Math.max(Math.abs(actorCameraScale.x),Math.abs(actorCameraScale.y),Math.abs(actorCameraScale.z));
+          const lensDistance=Math.hypot(actorCameraPosition.x-camera.position.x,actorCameraPosition.z-camera.position.z);
+          if (lensDistance>1.65*actorScale) continue;
+          // Preserve readable nearby conversations, but not a face occupying
+          // the lens. The generous scale-aware radius also catches adult heads
+          // at the screen edge before they fill half the view.
+          const playerDistance=Math.hypot(actorCameraPosition.x-position.x,actorCameraPosition.z-position.z);
+          if (playerDistance<1.2&&lensDistance>1.1*actorScale) continue;
+          if (camera.position.y<actorCameraPosition.y-.2 || camera.position.y>actorCameraPosition.y+2.35*actorCameraScale.y+.35) continue;
+          body.visible=false;hiddenRenderBodies.push(body);
+        }
+      }
+      return render();
+    } finally {
+      for (const body of hiddenRenderBodies) body.visible=true;
+      hiddenRenderBodies.length=0;
+    }
   }
 
   return {
@@ -258,6 +389,7 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
     get moving() { return moving; },
     get moved() { return moved; },
     get firstPerson() { return firstPerson; },
+    get cameraMode() { return cameraMode; },
     get floor() { return currentFloor; },
     setFloor(floor) {
       currentFloor = THREE.MathUtils.clamp(Math.round(Number(floor) || 5), 1, 5);
@@ -268,7 +400,11 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
     update,
     setActive,
     setView,
+    setCameraMode,
     resetCamera,
+    updateRestCamera,
+    withCameraOcclusion,
+    endRestCamera() { restingCameraId = null; focusStarted = false; world.setCameraMode?.(cameraMode); },
     focusOn(target,dt){
       if(!focusStarted){camera.getWorldDirection(focusTarget);focusTarget.multiplyScalar(10).add(camera.position);focusStarted=true;}
       const p=target.getWorldPosition?target.getWorldPosition(new THREE.Vector3()):target.clone();

@@ -2,15 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.js';
 import {createWorld} from '../world.js';
+import {pointBlocked,hasLineOfSight} from '../crowd.js';
 
 const noop=()=>{};
 globalThis.document={createElement:()=>({width:0,height:0,getContext:()=>new Proxy({},{get:()=>noop,set:()=>true})})};
 function setup(){
   const world=createWorld(new THREE.Scene());world.setFloor(5);
   world.characters.forEach(a=>{a.pause=1000;});
-  const player={x:-10,y:16,z:4.05};
+  const child=world.characters.find(a=>a.id==='child-5-0'),parent=world.characters.find(a=>a.id==='complaint-parent-5');
+  const player={x:child.model.position.x,y:16,z:child.model.position.z+.45};
+  assert.equal(pointBlocked(player,world.colliders,.35),false,'the action fixture starts inside the current corridor');
   world.updateCrowd(.01,{position:player,floor:5,enabled:true});
-  return {world,player,child:world.characters.find(a=>a.id==='child-5-0'),parent:world.characters.find(a=>a.id==='complaint-parent-5')};
+  return {world,player,child,parent};
 }
 function tick(world,seconds,position,floor=world.floor,enabled=true,onEvent){
   for(let elapsed=0;elapsed<seconds;elapsed+=.05)world.updateCrowd(.05,{position,floor,enabled,onEvent});
@@ -19,13 +22,13 @@ function tick(world,seconds,position,floor=world.floor,enabled=true,onEvent){
 test('both corridor actions remove their target immediately and enforce a shared cooldown',()=>{
   const {world,player,child,parent}=setup();
   const hit=world.useCorridorAction('talk',player);
-  assert.equal(hit.ok,true);assert.equal(hit.actor,child.model);assert.equal(hit.targetKind,'child');
+  assert.equal(hit.ok,true);assert.ok(hit.actor===child.model,'talk removes the nearby child');assert.equal(hit.targetKind,'child');
   assert.equal(child.defeated,true);assert.equal(child.model.visible,false);
   assert.ok(child.respawnRemaining>=20&&child.respawnRemaining<=35);
   assert.deepEqual(world.useCorridorAction('whistle',parent.model.position),{ok:false,reason:'cooldown'});
   tick(world,1.3,player);
   const second=world.useCorridorAction('whistle',parent.model.position);
-  assert.equal(second.ok,true);assert.equal(second.actor,parent.model);
+  assert.equal(second.ok,true);assert.ok(second.actor===parent.model,'whistle removes the nearby parent');
   assert.equal(parent.defeated,true);assert.equal(parent.model.visible,false);
   assert.match(second.text,/삐익/);
   assert.equal(second.kind,'whistle');
@@ -33,11 +36,14 @@ test('both corridor actions remove their target immediately and enforce a shared
 
 test('talk reaches farther than whistle while mission teachers, principal and vice are never targets',()=>{
   const {world,child}=setup();
-  for(const a of world.characters.filter(a=>a.floor===5&&(a.kind==='child'||a.kind==='parent')))a.model.position.set(10,0,7.1);
-  child.model.position.set(0,0,4.05);
-  const player={x:0,z:7.05};
+  for(const a of world.characters.filter(a=>a.floor===5&&(a.kind==='child'||a.kind==='parent')))a.model.position.set(10,0,4.7);
+  child.model.position.set(0,0,4);
+  const player={x:3,z:4};
+  assert.equal(pointBlocked(player,world.colliders,.35),false,'range comparison stays inside the three-metre corridor');
+  assert.equal(pointBlocked(child.model.position,world.colliders,.2),false);
+  assert.equal(hasLineOfSight(player,child.model.position,world.colliders),true,'range is tested without a wall intervening');
   assert.deepEqual(world.useCorridorAction('whistle',player),{ok:false,reason:'empty'});
-  assert.equal(world.useCorridorAction('talk',player).actor,child.model);
+  assert.ok(world.useCorridorAction('talk',player).actor===child.model,'talk reaches the child three metres away');
   tick(world,1.3,player);
   const npc=world.getNPC(1);
   assert.deepEqual(world.useCorridorAction('talk',npc.position),{ok:false,reason:'empty'});
@@ -70,10 +76,10 @@ test('complaint callers speak short lines without a movement penalty and stay si
   const player=parent.model.position.clone();
   tick(world,6,player,5,true,e=>events.push(e));
   const complaints=events.filter(e=>e.type==='complaint');
-  assert.equal(complaints.length,1);assert.equal(complaints[0].actor,parent.model);
+  assert.equal(complaints.length,1);assert.ok(complaints[0].actor===parent.model);
   assert.equal(complaints[0].duration,2);assert.equal(complaints[0].penalty,undefined);
   assert.ok([...complaints[0].text].length<=25);
-  assert.equal(world.useCorridorAction('talk',player).actor,parent.model);
+  assert.ok(world.useCorridorAction('talk',player).actor===parent.model);
   tick(world,13,player,5,true,e=>events.push(e));
   assert.equal(events.filter(e=>e.type==='complaint').length,1);
 });
@@ -92,9 +98,15 @@ test('paused scenes and quiet annexes cannot be used to attack unrelated charact
 test('a real hiding pillar blocks a corridor action, and reset clears defeated state',()=>{
   const {world,child}=setup();
   world.characters.filter(a=>a.floor===5&&(a.kind==='child'||a.kind==='parent')).forEach(a=>a.model.position.set(10,0,4));
-  child.model.position.set(4,0,4.9);
-  assert.deepEqual(world.useCorridorAction('talk',{x:4,z:7}),{ok:false,reason:'empty'});
-  assert.equal(world.useCorridorAction('talk',{x:4,z:4.9}).ok,true);
+  const pillar=world.colliders.find(c=>c.x===4&&c.w===.5&&c.d===.5);
+  assert.ok(pillar,'use the actual window-side hiding pillar');
+  const z=pillar.z-.14,hiddenPlayer={x:pillar.x+.7,z};
+  child.model.position.set(pillar.x-.7,0,z);
+  assert.equal(pointBlocked(hiddenPlayer,world.colliders,.35),false);
+  assert.equal(pointBlocked(child.model.position,world.colliders,.2),false);
+  assert.equal(hasLineOfSight(hiddenPlayer,child.model.position,world.colliders),false,'the solid pillar separates two reachable corridor positions');
+  assert.deepEqual(world.useCorridorAction('talk',hiddenPlayer),{ok:false,reason:'empty'});
+  assert.equal(world.useCorridorAction('talk',child.model.position).ok,true);
   world.resetCrowd();
   assert.equal(child.defeated,false);assert.equal(child.model.visible,true);
   assert.equal(child.respawnRemaining,0);

@@ -134,3 +134,23 @@ test('canvas Korean wrapping preserves words and explicit paragraph boundaries',
   assert.deepEqual(wrapLines(ctx,'화살표\n교문',20),['화살표','교문']);
   assert.deepEqual(wrapLines(ctx,'개인정보보호',20),['개인정보보호']);
 });
+
+
+test('science falling card and feedback leave the basket label unobscured at supported viewport sizes',()=>{
+ for(const size of [{width:1366,height:638},{width:1024,height:586},{width:390,height:558}]){
+  const h=harness(size);let game;const rectangles=[];
+  const clear=h.context.clearRect.bind(h.context);
+  h.context.clearRect=(...args)=>{rectangles.length=0;clear(...args);};
+  h.context.roundRect=(x,y,w,height)=>rectangles.push({x:x+h.context.tx,y:y+h.context.ty,w,h:height});
+  try{
+   game=science({container:h.container,data:data(6)});
+   for(let frame=0;frame<160;frame++){
+    h.step(.05);
+    const basket=rectangles.find(rect=>rect.h===51&&Math.abs(rect.w-size.width*.42)<.1);
+    const card=rectangles.find(rect=>Math.abs(rect.w-Math.min(size.width-48,640))<.1&&rect.h>=94);
+    assert.ok(basket&&card,'both actual canvas shapes were drawn');
+    assert.ok(card.y+card.h<=basket.y-15,`sentence overlaps basket at ${size.width}x${size.height}, frame ${frame}`);
+   }
+  }finally{game?.destroy();h.restore();}
+ }
+});

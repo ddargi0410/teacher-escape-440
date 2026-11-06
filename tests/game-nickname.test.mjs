@@ -21,9 +21,9 @@ const noop=()=>{};
 const flush=async()=>{for(let n=0;n<20;n++)await Promise.resolve();};
 function setup(){
   const document=createDocument();document.body=document.createElement('body');
-  document.body.innerHTML='<div id="home"></div><div id="hud"></div><div id="tutorial-title"></div><div id="tutorial-text"></div><div id="social-bar"><span id="social-status"></span><span id="social-nickname"></span><span id="social-connect-label"></span><button data-greet="wave"></button></div>';
+  document.body.innerHTML='<div id="home"></div><div id="hud"></div><button id="view-button"></button><div id="tutorial-title"></div><div id="tutorial-text"></div><div id="social-bar"><span id="social-status"></span><span id="social-nickname"></span><span id="social-connect-label"></span><button data-greet="wave"></button></div>';
   let status={state:'offline',connected:false,count:0},saved;
-  const connections=[],chooser=[],analyticsNames=[],identity=createAnalyticsIdentity();
+  const connections=[],chooser=[],avatars=[],analyticsNames=[],identity=createAnalyticsIdentity();
   identity.subscribe(name=>analyticsNames.push(name));
   const presence={
     getSnapshotStatus:()=>status,
@@ -37,15 +37,15 @@ function setup(){
     PRESENCE_ENDPOINT:'https://relay.example/api/presence',
     rest:{close:noop,isOpen:()=>false},learning:{close:noop},channelUI:{close:noop,update:value=>chooser.push(value)},
     messenger:{reset:noop,notifyMissionSuccess:noop},clearEncounter:noop,clearGreetingFeedback:noop,
-    world:{resetCrowd:noop,reset:noop,setCompleted:noop,setFloor:noop},
-    player:{setView:noop,resetCamera:noop,setFloor:noop},teacher:{visible:false},
+    world:{applyTeacherAppearance:(model,id)=>avatars.push(id),resetCrowd:noop,reset:noop,setCompleted:noop,setFloor:noop},
+    player:{setView:noop,setCameraMode:noop,resetCamera:noop,setFloor:noop},teacher:{visible:false},
     applyQuality:noop,audio:{setEnabled:noop},updateSound:noop,updateHUD:noop,persist:noop,
     loadGame:()=>saved,storageAvailable:()=>true,toast:noop,showCertificate:noop,
     publishAnalyticsNickname:identity.publish
   };
   vm.createContext(context);
   vm.runInContext(functionSource('start')+'\n'+functionSource('onChannelChange')+'\n'+channelsSource,context);
-  return {context,connections,chooser,analyticsNames,identity,q:context.$,setSaved:value=>{saved=value;},dispose:()=>context.channels.dispose()};
+  return {context,connections,chooser,avatars,analyticsNames,identity,q:context.$,setSaved:value=>{saved=value;},dispose:()=>context.channels.dispose()};
 }
 
 test('actual game start, continue and channel switching send the entered saved nickname',async t=>{
@@ -96,4 +96,16 @@ test('HUD shows the exact connected nickname and uses saved nickname while offli
   assert.equal(h.chooser.at(-1).nickname,'수진의 퇴근');
   assert.equal(h.q('[data-greet]').disabled,true);
   h.dispose();
+});
+
+
+test('start and resume apply the selected saved teacher without changing progress', async t=>{
+  const h=setup();t.after(h.dispose);
+  h.context.state.avatarId='sunny';h.context.start(false);await flush();
+  assert.equal(h.avatars.at(-1),'sunny');
+  const saved={...freshState('캐릭터도 이어서'),avatarId:'indigo',completed:[1,3],elapsed:123};
+  h.setSaved(saved);h.context.start(true);await flush();
+  assert.equal(h.avatars.at(-1),'indigo');
+  assert.deepEqual(h.context.state,saved);
+  assert.equal(h.q('#view-button').textContent,'시점 · 어깨높이');
 });

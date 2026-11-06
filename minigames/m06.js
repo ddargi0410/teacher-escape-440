@@ -51,10 +51,12 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
     rounded(ctx,-w*.34,-h*.85,w*.68,h*.09,3,'#a7c8bc');ctx.restore();
   }
   function bubbleBox(W,H){
-    const width=Math.min(W-48,640),progress=clamp(age/flight,0,1),yStart=H-175,yPeak=Math.max(180,H*.38);
-    // Rise, hover long enough to read, then descend toward the worksheet basket.
-    const y=progress<.17?yStart+(yPeak-yStart)*(progress/.17):progress<.73?yPeak+Math.sin(age*2)*7:yPeak+(yStart-yPeak)*((progress-.73)/.27);
+    const width=Math.min(W-48,640),progress=clamp(age/flight,0,1);
     const font=clamp(W*.031,22,30),wrapped=wrap(ctx,statements[current].text,width-42,font),height=Math.max(94,wrapped.length*font*1.28+32);
+    // Keep the complete card above the basket label, including a multi-line
+    // sentence at the bottom of its flight or during answer feedback.
+    const basketTop=H-156,yStart=basketTop-16-height/2,yPeak=Math.min(yStart-7,Math.max(180,H*.38));
+    const y=progress<.17?yStart+(yPeak-yStart)*(progress/.17):progress<.73?yPeak+Math.sin(age*2)*7:yPeak+(yStart-yPeak)*((progress-.73)/.27);
     return{x:W/2-width/2,y:y-height/2,w:width,h:height,font,wrapped};
   }
   function drawSentence(box,t){

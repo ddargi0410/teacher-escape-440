@@ -1,0 +1,36 @@
+/* Keep the corridor and the teacher in view; mission reading sizes stay intact. */
+body.playing .scene-shade{background:linear-gradient(#152a2710,transparent 20%,transparent 80%,#162c2b20)}
+.hud-top{top:18px;left:20px;right:20px;align-items:flex-start}
+.location-panel{min-width:0;max-width:290px;padding:14px 17px;background:#fffcf1e8;backdrop-filter:blur(9px)}
+.location-panel .eyebrow{font-size:11px;letter-spacing:1px}
+.location-panel h2{font-size:20px;line-height:1.35;margin:7px 0 5px}
+.location-panel p{font-size:13px;line-height:1.5;margin:0}
+.progress-panel{min-width:190px;padding:14px 17px;background:#fffcf1e5;backdrop-filter:blur(9px)}
+.progress-panel>div:first-child{font-size:14px}
+.progress-panel small{font-size:12px}
+.clock-panel{min-width:178px;padding:13px 16px;background:#243f38ed;backdrop-filter:blur(9px)}
+.clock-panel strong{font-size:36px;line-height:1.15;margin:7px 0}
+.clock-panel>span{font-size:13px}.clock-panel>span small{font-size:11px}
+.clock-panel>div span,.clock-panel>div b{font-size:12px}
+.floor-rail{top:180px;padding:10px 6px;background:#fffcf1dd;backdrop-filter:blur(9px)}
+.floor-rail button{min-height:36px;width:38px;font-size:14px}.floor-rail #map-button{font-size:13px}
+.hud-bottom{left:20px;right:20px;gap:10px}
+.view-button{min-height:43px;padding:10px 14px;background:#fffcf1eb;border:1px solid #c4d0c2;border-radius:12px;font-size:13px;font-weight:700;pointer-events:auto}
+.keyboard-guide{gap:9px;font-size:11px;background:#fffcf1c9;border-radius:10px;padding:8px 11px}
+#tutorial{top:159px;max-width:300px;padding:15px 18px;background:#fffae7ed}
+#tutorial b{font-size:17px}#tutorial p{font-size:14px;line-height:1.55}#tutorial .tutorial-label,#tutorial button,#tutorial>div{font-size:12px}
+#interaction{bottom:98px;max-width:480px;background:#24483ded;backdrop-filter:blur(8px)}
+#interaction b{font-size:17px}#interaction small{font-size:12px}
+@media(max-width:1000px){.keyboard-guide{display:none}.progress-panel{min-width:165px}.progress-panel small{display:none}.location-panel{max-width:250px}}
+@media(max-width:800px){
+ .hud-top{top:12px;left:12px;right:12px}.location-panel{max-width:calc(100vw - 176px);padding:11px 13px}
+ .location-panel h2{font-size:17px}.location-panel p{font-size:12px}.location-panel .eyebrow{font-size:9px}
+ .clock-panel{min-width:140px;padding:10px 12px}.clock-panel strong{font-size:31px}.clock-panel>span small{max-width:120px;font-size:10px}
+ .progress-panel{top:127px;padding:9px 12px;min-width:145px}.progress-panel>div:first-child{font-size:12px}
+ .floor-rail{top:171px;right:12px}.floor-rail button{min-height:33px;width:33px;font-size:13px}
+ #tutorial{top:191px;left:12px;max-width:calc(100vw - 80px)}
+ .hud-bottom{left:12px;right:12px;gap:7px}.hud-tools button{padding:10px;min-height:44px}.view-button{font-size:12px;padding:9px}
+ #interaction{bottom:225px;width:calc(100vw - 28px)}
+}
+@media(max-width:460px){.location-panel h2{font-size:15px}.location-panel p{display:none}.location-panel{max-width:calc(100vw - 165px)}.progress-panel{top:111px}.view-button{font-size:11px;padding:8px}.hud-tools span{font-size:12px}.hud-tools{gap:5px}}
+@media(max-height:570px){.location-panel{max-width:250px}.location-panel p{display:none}.clock-panel>span small,.clock-panel .playtime-label{display:none}.clock-panel{min-width:118px;padding:8px 11px}.clock-panel strong{font-size:29px;margin:4px 0}.clock-panel>div{position:absolute;right:10px;top:10px}.clock-panel{position:relative;padding-right:47px}.progress-panel{position:static}.floor-rail{top:115px}.floor-rail>span{display:none}.floor-rail button{min-height:27px}.floor-rail{padding:4px}#tutorial{top:115px}#interaction{bottom:84px}.keyboard-guide{display:none}}

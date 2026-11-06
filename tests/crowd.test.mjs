@@ -76,7 +76,7 @@ test('principal penalty has a cooldown',()=>{
  const w=makeWorld(),a=w.characters.find(x=>x.kind==='principal');let events=[];
  // Principal waits at elevator and looks forward; no movement during this check.
  a.pause=100;a.model.rotation.y=0;
- for(let n=0;n<120;n++)w.updateCrowd(.05,{position:{x:0,z:6.8},floor:5,enabled:true,onEvent:e=>events.push(e)});
+ for(let n=0;n<120;n++)w.updateCrowd(.05,{position:{x:0,z:5},floor:5,enabled:true,onEvent:e=>events.push(e)});
  const caught=events.filter(e=>e.type==='principal');assert.equal(caught.length,1);assert.equal(caught[0].duration,5);assert.equal(caught[0].penalty,1);
 });
 test('teacher arm and leg pivots swing oppositely and reset',()=>{
@@ -86,8 +86,13 @@ test('teacher arm and leg pivots swing oppositely and reset',()=>{
 });
 
 test('real corridor pillar prevents the principal event',()=>{
- const w=makeWorld(),a=w.characters.find(x=>x.kind==='principal'),events=[];a.pause=100;a.model.position.set(-4,0,4.9);a.model.rotation.y=0;
- for(let n=0;n<120;n++)w.updateCrowd(.05,{position:{x:-4,z:7},floor:5,enabled:true,onEvent:e=>events.push(e)});
+ const w=makeWorld(),a=w.characters.find(x=>x.kind==='principal'),events=[];
+ w.setFloor(5);const target={x:-3.3,z:5.2};a.pause=100;a.model.position.set(-4.7,0,5.2);a.model.rotation.y=Math.PI/2;
+ assert.equal(pointBlocked(a.model.position,w.colliders,.28),false,'principal stands inside the corridor');
+ assert.equal(pointBlocked(target,w.colliders,.35),false,'player stands inside the corridor');
+ assert.equal(inPrincipalView(a.model.position,a.model.rotation.y,target,[]),true,'the player is in the unoccluded viewing cone');
+ assert.equal(inPrincipalView(a.model.position,a.model.rotation.y,target,w.colliders),false,'the real window-side pillar blocks the view');
+ for(let n=0;n<120;n++)w.updateCrowd(.05,{position:target,floor:5,enabled:true,onEvent:e=>events.push(e)});
  assert.equal(events.some(e=>e.type==='principal'),false);
 });
 test('principal changes floors only at the elevator and then freezes offscreen',()=>{

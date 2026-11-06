@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import * as THREE from '../vendor/three.module.js';
 import {createWorld} from '../world.js';
 import {MISSIONS} from '../missions-data.js';
+import {pointBlocked} from '../crowd.js';
 
 const noop=()=>{};
 globalThis.document={createElement:()=>({width:0,height:0,getContext:()=>new Proxy({},{get:()=>noop,set:()=>true})})};
@@ -59,7 +60,11 @@ test('messenger locate instantly reaches every mission from every floor without 
     assert.ok(item,`mission ${mission.id} entry is on the active floor`);
     assert.equal(state.floor,mission.floor);assert.equal(world.floor,mission.floor);
     assert.deepEqual(h.calls.floors,from===mission.floor?[]:[mission.floor]);
-    assert.deepEqual(h.calls.teleports,[{x:item.x,y:item.y,z:item.z+2.2}]);
+    assert.equal(h.calls.teleports.length,1,'one direct arrival');
+    const arrival=h.calls.teleports[0];
+    assert.equal(arrival.y,item.y,'arrival stays on the mission floor');
+    assert.ok(Math.hypot(arrival.x-item.x,arrival.z-item.z)<=2.3,'arrival remains within interaction range');
+    assert.equal(pointBlocked(arrival,world.colliders,.35),false,'new room proportions leave a walkable arrival');
     assert.equal(h.calls.stairs.length,0,'messenger shortcut must not open the stair route');
     assert.equal(h.context.pendingDestination,null,'old stair destination is discarded');
     assert.deepEqual(state,{...before,floor:mission.floor},'navigation must not award, reset or penalize progress');

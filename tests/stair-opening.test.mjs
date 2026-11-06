@@ -10,7 +10,7 @@ globalThis.document={createElement:()=>({width:0,height:0,getContext:()=>new Pro
 function visibleMeshes(world){
   world.root.updateMatrixWorld(true);
   const meshes=[];
-  world.root.traverseVisible(object=>{if(object.isMesh)meshes.push(object);});
+  world.root.traverseVisible(object=>{if(!object.isMesh)return;for(let parent=object;parent;parent=parent.parent)if(parent.userData?.crowdActor)return;meshes.push(object);});
   return meshes;
 }
 
@@ -20,7 +20,7 @@ test('every central stair entry admits a player from the corridor across its wid
     world.setFloor(floor);
     for(const x of [-1.3,0,1.3]){
       for(let step=0;step<=40;step++){
-        const z=6.5-(6.5-2.7)*step/40;
+        const z=world.spawn(floor).z-(world.spawn(floor).z-2.7)*step/40;
         assert.equal(pointBlocked({x,z},world.colliders,.35),false,
           `floor ${floor}: approach blocked at x=${x}, z=${z}`);
       }

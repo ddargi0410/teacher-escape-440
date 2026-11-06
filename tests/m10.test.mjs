@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {evaluateBossPrompt,createBossAttempt,applyBossDraft,advanceBossAttempt,submitBossAttempt,start} from '../minigames/m10.js';
 import {MISSIONS} from '../missions-data.js';
 import {getArcadeData} from '../minigames/content.js';
-import {SoftwareRenderer} from '../software-renderer.js';
+import {SoftwareRenderer} from '../software-renderer.js?v=20261106-immersive1';
 import {createDocument} from './dom-stub.mjs';
 
 const all='너는 과학 자료 개발 도우미야. 초등학교 5학년의 먹이 관계 퀴즈를 태블릿에서 쓰게 HTML 파일로 만들어 줘.';

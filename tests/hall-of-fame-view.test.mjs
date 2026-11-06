@@ -23,14 +23,14 @@ test('both entrance nameplates are readable inside viewport with no overlap', ()
 
 test('plates never float through higher floors, interiors, hidden gameplay or offscreen camera', () => {
   const options = scene();
-  for (const edit of [{floor: 2}, {floor: null}, {visible: false}, {position: {x: 0, z: -3}}, {position: {x: 23, z: 10}}])
+  for (const edit of [{floor: 2}, {floor: null}, {visible: false}, {position: {x: 0, z: -3}}, {position: {x: -5, z: 6.5}}, {position: {x: 0, z: 8.3}}, {position: {x: 23, z: 10}}])
     assert.deepEqual(projectHallOfFameLabels({...options, ...edit}), []);
   options.camera.lookAt(0, 13, 80);
   assert.deepEqual(projectHallOfFameLabels(options), []);
 });
 
 test('mobile shows the visible nearby statue without pinning the distant one to the screen', () => {
-  const options = scene(390, 844, {x: -5, z: 6.5});
+  const options = scene(390, 844, {x: -5, z: 9});
   const labels = projectHallOfFameLabels({...options, sizes: {fastest: {width: 245, height: 130}}});
   assert.equal(labels.length, 1);
   assert.equal(labels[0].kind, 'fastest');
@@ -59,8 +59,8 @@ test('large overlapping labels use another vertical slot or hide rather than cov
   assert.ok(labels.length <= 1, 'when no safe slot fits, hiding preserves both statues');
 });
 
-test('full long-name plates fit above both front statues, and spawn labels avoid the player', () => {
-  for (const position of [{x: 0, z: 9}, {x: -5, z: 6.5}]) {
+test('full long-name plates fit outside and avoid the player', () => {
+  for (const position of [{x: 0, z: 9}, {x: -5, z: 9}]) {
     const options = {...scene(1363, 936, position), sizes: {fastest: {width: 310, height: 193}, rest: {width: 310, height: 193}}};
     const labels = projectHallOfFameLabels(options);
     assert.equal(labels.length, position.x === 0 ? 2 : 1);
@@ -72,6 +72,22 @@ test('full long-name plates fit above both front statues, and spawn labels avoid
       assert.equal(intersects, false, 'neither player nor statue can be covered by the plate');
     }
   }
+});
+
+test('human-height third-person view keeps outdoor records visible without corridor overlays', () => {
+  const options=scene(1366,936,{x:0,z:15});
+  options.camera.fov=62;options.camera.updateProjectionMatrix();
+  options.camera.position.set(0,1.99,19.6);options.camera.lookAt(0,1.35,15);
+  const labels=projectHallOfFameLabels(options);
+  assert.deepEqual(labels.map(label=>label.kind).sort(),['fastest','rest']);
+  for(const label of labels){
+    assert.ok(label.left>=6 && label.left+label.width<=1360);
+    assert.ok(label.anchorX>label.left && label.anchorX<label.left+label.width);
+    assert.ok(label.top>=128 && label.top+label.height<=810);
+  }
+  assert.deepEqual(projectHallOfFameLabels({...options,position:{x:-5,z:6.5}}),[]);
+  options.camera.lookAt(0,1.35,30);
+  assert.deepEqual(projectHallOfFameLabels(options),[], 'turning away never pins unseen awards');
 });
 
 test('record formatting states game clock and accumulated real rest duration', () => {

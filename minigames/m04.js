@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import {SoftwareRenderer} from '../software-renderer.js';
+import {SoftwareRenderer} from '../software-renderer.js?v=20261106-immersive1';
+import {wantsSoftwareRenderer} from '../visual-test.js?v=20261106-visual1';
 
 const BOUNDS={minX:-6.3,maxX:6.3,minZ:-2.25,maxZ:4.8};
 const SHELF={x:0,z:-3.25},BIN={x:5.65,z:-2.8};
@@ -44,7 +45,8 @@ export function start({container,data,onWin=()=>{},onFail=()=>{}}){
   let destroyed=false,paused=false,won=false,timedOut=false,elapsed=0,sceneTime=0,last=performance.now(),raf=0,width=1,height=1,target=null,tipLeft=0,hintLeft=0;
   const scene=new THREE.Scene();scene.background=new THREE.Color('#eee7d3');const camera=new THREE.PerspectiveCamera(47,1,.1,100);
   scene.add(new THREE.HemisphereLight('#fff5dd','#718d74',3));const light=new THREE.DirectionalLight('#ffe8be',2.4);light.position.set(-5,12,7);scene.add(light);
-  let renderer;try{renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'low-power'});}catch{renderer=new SoftwareRenderer({canvas});}
+  let renderer;try{renderer=wantsSoftwareRenderer()?new SoftwareRenderer({canvas}):new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'low-power'});}catch{renderer=new SoftwareRenderer({canvas});}
+  canvas.dataset.renderer=renderer.isSoftware?'software':'webgl';
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setPixelRatio(renderer.isSoftware ? .8 : Math.min(globalThis.devicePixelRatio||1,1.5));
   function mat(color,basic=false,options={}){const m=basic?new THREE.MeshBasicMaterial({color,...options}):new THREE.MeshStandardMaterial({color,roughness:.9,...options});materials.add(m);return m;}
   function mesh(g,m,parent=scene,pos=[0,0,0]){geometries.add(g);const o=new THREE.Mesh(g,m);o.position.set(...pos);parent.add(o);return o;}

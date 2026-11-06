@@ -32,8 +32,9 @@ test('first-floor statue bases collide without blocking the entrance, gate or mi
   for(const anchor of Object.values(world.hallOfFameAnchors)){
     assert.equal(pointBlocked(anchor,world.colliders,.35),true,'cannot walk through plinth');
   }
-  // Walk from the unchanged spawn through the doorway and down the central path.
-  const points=[world.spawn(1),{x:-5,z:7},{x:0,z:7},{x:0,z:15}];
+  // Walk from the indoor spawn along the narrower hall, through its actual
+  // central doorway, then down the unchanged courtyard path.
+  const points=[world.spawn(1),{x:0,z:4.65},{x:0,z:7},{x:0,z:15}];
   for(let n=1;n<points.length;n++)for(let step=0;step<=40;step++){
     const a=points[n-1],b=points[n],p={x:a.x+(b.x-a.x)*step/40,z:a.z+(b.z-a.z)*step/40};
     assert.equal(pointBlocked(p,world.colliders,.35),false,`clear path at ${p.x},${p.z}`);

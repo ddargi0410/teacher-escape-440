@@ -4,11 +4,11 @@ import {getMissionBriefing} from './briefings.js';
 // Module code may load while the teacher reads. Its timer/scene starts only after
 // the explicit start action; stale loads can never start a different mission.
 const loaders = {
-  1: () => import('./m01.js'), 2: () => import('./m02.js'),
-  3: () => import('./m03.js'), 4: () => import('./m04.js'),
-  5: () => import('./m05.js'), 6: () => import('./m06.js'),
+  1: () => import('./m01.js?v=20261106-immersive1'), 2: () => import('./m02.js?v=20261106-visual-layout1'),
+  3: () => import('./m03.js'), 4: () => import('./m04.js?v=20261106-immersive1'),
+  5: () => import('./m05.js'), 6: () => import('./m06.js?v=20261106-visual-layout1'),
   7: () => import('./m07.js'), 8: () => import('./m08.js'),
-  9: () => import('./m09.js'), 10: () => import('./m10.js')
+  9: () => import('./m09.js'), 10: () => import('./m10.js?v=20261106-immersive1')
 };
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 

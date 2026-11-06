@@ -1,9 +1,12 @@
 import * as THREE from './vendor/three.module.js';
+import {AVATAR_PRESETS} from './character-appearance.js?v=20261106-immersive1';
 
 export const GREETINGS = Object.freeze({
   wave: '👋 안녕하세요!', cheer: '✊ 퇴근까지 힘내요!', thanks: '🌿 수고 많으셨어요!'
 });
 const ACTIONS = new Set(['idle','walk','rest','learn','mission']);
+const AVATARS=new Set(AVATAR_PRESETS.map(p=>p.id));
+const POSTURES=new Set(['back','side']);
 const BEDS = new Set(['bed-1','bed-2','bed-3','bed-4','bed-5']);
 const COLORS = ['#8faac4','#bda1bf','#8fb89c','#d4ae77','#c59087','#a5a3cb'];
 const cleanName = value => Array.from(String(value || '').replace(/[\u0000-\u001f\u007f]/g,'').trim()).slice(0,24).join('') || '퇴근 동료';
@@ -29,11 +32,13 @@ export function sanitizePresencePlayer(value) {
   if (![x,y,z,yaw,floor].every(Number.isFinite) || !Number.isInteger(floor) || floor<1 || floor>5 || Math.abs(x)>26 || y<0 || y>18 || z< -8 || z>27 || Math.abs(yaw)>100000) return null;
   const action = ACTIONS.has(value.action) ? value.action : 'idle';
   const bedId = BEDS.has(value.bedId) ? value.bedId : undefined;
+  const avatarId=AVATARS.has(value.avatarId)?value.avatarId:undefined;
+  const restPosture=POSTURES.has(value.restPosture)?value.restPosture:undefined;
   let greeting;
   if (value.greeting && Number.isSafeInteger(value.greeting.seq) && value.greeting.seq>0 && Object.hasOwn(GREETINGS,value.greeting.type) && Number.isFinite(value.greeting.at)) {
     greeting = {seq:value.greeting.seq,type:value.greeting.type,at:value.greeting.at};
   }
-  return {id:value.id,nickname:cleanName(value.nickname),x,y,z,yaw,floor,action:action==='rest'&&!bedId?'idle':action,bedId,greeting};
+  return {id:value.id,nickname:cleanName(value.nickname),x,y,z,yaw,floor,action:action==='rest'&&!bedId?'idle':action,bedId,avatarId,restPosture,greeting};
 }
 
 /** Polls the hosted presence service; no simulated visitors or same-browser substitute. */
@@ -61,6 +66,7 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
     if(key!==lastStatusKey){lastStatusKey=key;onStatus?.(data);}
   }
   function removePeer(peer) {
+    world.clearRestPose?.(peer.model);
     scene.remove(peer.model);peer.label.remove();
     // Teacher geometry/materials belong to world; disposing them would break the school.
   }
@@ -74,6 +80,8 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
     const local=getLocal()||{};
     const data={room,id,token,nickname,x:local.x,y:local.y,z:local.z,yaw:local.yaw,floor:local.floor,action:ACTIONS.has(local.action)?local.action:'idle'};
     if(BEDS.has(local.bedId))data.bedId=local.bedId;
+    if(AVATARS.has(local.avatarId))data.avatarId=local.avatarId;
+    if(data.action==='rest'&&POSTURES.has(local.restPosture))data.restPosture=local.restPosture;
     if(pendingGreeting)data.greeting={...pendingGreeting};
     return data;
   }
@@ -84,7 +92,7 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
   }
   function makePeer(data) {
     const hash=[...data.id].reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,0);
-      const model=world.createTeacher(COLORS[hash%COLORS.length],{id:'peer-'+data.id,role:'teacher'});
+      const model=world.createTeacher(COLORS[hash%COLORS.length],{id:'peer-'+data.id,role:'teacher',...(data.avatarId?{avatarId:data.avatarId}:{})});
     model.name='online-teacher';model.position.set(data.x,data.y,data.z);model.rotation.y=data.yaw;scene.add(model);
     const label=doc.createElement('div');label.className='presence-label';
     const greeting=doc.createElement('span');greeting.className='presence-greeting';greeting.hidden=true;
@@ -102,6 +110,11 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
       received.add(data.id);
       let peer=peers.get(data.id);
       if(!peer){peer=makePeer(data);peers.set(data.id,peer);}
+      if(data.avatarId&&peer.data.avatarId!==data.avatarId){
+        world.clearRestPose?.(peer.model);
+        world.applyTeacherAppearance?.(peer.model,data.avatarId);
+        peer.armZ=(peer.model.userData.arms||[]).map(a=>a.rotation.z);
+      }
       if(peer.data.floor!==data.floor||Math.hypot(peer.data.x-data.x,peer.data.z-data.z)>8)peer.model.position.set(data.x,data.y,data.z);
       peer.data=data;peer.name.textContent=data.nickname;
       peer.activity.textContent=data.action==='rest'?'쉬는 중':data.action==='learn'?'기초 배우는 중':data.action==='mission'?'업무 처리 중':'';
@@ -187,7 +200,7 @@ export function createPresence({scene,world,camera,getLocal,onStatus,onGreeting,
         peer.model.visible=show;peer.label.hidden=!show;if(!show)continue;
         const greetingActive=peer.greetingUntil>now();
         const resting=data.action==='rest'&&data.bedId&&data.floor===1;
-        if(resting)world.setRestPose?.(peer.model,data.bedId,Math.abs(Math.sin(data.yaw))>.5?'side':'back');
+        if(resting)world.setRestPose?.(peer.model,data.bedId,data.restPosture||(Math.abs(Math.sin(data.yaw))>.5?'side':'back'));
         else{
           world.clearRestPose?.(peer.model);
           peer.model.position.lerp(new THREE.Vector3(data.x,data.y,data.z),1-Math.exp(-7*step));

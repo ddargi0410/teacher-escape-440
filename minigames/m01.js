@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import {SoftwareRenderer} from '../software-renderer.js';
+import {SoftwareRenderer} from '../software-renderer.js?v=20261106-immersive1';
+import {wantsSoftwareRenderer} from '../visual-test.js?v=20261106-visual1';
 
 // This room is deliberately self-contained: it does not move or modify the
 // exploration scene, save record, mission data, or another minigame's controls.
@@ -93,10 +94,11 @@ export function start({container, data, onWin = () => {}, onFail = () => {}}) {
 
   let renderer;
   try {
-    renderer = new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: 'low-power'});
+    renderer = wantsSoftwareRenderer()?new SoftwareRenderer({canvas}):new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: 'low-power'});
   } catch {
     renderer = new SoftwareRenderer({canvas});
   }
+  canvas.dataset.renderer=renderer.isSoftware?'software':'webgl';
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setPixelRatio(renderer.isSoftware ? 0.75 : Math.min(devicePixelRatio || 1, 1.5));
 

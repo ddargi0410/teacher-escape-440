@@ -1,1 +1,14 @@
-{"name":"teacher-escape-440","private":true,"version":"1.0.0","type":"module"}
+{
+  "name": "teacher-escape-440",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "devDependencies": {
+    "@sparticuz/chromium": "^153.0.0",
+    "playwright": "^1.65.0",
+    "pngjs": "^7.0.0"
+  },
+  "scripts": {
+    "visual": "node tests/visual-check.mjs"
+  }
+}

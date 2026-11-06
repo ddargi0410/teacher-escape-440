@@ -22,8 +22,10 @@ function fixture(handler, runtimeOverrides={}) {
   camera.position.set(0,28,19);camera.lookAt(0,17,0);camera.updateMatrixWorld();
   const local={x:0,y:16,z:4,yaw:0,floor:5,action:'idle'};
   const statuses=[],greetings=[],sentGreetings=[],requests=[];let clock=0,players=[],fail=false;
-  const world={createTeacher(){const model=new THREE.Group();model.userData.arms=[new THREE.Group(),new THREE.Group()];model.userData.legs=[new THREE.Group(),new THREE.Group()];return model;},
-    animateCharacter(){},setRestPose(model,bed){model.rotation.x=-Math.PI/2;model.userData.restingBed=bed;},clearRestPose(model){model.rotation.x=0;delete model.userData.restingBed;}};
+  const removedRestModels=[],createdIdentities=[],appearanceChanges=[];
+  const world={createTeacher(color,identity){createdIdentities.push(identity);const model=new THREE.Group();model.userData.arms=[new THREE.Group(),new THREE.Group()];model.userData.legs=[new THREE.Group(),new THREE.Group()];return model;},
+    applyTeacherAppearance(model,id){appearanceChanges.push({model,id});model.userData.avatarId=id;model.userData.arms=[new THREE.Group(),new THREE.Group()];model.userData.arms[1].rotation.z=.1;},
+    animateCharacter(){},setRestPose(model,bed,posture){model.rotation.x=-Math.PI/2;model.userData.restingBed=bed;model.userData.restPosture=posture;},clearRestPose(model){if(model.userData.restingBed)removedRestModels.push(model);model.rotation.x=0;delete model.userData.restingBed;}};
   const fetcher=(url,options)=>{
     const body=JSON.parse(options.body),request={url,options,body};requests.push(request);
     if(handler)return handler(request);
@@ -32,12 +34,37 @@ function fixture(handler, runtimeOverrides={}) {
   };
   const api=createPresence({scene,world,camera,getLocal:()=>local,onStatus:value=>statuses.push(value),onGreeting:value=>greetings.push(value),onGreetingSent:value=>sentGreetings.push(value),endpoint:'https://relay.example/api/presence',
     runtime:{document:doc,window:win,fetch:fetcher,crypto:webcrypto,now:()=>clock,...runtimeOverrides}});
-  return {api,scene,doc,win,local,statuses,greetings,sentGreetings,requests,
+  return {api,scene,doc,win,local,statuses,greetings,sentGreetings,requests,removedRestModels,createdIdentities,appearanceChanges,
     get labels(){return doc.body.children[0];},
     peers(value){players=value;},fail(value=true){fail=value;},
     async advance(milliseconds,{visible=true,floor=local.floor}={}){clock+=milliseconds;api.update(milliseconds/1000,{visible,floor});await flush();},
     async connect(){return await api.connect({room:'teacher2026',nickname:'퇴근 희망'});}};
 }
+
+test('chosen appearance is sent, used on peers and updated without replacing the actor root',async t=>{
+ const f=fixture();t.after(()=>f.api.dispose());f.local.avatarId='sunny';
+ f.peers([remote('new',{avatarId:'coffee'}),remote('old')]);
+ await f.connect();await f.advance(0);
+ assert.equal(f.requests[0].body.avatarId,'sunny');
+ assert.equal(f.createdIdentities[0].avatarId,'coffee');
+ assert.equal('avatarId' in f.createdIdentities[1],false,'legacy peers keep stable hash-based appearance');
+ const actor=f.scene.children[0];
+ f.peers([remote('new',{avatarId:'forest'}),remote('old')]);await f.advance(1000);await f.advance(0);
+ assert.equal(f.scene.children[0],actor);assert.equal(actor.userData.avatarId,'forest');
+ assert.equal(f.appearanceChanges.length,1);assert.equal(actor.userData.arms[1].rotation.z,.1);
+ await f.advance(1000);assert.equal(f.appearanceChanges.length,1,'unchanged appearance does not rebuild every heartbeat');
+ assert.equal(sanitizePresencePlayer(remote('bad',{avatarId:'<img>',restPosture:'flying'})).avatarId,undefined);
+});
+
+test('explicit resting posture wins over old yaw and departed peers release bed state',async t=>{
+ const f=fixture();t.after(()=>f.api.dispose());Object.assign(f.local,{floor:1,y:1,action:'rest',bedId:'bed-1',avatarId:'lavender',restPosture:'side'});
+ f.peers([remote('resting',{floor:1,y:1,action:'rest',bedId:'bed-2',restPosture:'side',yaw:0}),remote('legacy',{floor:1,y:1,action:'rest',bedId:'bed-3',yaw:Math.PI/2})]);
+ await f.connect();await f.advance(0);
+ assert.equal(f.requests[0].body.restPosture,'side');
+ const [modern,legacy]=f.scene.children;assert.equal(modern.userData.restPosture,'side');assert.equal(legacy.userData.restPosture,'side');
+ f.peers([]);await f.advance(1000);assert(f.removedRestModels.includes(modern));assert(f.removedRestModels.includes(legacy));
+ f.local.action='idle';await f.advance(1000);assert.equal('restPosture' in f.requests.at(-1).body,false);
+});
 
 test('no visitors or networking exist before an explicit successful connection',async t=>{
   const f=fixture();t.after(()=>f.api.dispose());
