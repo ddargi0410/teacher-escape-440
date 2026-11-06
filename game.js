@@ -20,6 +20,7 @@ import {downloadCertificate,copyText} from './certificate.js';
 import {schoolTime,overtimeMinutes,overtimeLabel} from './school-clock.js';
 import {adjacentFloors,canUseStairs} from './stairs.js';
 import {getMissionBriefing} from './minigames/briefings.js';
+import {publishAnalyticsNickname} from './analytics-identity.js?v=20261106-nicknames1';
 
 const {MISSIONS}=MissionData;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -81,7 +82,7 @@ function showPanel(kind,html,wide=false){
 function closePanel(){overlay.hidden=true;overlay.innerHTML='';overlayKind='';player?.setActive(mode==='play'&&!missions.isOpen());if(lastFocus instanceof HTMLElement&&lastFocus.isConnected)lastFocus.focus()}
 const closeButton='<button class="close-button" data-close aria-label="닫기">×</button>';
 function guide(){showPanel('guide',`${closeButton}<div class="eyebrow">HOW TO GO HOME</div><h2 id="panel-title">업무는 10개.<br>퇴근은 한 번이면 충분합니다.</h2><p>5층 학교를 걸으며 빛나는 업무 표식에 다가가세요. 미션 1–9는 원하는 순서로, 10번은 마지막에 열립니다. 각 미션을 끝내면 노하우 카드가 가방에 쌓입니다.</p><div class="controls-table"><kbd>W A S D</kbd><span>걷기 · Shift를 누르면 빠르게</span><kbd>마우스 드래그</kbd><span>시선 돌리기 · 방향키로도 회전 가능</span><kbd>E</kbd><span>가까운 NPC · 중앙계단 살펴보기</span><kbd>F · G</kbd><span>복도 방해꾼에게 한마디 · 호루라기</span><kbd>🌱 · ✚ · ♧</kbd><span>선택 배움터 · 침대 5개 보건실 · 채널 바꾸기</span><kbd>H · J · M</kbd><span>무료 힌트 · 노하우 가방 · 학교 지도</span><kbd>0 · Esc</kbd><span>1인칭/3인칭 · 일시정지와 설정</span><kbd>태블릿</kbd><span>왼쪽 조이스틱으로 이동 · 화면 드래그로 시선 · 조사 버튼</span></div><div class="notice">길 찾기가 어려우면 <strong>지도에서 목적지를 선택해 안내받기</strong>할 수 있어요. 오후 4시에 시작하며 학교 시계는 실제 플레이 시간의 2배로 흘러요. 실제 20분이면 목표 시각인 4시 40분입니다. 오답은 게임 시계를 5분 앞으로 보내요. 목표는 4시 40분 이전! 16:40을 넘겨도 게임오버 없이 야근이 시작돼요. 창밖이 어두워지고 복도 불이 차례로 꺼지며 경비 선생님이 순찰합니다. 미션 10개를 끝내면 바로 퇴근하고, 증명서에 퇴근 시각과 야근 시간이 남습니다. 시계는 최대 22:00까지 표시됩니다.</div><div class="actions"><button class="primary" data-close>이제 알겠어요 ↗</button></div>`)}
-function newGame(){showPanel('new',`${closeButton}<div class="eyebrow">EMPLOYEE CHECK-IN</div><h2 id="panel-title">오늘도 출근하셨군요.</h2><p>가상의 퇴근초등학교에 오신 것을 환영합니다.<br>오후 4시부터 시작해요. 10개 업무를 끝내면 곧바로 퇴근!<br>다른 동료에게 보이고 퇴근 증명서에도 넣을 닉네임을 적어 주세요.</p><label for="teacher-name">오늘의 퇴근 도전자</label><input id="teacher-name" type="text" maxlength="24" autocomplete="off" placeholder="예: 정시퇴근 선생님" value="${esc(state.name==='퇴근희망 교사'?'':state.name)}"><div class="option-row"><label for="start-relaxed">느긋하게 배우기<small>급식실에서 60초가 지나도 연습을 이어갑니다.</small></label><input type="checkbox" id="start-relaxed" ${state.settings.relaxed?'checked':''}></div><div class="notice">게임을 시작하면 채널에 자동 입장해요. 입력한 닉네임과 캐릭터 위치가 같은 채널의 동료에게 보여요. 미션 진행과 프롬프트는 이 브라우저에 저장해요. 새 게임은 이전 기록을 교체합니다.</div><div class="actions"><button class="primary" id="confirm-start">출근 도장 찍기 →</button></div>`);
+function newGame(){showPanel('new',`${closeButton}<div class="eyebrow">EMPLOYEE CHECK-IN</div><h2 id="panel-title">오늘도 출근하셨군요.</h2><p>가상의 퇴근초등학교에 오신 것을 환영합니다.<br>오후 4시부터 시작해요. 10개 업무를 끝내면 곧바로 퇴근!<br>다른 동료에게 보이고 퇴근 증명서에도 넣을 닉네임을 적어 주세요.</p><label for="teacher-name">오늘의 퇴근 도전자</label><input id="teacher-name" type="text" maxlength="24" autocomplete="off" placeholder="예: 정시퇴근 선생님" value="${esc(state.name==='퇴근희망 교사'?'':state.name)}"><div class="option-row"><label for="start-relaxed">느긋하게 배우기<small>급식실에서 60초가 지나도 연습을 이어갑니다.</small></label><input type="checkbox" id="start-relaxed" ${state.settings.relaxed?'checked':''}></div><div class="notice">게임을 시작하면 채널에 자동 입장해요. 입력한 닉네임과 캐릭터 위치가 같은 채널의 동료에게 보여요. 입력한 닉네임과 방문 기록은 90일간 보관하며 공개 통계에는 닉네임이 나오지 않아요. 미션 진행과 프롬프트는 이 브라우저에 저장해요. 새 게임은 이전 기록을 교체합니다.</div><div class="actions"><button class="primary" id="confirm-start">출근 도장 찍기 →</button></div>`);
  $('#confirm-start').onclick=()=>{const name=$('#teacher-name').value;const relaxed=$('#start-relaxed').checked;const settings=state.settings;state=freshState(name);state.settings={...settings,relaxed};persist();closePanel();start(false);opening()};
  $('#teacher-name').addEventListener('keydown',e=>{if(e.key==='Enter')$('#confirm-start').click()});}
 function opening(){
@@ -93,6 +94,7 @@ function opening(){
 function start(resume=true){
  pendingDestination=null;
  if(resume)state=loadGame()||state;
+ try{publishAnalyticsNickname(state.name);}catch{}
  rest.close();learning.close();channelUI.close();channels?.stop();messenger.reset({clearHistory:!resume});if(resume&&state.completed.includes(5)&&!state.finished)messenger.notifyMissionSuccess(5);
  clearEncounter();world.resetCrowd?.();if(!state.finished)world.reset?.();player.setView(false);player.resetCamera();$('#tutorial-title').textContent='W A S D로 걸어 보세요';$('#tutorial-text').textContent='빛나는 표식이 오늘 처리할 업무입니다.';
  mode='play';$('#home').hidden=true;$('#hud').hidden=false;document.body.classList.add('playing');world.setCompleted(state.completed);world.setFloor(state.floor);player.setFloor(state.floor);teacher.visible=true;applyQuality();audio.setEnabled(state.settings.sound);updateSound();updateHUD();persist();

@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import {createChannels} from '../channels.js';
 import {freshState} from '../save.js';
 import {createDocument} from './dom-stub.mjs';
+import {createAnalyticsIdentity} from '../analytics-identity.js';
 
 const source=readFileSync(new URL('../game.js',import.meta.url),'utf8');
 // Run the production start/resume and HUD functions, plus their actual channel
@@ -22,7 +23,8 @@ function setup(){
   const document=createDocument();document.body=document.createElement('body');
   document.body.innerHTML='<div id="home"></div><div id="hud"></div><div id="tutorial-title"></div><div id="tutorial-text"></div><div id="social-bar"><span id="social-status"></span><span id="social-nickname"></span><span id="social-connect-label"></span><button data-greet="wave"></button></div>';
   let status={state:'offline',connected:false,count:0},saved;
-  const connections=[],chooser=[];
+  const connections=[],chooser=[],analyticsNames=[],identity=createAnalyticsIdentity();
+  identity.subscribe(name=>analyticsNames.push(name));
   const presence={
     getSnapshotStatus:()=>status,
     disconnect(){status={state:'offline',connected:false,count:0};},
@@ -38,23 +40,46 @@ function setup(){
     world:{resetCrowd:noop,reset:noop,setCompleted:noop,setFloor:noop},
     player:{setView:noop,resetCamera:noop,setFloor:noop},teacher:{visible:false},
     applyQuality:noop,audio:{setEnabled:noop},updateSound:noop,updateHUD:noop,persist:noop,
-    loadGame:()=>saved,storageAvailable:()=>true,toast:noop,showCertificate:noop
+    loadGame:()=>saved,storageAvailable:()=>true,toast:noop,showCertificate:noop,
+    publishAnalyticsNickname:identity.publish
   };
   vm.createContext(context);
   vm.runInContext(functionSource('start')+'\n'+functionSource('onChannelChange')+'\n'+channelsSource,context);
-  return {context,connections,chooser,q:context.$,setSaved:value=>{saved=value;},dispose:()=>context.channels.dispose()};
+  return {context,connections,chooser,analyticsNames,identity,q:context.$,setSaved:value=>{saved=value;},dispose:()=>context.channels.dispose()};
 }
 
 test('actual game start, continue and channel switching send the entered saved nickname',async t=>{
   const h=setup();t.after(h.dispose);
+  assert.deepEqual(h.analyticsNames,[],'loading a saved home page does not publish its nickname');
   h.context.start(false);await flush();
   assert.equal(h.connections.at(-1).nickname,'수진의 퇴근');
+  assert.deepEqual(h.analyticsNames,['수진의 퇴근']);
   const saved={...freshState('이어서 하는 닉네임'),completed:[1,4],elapsed:321,penalty:5,bossDraft:'작성 중인 요청'};
   h.setSaved(saved);h.context.start(true);await flush();
   assert.equal(h.connections.at(-1).nickname,saved.name);
   await h.context.channels.select(2);await flush();
   assert.deepEqual(h.connections.map(item=>item.nickname),['수진의 퇴근','이어서 하는 닉네임','이어서 하는 닉네임']);
+  assert.deepEqual(h.analyticsNames,['수진의 퇴근','이어서 하는 닉네임']);
   assert.deepEqual(h.context.state,saved,'nickname reconnects keep saved game progress intact');
+});
+
+test('production start publishes the current entered name even when saving is unavailable',async t=>{
+  const h=setup();t.after(h.dispose);
+  h.context.storageAvailable=()=>false;
+  h.context.state=freshState('저장 안 돼도 내 이름');
+  h.context.start(false);await flush();
+  assert.deepEqual(h.analyticsNames,['저장 안 돼도 내 이름']);
+  assert.equal(h.context.mode,'play');
+});
+
+test('analytics bridge listener failures never prevent actual game start',async t=>{
+  const h=setup();t.after(h.dispose);
+  h.identity.subscribe(()=>{throw new Error('analytics unavailable');});
+  assert.doesNotThrow(()=>h.context.start(false));await flush();
+  assert.equal(h.context.mode,'play');assert.equal(h.connections.length,1);
+  h.context.publishAnalyticsNickname=()=>{throw new Error('bridge unavailable');};
+  assert.doesNotThrow(()=>h.context.start(false));await flush();
+  assert.equal(h.context.mode,'play');assert.equal(h.connections.length,2);
 });
 
 test('HUD shows the exact connected nickname and uses saved nickname while offline',()=>{

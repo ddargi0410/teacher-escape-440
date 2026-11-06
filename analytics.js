@@ -1,4 +1,6 @@
-// Aggregate visit counting is independent of game progress and multiplayer.
+import {normalizeAnalyticsNickname} from './analytics-identity.js?v=20261106-nicknames1';
+
+// Visit counting is independent of game progress and multiplayer.
 export const ANALYTICS_STORAGE_KEY = 'teacher-escape-440:analytics-visitor-v1';
 export const HEARTBEAT_MS = 30_000;
 const REQUEST_TIMEOUT_MS = 8_000;
@@ -22,7 +24,7 @@ export function isAnalyticsPreview(location) {
     host === 'terminal.local' || host.endsWith('.local') || /^127\./.test(host) || host === '[::1]' || host === '::1';
 }
 
-/** One visit per loaded page, one anonymous visitor ID per browser storage. */
+/** One visit per loaded page; names arrive only after explicit game start. */
 export function createAnalytics({endpoint, runtime = {}}) {
   const doc = runtime.document ?? globalThis.document;
   const win = runtime.window ?? globalThis.window;
@@ -35,7 +37,7 @@ export function createAnalytics({endpoint, runtime = {}}) {
   let storage;
   try { storage = Object.hasOwn(runtime, 'storage') ? runtime.storage : win?.localStorage; } catch { storage = null; }
   let visitorId, visitId, sequence = 0, started = false, disposed = false, active = false, pageHidden = false;
-  let timer = null, pending = null;
+  let timer = null, pending = null, nickname = '', nicknameDirty = false;
   const enabled = typeof endpoint === 'string' && /^https:\/\//.test(endpoint) && !isAnalyticsPreview(location) &&
     typeof fetcher === 'function' && typeof Controller === 'function' && !!doc?.addEventListener && !!win?.addEventListener;
 
@@ -56,14 +58,19 @@ export function createAnalytics({endpoint, runtime = {}}) {
     const controller = new Controller();
     const request = {controller, timeout:null};
     pending = request;
+    if (event === 'heartbeat') nicknameDirty = false;
     const finish = () => {
       if (pending !== request) return;
       cancel(request.timeout);
       pending = null;
-      if (event === 'heartbeat') schedule();
+      if (event === 'heartbeat') {
+        if (active && !disposed && nicknameDirty) send('heartbeat');
+        else schedule();
+      }
     };
     request.timeout = later(() => { try { controller.abort(); } catch {} finish(); }, REQUEST_TIMEOUT_MS);
-    const body = JSON.stringify({visitorId, visitId, seq:++sequence, event});
+    const body = JSON.stringify({visitorId, visitId, seq:++sequence, event,
+      ...(nickname ? {nickname} : {})});
     try {
       // keepalive lets the final small leave request finish during navigation.
       Promise.resolve(fetcher(endpoint, {method:'POST', headers:{'Content-Type':'application/json'},
@@ -83,6 +90,16 @@ export function createAnalytics({endpoint, runtime = {}}) {
   function show() { pageHidden = false; visibility(); }
 
   return {
+    setNickname(value) {
+      if (disposed) return false;
+      const next = normalizeAnalyticsNickname(value);
+      if (!next) return false;
+      if (next === nickname) return true;
+      nickname = next;
+      nicknameDirty = true;
+      if (active && !pending) { clearTimer(); send('heartbeat'); }
+      return true;
+    },
     start() {
       if (disposed) return false;
       if (started) return !!visitorId;
