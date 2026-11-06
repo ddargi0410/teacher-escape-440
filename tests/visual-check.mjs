@@ -19,11 +19,12 @@ import {chromium} from 'playwright';
 import {PNG} from 'pngjs';
 
 const root=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const outDir=path.join(root,'screenshots');
+const outDir=process.env.VISUAL_OUTPUT?path.resolve(root,process.env.VISUAL_OUTPUT):path.join(root,'screenshots');
 const viewports=[{name:'laptop-1366x820',width:1366,height:820},{name:'tablet-1024x768',width:1024,height:768}];
-const extraScenes=[['classroom','교실 칠판·교탁·사물함·창문'],['research','학년 연구실 책상과 생활 소품'],['office','교무실 업무 공간과 가구'],['copier','복사기와 주변 서류·용지'],['exterior','학교 외벽·창틀·입구와 주변 풍경']];
+const focus=process.env.VISUAL_FOCUS==='environment';
+const extraScenes=[['classroom','교실 칠판·교탁·사물함·창문'],['research','학년 연구실 책상과 생활 소품'],['office','교무실 업무 공간과 가구'],['copier','복사기와 주변 서류·용지'],['exterior','학교 외벽·창틀·입구와 주변 풍경'],['broadcast','방송실 모니터·카메라·방송 장비'],['window','투명 유리창 너머 한국식 아파트와 실제 바깥 공간']];
 const mime={'.html':'text/html;charset=utf-8','.js':'text/javascript;charset=utf-8','.mjs':'text/javascript;charset=utf-8','.css':'text/css;charset=utf-8','.json':'application/json','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg','.svg':'image/svg+xml','.mp3':'audio/mpeg','.woff2':'font/woff2'};
-const report={startedAt:new Date().toISOString(),browser:'Chromium',launchArgs:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'],renderer:null,preflight:{},scenes:[],errors:[]};
+const report={scope:focus?'environment-focus':'full',startedAt:new Date().toISOString(),browser:'Chromium',launchArgs:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'],renderer:null,preflight:{},scenes:[],errors:[]};
 let browser,server;
 const fail=(message,details={})=>{report.errors.push({message,...details});console.error(message);};
 
@@ -117,7 +118,13 @@ async function capture(page,viewport,name,description){
     visibleButtons:[...document.querySelectorAll('button')].filter(e=>e.getClientRects().length&&!e.closest('[hidden]')).map(e=>({text:(e.innerText||e.getAttribute('aria-label')||'').trim(),x:Math.round(e.getBoundingClientRect().x),y:Math.round(e.getBoundingClientRect().y),width:Math.round(e.getBoundingClientRect().width),height:Math.round(e.getBoundingClientRect().height)}))
   }));
   assert(!layout.horizontalOverflow,`${name}: horizontal document overflow`);
-  report.scenes.push({viewport:viewport.name,name,description,path:path.relative(root,filename),canvas:stats,layout});
+  const environment=await page.evaluate(()=>window.__visualEnvironment?.()||null);
+  if(environment&&!name.startsWith('mission-')){
+    assert(environment.textures.every(t=>t.width<=1024&&t.height<=1024),`${name}: texture exceeds 1024px: ${JSON.stringify(environment.textures.filter(t=>t.width>1024||t.height>1024))}`);
+    if(name==='07-low-quality'){assert.equal(environment.shadows,false,'Low quality must disable actual renderer shadows');assert.equal(environment.visibleSunPatches,0,'Low quality must hide window sunlight patches');}
+    if(name==='window-night')assert.equal(environment.visibleSunPatches,0,'Night must hide window sunlight patches');
+  }
+  report.scenes.push({viewport:viewport.name,name,description,path:path.relative(root,filename),canvas:stats,layout,environment});
   console.log(`✓ ${viewport.name}/${name} (${layout.renderer}; ${main?.colors??stats[0]?.colors??'DOM briefing'} canvas colours)`);
 }
 async function go(page,base,query=''){
@@ -138,6 +145,7 @@ async function runViewport(base,viewport){
   page.on('console',message=>{if(message.type()==='error')fail(`Console error: ${message.text()}`,{viewport:viewport.name,url:page.url()});});
   page.on('pageerror',error=>fail(`Page error: ${error.message}`,{viewport:viewport.name,url:page.url()}));
   try{
+    if(!focus){
     await go(page,base);await capture(page,viewport,'01-home','시작 화면과 학교 전경');
     await page.locator('#start').click();await page.locator('#teacher-name').fill('화면검사 선생님');
     await page.locator('.character-choice').filter({has:page.locator('input[value="sunny"]')}).click();
@@ -163,12 +171,30 @@ async function runViewport(base,viewport){
       await begin.click();await page.waitForTimeout(3000);
       await capture(page,viewport,`mission-${number}-play`,`미션 ${mission} 실제 플레이 3초 뒤`);
     }
+    }
     for(const posture of ['back','side']){
       await go(page,base,`&scene=rest&bed=4&posture=${posture}`);
       await page.waitForTimeout(900);
       await capture(page,viewport,`rest-${posture}`,`보건실 ${posture==='back'?'바로':'옆으로'} 눕기·침대·화분·호수`);
+      if(posture==='back'){
+        // Use the real drag control: a half-turn is independent of slow software-GPU FPS.
+        await page.mouse.move(viewport.width*.5,viewport.height*.38);await page.mouse.down();await page.mouse.move(viewport.width*.5-Math.PI/.005,viewport.height*.38,{steps:12});await page.mouse.up();await page.waitForTimeout(1200);
+        await capture(page,viewport,'rest-reverse','누운 채 반대쪽으로 돌아본 머리·목·어깨 연결');
+        await page.locator('.rest-room-reset-view').click();await page.locator('[data-rest-view]').click();await page.waitForTimeout(1200);
+        await capture(page,viewport,'rest-eyes','베개 눈높이에서 본 보건실 천장·창문·옆 침대');
+      }
     }
     for(const [scene,description] of extraScenes){await go(page,base,`&scene=${scene}`);if(scene==='copier'){await page.mouse.move(viewport.width*.5,viewport.height*.42);await page.mouse.down();await page.mouse.move(viewport.width*.5,viewport.height*.55,{steps:5});await page.mouse.up();}await capture(page,viewport,`room-${scene}`,description);}
+    for(const scene of ['window','exterior']){
+      await go(page,base,`&scene=${scene}&clock=17:40`);await page.waitForTimeout(900);
+      await capture(page,viewport,`${scene}-night`,scene==='window'?'밤의 실제 창밖 아파트와 밝게 유지된 실내':'밤의 아파트·운동장·달·가로등');
+    }
+    for(const angle of ['front','quarter']){
+      await page.goto(`${base}/tests/character-visual-fixture.html?test=1&view=${angle}${report.renderer==='software'?'&renderer=software':''}`,{waitUntil:'networkidle'});
+      await page.waitForFunction(()=>document.body.dataset.fixtureReady==='true');
+      await capture(page,viewport,`characters-${angle}`,angle==='front'?'여섯 실제 3D 캐릭터 정면: 눈과 앞머리 확인':'여섯 실제 3D 캐릭터 45°: 얼굴·귀·목·옆머리 확인');
+    }
+    if(!focus){
     await go(page,base,'&scene=ending');await page.waitForTimeout(800);
     await capture(page,viewport,'ending','실제 퇴근 엔딩 장면');
     await go(page,base,'&scene=certificate');await page.getByRole('heading',{name:'퇴근 증명서',exact:true}).waitFor();
@@ -182,6 +208,7 @@ async function runViewport(base,viewport){
     const exportColours=new Set();for(let i=0;i<certificatePng.data.length;i+=400){const d=certificatePng.data;exportColours.add((d[i]>>3)*1024+(d[i+1]>>3)*32+(d[i+2]>>3));}
     assert(exportColours.size>8,'certificate PNG is a blank or single-colour image');
     report.scenes.push({viewport:viewport.name,name:'certificate-export',description:'실제 저장 버튼으로 내려받은 퇴근 증명서 PNG',path:`screenshots/${viewport.name}/certificate-export.png`,width:certificatePng.width,height:certificatePng.height});
+    }
   }catch(error){fail(`${viewport.name}: ${error.stack||error}`);await page.screenshot({path:path.join(outDir,viewport.name,'FAILURE.png')}).catch(()=>{});}
   finally{await context.close().catch(()=>{});}
 }
@@ -198,7 +225,7 @@ try{
 }catch(error){fail(`Browser visual check could not finish: ${error.stack||error}`);}
 finally{
   await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));
-  report.finishedAt=new Date().toISOString();report.expectedCaptures=viewports.length*(32+extraScenes.length);report.passed=report.errors.length===0&&report.scenes.length===report.expectedCaptures;
+  report.finishedAt=new Date().toISOString();report.expectedCaptures=viewports.length*((focus?8:38)+extraScenes.length);report.passed=report.errors.length===0&&report.scenes.length===report.expectedCaptures;
   await mkdir(outDir,{recursive:true});await writeFile(path.join(outDir,'visual-report.json'),JSON.stringify(report,null,2)+'\n');
   console.log(`Visual check ${report.passed?'PASS':'FAIL'}: ${report.scenes.length} captures, ${report.errors.length} errors. See screenshots/visual-report.json.`);
   if(!report.passed)process.exitCode=1;

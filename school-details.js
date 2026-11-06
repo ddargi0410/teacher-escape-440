@@ -5,6 +5,8 @@ const roomFrontWallSegments=cx=>[-1,1].map(side=>({x:cx+side*2.625,w:2.75}));
 // world.js merges the opaque geometry with each floor's existing scenery.
 export function createSchoolDetails({box,cyl,mesh,geo,mat,collide,surfaceMaterial}) {
   const textures=new Map(),surfaces=new Map(),sunPatches=[],cutawayGroups=[];
+  const lowerPanel='#b9cdb7';
+  function wainscot(parent,x,y,z,w,h,d){const panel=box(parent,x,y,z,w,h,d,lowerPanel);if(surfaceMaterial)panel.material=surfaceMaterial('paint',lowerPanel);return panel;}
   const ink='#2f3e5c',cream='#f3f0e4',green='#4f8fd6',wood='#b58e65',silver='#b3bac2';
   function texture(key,width,height,draw){
     if(textures.has(key))return textures.get(key);
@@ -47,12 +49,12 @@ export function createSchoolDetails({box,cyl,mesh,geo,mat,collide,surfaceMateria
       c.strokeStyle='#c4c4c2';c.lineWidth=2;c.beginPath();
       for(let x=0;x<=W;x+=128){c.moveTo(x,0);c.lineTo(x,H);}for(let y=0;y<=H;y+=128){c.moveTo(0,y);c.lineTo(W,y);}c.stroke();
       c.fillStyle='#b9c2cc';c.fillRect(0,0,W,12);c.fillRect(0,H-12,W,12);
-    },2048,384);tile.rotation.x=-Math.PI/2;tile.material=new THREE.MeshStandardMaterial({color:'#ffffff',map:tile.material.map,roughness:.78});
+    },1024,384);tile.rotation.x=-Math.PI/2;tile.material=new THREE.MeshStandardMaterial({color:'#ffffff',map:tile.material.map,roughness:.78});
     for(const x of [-8,8])box(inside,x,.08,5.64,11.6,.14,.07,accent.dark);
     for(const [index,room]of rooms.entries()){
       const cx=index===0?-7:7,outward=index===0?-1:1;
       for(const wall of roomFrontWallSegments(cx)){
-        box(inside,wall.x,.5,2.705,wall.w,1,.035,accent.paint);
+        wainscot(inside,wall.x,.5,2.705,wall.w,1,.035);
         box(inside,wall.x,.10,2.74,wall.w,.13,.06,accent.dark);
         box(inside,wall.x,1.035,2.75,wall.w,.055,.065,'#f4f1ea');
       }
@@ -80,8 +82,8 @@ export function createSchoolDetails({box,cyl,mesh,geo,mat,collide,surfaceMateria
         for(let i=0;i<3;i++){const x=40+i*238;c.fillStyle=cream;c.fillRect(x,98,212,248);words(c,labels[i],x+106,141,28);c.fillStyle=['#f2a03d','#5aa9e6','#f28ca6'][i];c.fillRect(x+33,184,146,68);c.fillStyle='#9aa3ad';for(let line=0;line<3;line++)c.fillRect(x+32,275+line*20,145-line*17,5);}
       });
       clock(cutaway,cx-outward*3.25,2.1,2.79);
-      box(inside,cx,.5,-6.475,8,1,.035,accent.paint);box(inside,cx,.07,-6.44,8,.12,.05,accent.dark);
-      for(const side of [-1,1]){box(inside,cx+side*3.985,.5,-2,.035,1,9,accent.paint);box(inside,cx+side*3.97,.07,-2,.05,.12,9,accent.dark);}
+      wainscot(inside,cx,.5,-6.475,8,1,.035);box(inside,cx,.07,-6.44,8,.12,.05,accent.dark);
+      for(const side of [-1,1]){wainscot(inside,cx+side*3.985,.5,-2,.035,1,9);box(inside,cx+side*3.97,.07,-2,.05,.12,9,accent.dark);}
     }
     box(inside,2.65,.72,2.81,.44,1.02,.22,'#eceae6');cyl(inside,2.65,.58,2.96,.12,.12,.5,'#b65c48',8);
     box(inside,2.65,.91,2.96,.18,.07,.08,'#2b2f36');plaque(cutaway,'fire-extinguisher','소화기','FIRE',2.65,1.31,2.97,.58,.34);collide(colliders,2.65,2.81,.46,.28,false);
@@ -122,5 +124,7 @@ export function createSchoolDetails({box,cyl,mesh,geo,mat,collide,surfaceMateria
     box(exterior,-11.9,.53,12.98,.08,1.06,.08,'#6d5a4a');
     plaque(exterior,'school-zone','어린이 보호구역','천천히 안전하게',13.2,3.2,16.8,2.1,.58);
   }
-  return {decorateFloor,decorateExterior,cutawayGroups,setCameraMode:mode=>{for(const group of cutawayGroups)group.visible=mode!=='overview';},setQuality:value=>{for(const patch of sunPatches)patch.visible=value!=='low';}};
+  let quality='medium',night=0;
+  function updateSunPatches(){for(const patch of sunPatches){patch.visible=quality!=='low'&&night<.95;patch.material.opacity=.11*(1-night);}}
+  return {decorateFloor,decorateExterior,cutawayGroups,setDaylight:value=>{night=Math.min(1,Math.max(0,value.night||0));updateSunPatches();},setCameraMode:mode=>{for(const group of cutawayGroups)group.visible=mode!=='overview';},setQuality:value=>{quality=value;updateSunPatches();}};
 }

@@ -22,7 +22,7 @@ test('every public and lookalike hostname ignores mission, ending and renderer s
 test('local routes accept only finite mission and scene values',()=>{
  for(let id=1;id<=10;id++)assert.equal(readVisualTestRoute(location(`http://localhost/?test=1&mission=${id}`)).mission,id);
  for(const id of ['0','11','1.5','03','-1','Infinity','NaN','3x'])assert.equal(readVisualTestRoute(location(`http://localhost/?test=1&mission=${id}`)).mission,null);
- for(const scene of ['home','hub','rest','ending','certificate','classroom','research','office','copier','exterior'])assert.equal(readVisualTestRoute(location(`http://localhost/?test=1&scene=${scene}`)).scene,scene);
+ for(const scene of ['home','hub','rest','ending','certificate','classroom','research','office','copier','exterior','broadcast','window'])assert.equal(readVisualTestRoute(location(`http://localhost/?test=1&scene=${scene}`)).scene,scene);
  assert.equal(readVisualTestRoute(location('http://localhost/?test=1&scene=anything')).scene,'home');
 });
 

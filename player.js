@@ -434,7 +434,7 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
       // Looking out through the resting teacher's eyes: hide only that head.
       const restingHead = restingCameraId && restLook.view === 'eyes' ? model?.userData?.head : null;
       if (restingHead?.visible) { restingHead.visible = false; hiddenRenderBodies.push(restingHead); }
-      if (cameraMode === 'shoulder' && !restingCameraId) {
+      if ((cameraMode === 'shoulder' || cameraMode === 'first') && !restingCameraId) {
         for (const actor of world.cameraOccluders || world.characters || []) {
           const actorModel=actor.model;
           if (!actorModel?.visible || actor.floor!==currentFloor) continue;
@@ -444,14 +444,17 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
           actorModel.getWorldScale(actorCameraScale);
           const actorScale=Math.max(Math.abs(actorCameraScale.x),Math.abs(actorCameraScale.y),Math.abs(actorCameraScale.z));
           const lensDistance=Math.hypot(actorCameraPosition.x-camera.position.x,actorCameraPosition.z-camera.position.z);
-          if (lensDistance>1.65*actorScale) continue;
+          const clearance=cameraMode==='first'?1.1:1.65;
+          if (lensDistance>clearance*actorScale) continue;
           // Preserve readable nearby conversations, but not a face occupying
           // the lens. The generous scale-aware radius also catches adult heads
           // at the screen edge before they fill half the view.
           const playerDistance=Math.hypot(actorCameraPosition.x-position.x,actorCameraPosition.z-position.z);
           if (playerDistance<1.2&&lensDistance>1.1*actorScale) continue;
           if (camera.position.y<actorCameraPosition.y-.2 || camera.position.y>actorCameraPosition.y+2.35*actorCameraScale.y+.35) continue;
-          body.visible=false;hiddenRenderBodies.push(body);
+          for(const part of [body,...(actorModel.userData.renderOcclusionParts||[])]){
+            if(part.visible){part.visible=false;hiddenRenderBodies.push(part);}
+          }
         }
       }
       return render();

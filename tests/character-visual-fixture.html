@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>캐릭터 실제 3D 화면 검사</title>
+<style>
+*{box-sizing:border-box;word-break:keep-all}html,body{margin:0;width:100%;height:100%;overflow:hidden}body{font-family:"Malgun Gothic",sans-serif;color:#34483f;background:#f5f1e6}header{height:76px;padding:16px 24px;background:#fffcf4;border-bottom:1px solid #dedaca}h1{margin:0 0 6px;font-size:20px}p{margin:0;font-size:13px;color:#58675e}#world{position:absolute;inset:76px 0 0;width:100%;height:calc(100% - 76px)}#portraits{position:absolute;inset:76px 0 0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);pointer-events:none}.portrait{position:relative;border:1px solid #e1ddcf}.label{position:absolute;left:0;right:0;bottom:14px;text-align:center;font-weight:bold;font-size:17px}.label small{display:block;font-size:12px;font-weight:normal;margin-top:4px;color:#58675e}
+</style>
+<header><h1>여섯 캐릭터 · 실제 3D 모델</h1><p id="description">눈·앞머리·얼굴과 몸의 연결을 확인합니다.</p></header>
+<canvas id="world" aria-label="여섯 캐릭터 실제 3D 모델"></canvas><div id="portraits"></div>
+<script type="module">
+import * as THREE from '../vendor/three.module.js';
+import {createTeacherModel} from '../character-model.js';
+import {AVATAR_PRESETS} from '../character-appearance.js';
+import {readVisualTestRoute} from '../visual-test.js';
+import {SoftwareRenderer} from '../software-renderer.js';
+if(!readVisualTestRoute().enabled){document.body.textContent='이 화면은 localhost의 명시적인 화면 검사에서만 실행합니다.';throw new Error('Local visual QA only');}
+const quarter=new URLSearchParams(location.search).get('view')==='quarter';
+document.querySelector('#description').textContent=quarter?'45° 가까운 시점 · 귀·목·옆머리와 눈의 가림 확인':'정면 시점 · 여섯 헤어스타일의 눈과 앞머리 확인';
+const canvas=document.querySelector('#world'),context=canvas.getContext('2d'),renderCanvas=document.createElement('canvas');
+let renderer;try{renderer=readVisualTestRoute().renderer==='software'?new SoftwareRenderer({canvas:renderCanvas}):new THREE.WebGLRenderer({canvas:renderCanvas,antialias:true});}catch{renderer=new SoftwareRenderer({canvas:renderCanvas});}
+renderer.setPixelRatio(1);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
+renderer.shadowMap.enabled=!renderer.isSoftware;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const tiles=AVATAR_PRESETS.map((preset,index)=>{
+ const tile=document.createElement('section');tile.className='portrait';tile.innerHTML=`<div class="label">${preset.name}<small>${preset.detail}</small></div>`;document.querySelector('#portraits').append(tile);
+ const scene=new THREE.Scene();scene.background=new THREE.Color(index%2?'#e7eeea':'#f1e8d9');
+ scene.add(new THREE.HemisphereLight('#fff8ed','#c5bcb0',2.2));
+ const light=new THREE.DirectionalLight('#fff1dc',2.5);light.position.set(-3,5,4);light.castShadow=true;light.shadow.mapSize.set(512,512);scene.add(light);
+ const floor=new THREE.Mesh(new THREE.PlaneGeometry(20,20),new THREE.MeshStandardMaterial({color:index%2?'#e7eeea':'#f1e8d9',roughness:1}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+ const model=createTeacherModel({parent:scene,identity:{avatarId:preset.id}});model.rotation.y=quarter?-.58:0;
+ const camera=new THREE.PerspectiveCamera(32,1,.1,30);camera.position.set(0,1.25,5.4);camera.lookAt(0,1.12,0);
+ return {tile,scene,camera};
+});
+function render(){
+ const width=innerWidth,height=innerHeight-76;canvas.width=width;canvas.height=height;
+ for(const {tile,scene,camera}of tiles){const rect=tile.getBoundingClientRect();camera.aspect=rect.width/rect.height;camera.updateProjectionMatrix();renderer.setSize(Math.ceil(rect.width),Math.ceil(rect.height),false);renderer.render(scene,camera);context.drawImage(renderCanvas,rect.left,rect.top-76,rect.width,rect.height);}
+ document.body.dataset.renderer=renderer.isSoftware?'software':'webgl';document.body.dataset.fixtureReady='true';
+}
+addEventListener('resize',render);
+render();
+</script>
+</html>

@@ -61,7 +61,8 @@ function quiltGeometry(occupied=false){
 }
 
 export function createNurseRoom({inside,colliders,beds,interactables,helpers,cx=20}){
-  const {box,cyl,ball,mesh,geo,mat,sign,badge,collide}=helpers;
+  const {box,cyl,ball,mesh,geo,mat,sign,badge,collide,surfaceMaterial}=helpers;
+  const surface=(object,kind,color)=>{if(surfaceMaterial)object.material=surfaceMaterial(kind,color);return object;};
   const room=new THREE.Group();room.name='lake-infirmary';inside.add(room);
   const architecture=new THREE.Group();architecture.name='infirmary-cutaway-shell';room.add(architecture);
   let cameraMode='third',backdropEnabled=false;
@@ -72,7 +73,7 @@ export function createNurseRoom({inside,colliders,beds,interactables,helpers,cx=
     const obj=box(room,x,y,z,w,h,d,color);collide(colliders,x,z,w,d,blocksSight);
     cameraColliders.push({x,z,w,d,minY:y-h/2,maxY:y+h/2});return obj;
   }
-  function wall(...args){const object=solid(...args);architecture.add(object);return object;}
+  function wall(...args){const object=surface(solid(...args),'plaster');architecture.add(object);return object;}
   function stem(parent,a,b,r,color='#5c7d48'){
     const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),delta=end.sub(start);
     const object=cyl(parent,...start.clone().addScaledVector(delta,.5).toArray(),r,r,delta.length(),color,5);
@@ -99,10 +100,9 @@ export function createNurseRoom({inside,colliders,beds,interactables,helpers,cx=
     return g;
   }
 
-  // Warm vinyl floor, painted plaster, a real suspended ceiling and skirting.
-  box(room,cx,.035,0,11.8,.10,15.5,'#ded9cc');
-  for(let n=0;n<22;n++)box(room,14.25+n*.535,.092,0,.51,.012,15.35,n%3===0?'#e1ddd2':'#e7e3d9');
-  box(architecture,cx,3.08,0,12,.16,15.6,'#f7f6f2');
+  // Terrazzo floor, painted plaster, a real suspended ceiling and skirting.
+  surface(box(room,cx,.035,0,11.8,.10,15.5,'#ded9cc'),'terrazzo');
+  surface(box(architecture,cx,3.08,0,12,.16,15.6,'#f7f6f2'),'ceiling');
   cameraColliders.push({x:cx,z:0,w:12,d:15.6,minY:3,maxY:3.16});
   for(const z of [-6,-2,2,6]){
     box(architecture,cx,2.985,z,1.05,.025,1.55,'#fffdf0',{emissive:'#fff9e6',emissiveIntensity:.32});
@@ -115,10 +115,10 @@ export function createNurseRoom({inside,colliders,beds,interactables,helpers,cx=
   box(architecture,14.08,2.7,4.7,.22,.6,3.4,'#f6f3ee');
   cameraColliders.push({x:14.08,z:4.7,w:.22,d:3.4,minY:2.4,maxY:3});
   for(const x of [14.22,25.78]){
-    if(x<20){box(room,x,.6,-2.4,.035,1.05,10.8,'#bfe0f5');box(room,x,.6,7.1,.035,1.05,1.4,'#bfe0f5');}
-    else box(room,x,.6,0,.035,1.05,15.6,'#bfe0f5');
+    if(x<20){surface(box(room,x,.5,-2.4,.035,1,10.8,'#b9cdb7'),'paint','#b9cdb7');surface(box(room,x,.5,7.1,.035,1,1.4,'#b9cdb7'),'paint','#b9cdb7');}
+    else surface(box(room,x,.5,0,.035,1,15.6,'#b9cdb7'),'paint','#b9cdb7');
   }
-  box(room,cx,.6,7.72,11.7,1.05,.04,'#bfe0f5');
+  surface(box(room,cx,.5,7.72,11.7,1,.04,'#b9cdb7'),'paint','#b9cdb7');
   for(const x of [14.24,25.76])box(room,x,.15,0,.035,.15,15.4,'#9aa3ad');
   box(room,cx,.15,7.7,11.6,.15,.035,'#9aa3ad');
 
@@ -267,10 +267,18 @@ export function createNurseRoom({inside,colliders,beds,interactables,helpers,cx=
     (model.userData.shins||[]).forEach(shin=>{shin.rotation.x=side?.34:.06;});
     // Slip shoes off before lying on clean bedding; they return on standing.
     for(const shoe of model.userData.footwear||[])shoe.visible=false;
+    // Raise shoulders and head together into the pillow. Translating only the
+    // head left a visible cut at the neck when the orbit reached the bed side.
+    // The connected rig now leans gently from hips to pillow in either pose.
+    if(model.userData.body){
+      model.userData.body.rotation.x=side?0:.28;
+      model.userData.body.rotation.z=side?facing*.29:0;
+    }
     if(model.userData.head){
-      model.userData.head.rotation.y=side?facing*.05:.06;model.userData.head.rotation.z=side?-facing*.04:.02;
-      // The big round head settles onto the pillow instead of sinking through it.
-      if(side)model.userData.head.position.x=-facing*.12;else model.userData.head.position.z=.3;
+      // A soft chin tuck makes the face readable from the foot of the bed.
+      model.userData.head.rotation.x=side?.04:.25;
+      model.userData.head.rotation.y=side?facing*.035:.04;
+      model.userData.head.rotation.z=side?-facing*.025:.015;
     }
     model.userData.restingBed=id;model.userData.restPosture=side?'side':'back';
     sleepers.set(model,{id,posture:side?'side':'back',body:model.userData.body,original,phase:Number(id.slice(-1))*.7});refreshDuvets();return true;

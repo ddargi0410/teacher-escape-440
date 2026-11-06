@@ -59,6 +59,109 @@ export function createSchoolProps({box,cyl,mesh,geo,mat}) {
     g.userData.chairCount=4;g.userData.halfDrunkCups=2;
     return {root:g,collider:{x:cx,z,w:2.65,d:1.35,blocksSight:false}};
   }
+  function teachingCabinet(parent,x,z,{craft=false}={}){
+    // The open shelves replace the plain drawer fronts, within the existing
+    // cupboard footprint; room navigation and collision boxes stay unchanged.
+    const g=group(parent,'research-teaching-cabinet',x,0,z);
+    g.userData.contents=craft?'만들기 · 놀이':'수학 · 과학';
+    box(g,0,1,-.285,2.3,2,.08,'#bd9b72');
+    for(const side of [-1,1])box(g,side*1.1,1,0,.1,2,.65,'#d1a774');
+    for(const y of [.08,.79,1.36,1.96])box(g,0,y,0,2.3,.08,.65,'#d1a774');
+    box(g,0,1.38,0,.06,1.14,.6,'#d1a774');
+    for(const side of [-1,1]){
+      box(g,side*.55,.42,.29,1.04,.56,.055,craft?'#9fd0f5':'#e6c77d');
+      box(g,side*.13,.44,.33,.035,.15,.025,'#8a929c');
+    }
+    panel(g,'teaching-cabinet-'+(craft?'craft':'science'),0,.42,.324,1.64,.16,(c,W,H)=>{
+      c.fillStyle=craft?'#9fd0f5':'#e6c77d';c.fillRect(0,0,W,H);
+      words(c,craft?'만들기 · 놀이 교구':'수학 · 과학 교구',W/2,H/2,30);
+    },512,64);
+    if(craft){
+      // Labelled shallow tubs, coloured paper and a pencil pot make the
+      // contents readable as teaching materials rather than office files.
+      for(const [i,color]of ['#f2c14e','#6fb7e8','#a58fe0'].entries()){
+        box(g,-.53,.89+i*.125,.02,.77,.1,.46,color);
+        box(g,-.53,.89+i*.125,.258,.2,.043,.01,'#faf4df');
+      }
+      for(let i=0;i<6;i++)box(g,.51,.85+i*.039,.04,.81,.034,.47,['#faf4df','#f29a5c','#6fb7e8','#7cc36b'][i%4]);
+      cyl(g,-.53,1.53,.04,.14,.12,.26,'#f2c14e',10);
+      for(let i=0;i<5;i++){const pencil=box(g,-.62+i*.045,1.76,.045,.025,.42,.025,['#f29a5c','#6fb7e8','#a58fe0'][i%3]);pencil.rotation.z=(i-2)*.06;}
+      for(let i=0;i<4;i++)box(g,.23+i*.17,1.62,.03,.13,.43,.4,['#f2c14e','#6fb7e8','#a58fe0','#f29a5c'][i]);
+    }else{
+      const globe=mesh(g,geo('SphereGeometry',.22,12,8),mat('#9fd0f5'),-.52,1.68,.04);globe.userData.teachingMaterial='globe';
+      cyl(g,-.52,1.44,.04,.15,.15,.04,'#8a929c',10);
+      const meridian=mesh(g,geo('TorusGeometry',.235,.012,3,18),mat('#d8b589'),-.52,1.68,.04);meridian.rotation.z=-.34;
+      for(const [xx,yy,s]of [[.25,1.49,.2],[.54,1.49,.2],[.4,1.7,.18]])box(g,xx,yy,.02,s,s,.23,['#f2c14e','#7cc36b','#a58fe0'][Math.round(xx*10)%3]);
+      for(let i=0;i<5;i++)box(g,-.85+i*.15,1.03,.03,.11,.39+(i%2)*.07,.4,['#6fb7e8','#f2c14e','#f29a5c'][i%3]);
+      box(g,.54,1.04,.03,.73,.42,.44,'#7cc36b');
+      panel(g,'math-materials-bin',.54,1.04,.256,.6,.15,(c,W,H)=>{c.fillStyle='#faf4df';c.fillRect(0,0,W,H);words(c,'수 모형',W/2,H/2,29);},256,64);
+    }
+    return g;
+  }
+  function broadcastPreview(c,W,H,{multiview=false}={}){
+    c.fillStyle='#152737';c.fillRect(0,0,W,H);
+    const views=multiview?[[18,45,W*.45,H*.56],[W*.52,45,W*.45,H*.56]]:[[18,45,W-36,H*.56]];
+    views.forEach(([x,y,w,h],i)=>{
+      c.fillStyle=i?'#dce3d5':'#c9e2ef';c.fillRect(x,y,w,h);
+      c.fillStyle=i?'#91ab9b':'#b9cca2';c.fillRect(x,y+h*.57,w,h*.43);
+      if(i){c.fillStyle='#3b6350';c.fillRect(x+w*.2,y+h*.15,w*.6,h*.32);}
+      else {c.fillStyle='#e8decb';c.fillRect(x+w*.16,y+h*.22,w*.68,h*.52);c.fillStyle='#69879c';for(let j=0;j<5;j++)c.fillRect(x+w*(.21+j*.12),y+h*.34,w*.065,h*.17);}
+      c.strokeStyle='#e9f4ec';c.lineWidth=2;c.strokeRect(x+6,y+6,w-12,h-12);
+    });
+    words(c,multiview?'CAM 01     ·     CAM 02':'교내 방송 · 송출 미리보기',W/2,24,20,'#ecf3f4');
+    c.fillStyle='#ed7770';c.beginPath();c.arc(28,H-27,6,0,Math.PI*2);c.fill();
+    c.textAlign='left';c.font='700 17px sans-serif';c.fillStyle='#edf5ef';c.fillText('LIVE',43,H-25);
+    for(let i=0;i<13;i++){c.fillStyle=i>10?'#f0cb73':'#91cfad';c.fillRect(W*.49+i*12,H-40,7,25-i%3*4);}
+  }
+  function broadcastMonitor(parent,x,y,z,{multiview=false}={}){
+    const g=group(parent,'broadcast-program-monitor',x,y,z);
+    box(g,0,0,0,1.95,1.12,.12,'#2b2f36');
+    const screen=panel(g,multiview?'broadcast-multiview':'broadcast-program',0,.015,.066,1.8,.94,(c,W,H)=>broadcastPreview(c,W,H,{multiview}),512,288);
+    screen.material.emissive=new THREE.Color('#ffffff');screen.material.emissiveMap=screen.material.map;screen.material.emissiveIntensity=.25;
+    box(g,.82,-.5,.071,.035,.015,.01,'#91cfad',{emissive:'#91cfad',emissiveIntensity:.35});
+    return g;
+  }
+  function broadcastCamera(parent,x,z){
+    const g=group(parent,'broadcast-tripod-camera',x,0,z);g.rotation.y=-.38;
+    cyl(g,0,.84,0,.035,.04,1.25,'#8a929c',8);
+    for(let i=0;i<3;i++){
+      const a=i*Math.PI*2/3,foot=new THREE.Vector3(Math.cos(a)*.42,.09,Math.sin(a)*.42),top=new THREE.Vector3(0,1.11,0);
+      const leg=mesh(g,geo('CylinderGeometry',.028,.038,top.distanceTo(foot),6),mat('#3a3f4a'),0,0,0);
+      leg.position.copy(top).add(foot).multiplyScalar(.5);leg.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),top.clone().sub(foot).normalize());
+    }
+    box(g,0,1.41,0,.4,.3,.62,'#3a3f4a');
+    box(g,0,1.64,-.08,.31,.055,.36,'#2b2f36');box(g,0,1.56,-.22,.08,.2,.06,'#2b2f36');
+    const lens=cyl(g,0,1.43,.39,.155,.155,.22,'#2b2f36',12);lens.rotation.x=Math.PI/2;
+    const glass=cyl(g,0,1.43,.505,.124,.124,.012,'#557e98',12);glass.rotation.x=Math.PI/2;
+    const shine=cyl(g,-.034,1.466,.514,.037,.037,.008,'#b7d7e4',8);shine.rotation.x=Math.PI/2;
+    box(g,.31,1.45,-.1,.23,.22,.04,'#2b2f36');
+    panel(g,'camera-flip-screen',.31,1.45,-.075,.19,.17,(c,W,H)=>{c.fillStyle='#9cc8d9';c.fillRect(0,0,W,H);c.fillStyle='#bdd0ac';c.fillRect(0,H*.55,W,H*.45);},128,128);
+    box(g,-.14,1.51,.32,.055,.035,.018,'#ed7770',{emissive:'#ed7770',emissiveIntensity:.35});
+    const handle=box(g,-.12,1.15,-.43,.03,.03,.45,'#2b2f36');handle.rotation.x=-.3;
+    return g;
+  }
+  function broadcastEquipment(parent,cx){
+    const g=group(parent,'broadcast-equipment');
+    broadcastMonitor(g,cx-1.16,1.74,-6.28,{multiview:true});broadcastMonitor(g,cx+1.16,1.74,-6.28);
+    const rack=group(g,'broadcast-equipment-rack',cx,0,-6.04);
+    box(rack,0,.56,0,1.28,1.05,.57,'#3a3f4a');
+    for(let i=0;i<3;i++){
+      box(rack,0,.28+i*.28,.3,1.14,.22,.035,'#5d6470');
+      for(let j=0;j<6;j++)box(rack,-.43+j*.1,.28+i*.28,.325,.045,.02,.012,'#91cfad',{emissive:'#91cfad',emissiveIntensity:.2});
+      const dial=cyl(rack,.41,.28+i*.28,.34,.055,.055,.04,'#c7ccd4',8);dial.rotation.x=Math.PI/2;
+    }
+    broadcastCamera(g,cx+2.5,-1.2);
+    // A gooseneck mic and headphones sit on the existing mixing desk.
+    const mic=group(g,'broadcast-desk-microphone',cx-3.4,1.03,-3.25);
+    cyl(mic,0,.02,0,.14,.14,.04,'#2b2f36',10);
+    const stem=box(mic,0,.25,0,.025,.43,.025,'#8a929c');stem.rotation.z=-.2;
+    const head=cyl(mic,.047,.48,0,.052,.052,.19,'#2b2f36',8);head.rotation.z=-.2;
+    const headphones=group(g,'broadcast-headphones',cx-1.5,1.03,-3.25);
+    const band=mesh(headphones,geo('TorusGeometry',.16,.028,4,12,Math.PI),mat('#3a3f4a'),0,.12,0);
+    for(const side of [-1,1])box(headphones,side*.16,.07,0,.09,.16,.12,'#2b2f36');
+    panel(g,'broadcast-audio-console',cx-2.5,1.12,-2.792,1.85,.11,(c,W,H)=>{c.fillStyle='#3a3f4a';c.fillRect(0,0,W,H);words(c,'MIC 1    MIC 2    BGM    MASTER',W/2,H/2,20,'#faf4df');},512,64);
+    return g;
+  }
   function childrenArt(parent,x,y,z){
     return panel(parent,'children-art',x,y,z,1.85,.94,(c,W,H)=>{
       c.fillStyle=palette.wood;c.fillRect(0,0,W,H);c.fillStyle='#fff3d6';c.fillRect(12,12,W-24,H-24);
@@ -87,7 +190,11 @@ export function createSchoolProps({box,cyl,mesh,geo,mat}) {
       const pupil=mesh(f,geo('SphereGeometry',1,6,4),mat('#2c2826'),side*.14,.055,.026,false);pupil.scale.set(.036,.052,.018);eyes.push(pupil);
       const brow=box(f,side*.14,.192,.02,.15,.035,.025,'#3a3f4a');brows.push(brow);
     }
-    const mouth=box(f,0,-.14,.02,.12,.028,.024,'#3a3f4a');
+    const mouth=mesh(f,geo('TorusGeometry',.061,.012,3,12,speaker?Math.PI*2:Math.PI),mat('#3a3f4a'),0,-.14,.02,false);
+    // A real smile/frown arc reads from the corridor; the speaker's ring
+    // stretches into a small surprised O without needing any new game event.
+    mouth.rotation.z=speaker?0:Math.PI;
+    mouth.scale.y=speaker?.24:1;
     return {root:f,eyes,brows,mouth};
   }
   function copier(parent,x,z){
@@ -127,8 +234,10 @@ export function createSchoolProps({box,cyl,mesh,geo,mat}) {
     }
     if(room.kind==='staff'){
       const table=researchTable(parent,cx,centerZ);if(colliders&&collide)collide(colliders,table.collider.x,table.collider.z,table.collider.w,table.collider.d,false);
+      teachingCabinet(parent,cx-2.65,-5.95);teachingCabinet(parent,cx+2.65,-5.95,{craft:true});
       return table;
     }
+    if(room.kind==='broadcast')broadcastEquipment(parent,cx);
     if(room.kind==='office'){
       const copierX=cx+width/2-.78,copierZ=.4;
       copier(parent,copierX,copierZ);
@@ -153,14 +262,14 @@ export function createSchoolProps({box,cyl,mesh,geo,mat}) {
       s.root.userData.expression=surprised?'surprised':'calm';
       for(const eye of s.eyes)eye.scale.y=surprised?.071:.052;
       s.brows[0].rotation.z=surprised?-.14:0;s.brows[1].rotation.z=surprised?.14:0;
-      s.mouth.scale.set(surprised?.55:1,surprised?3.7:1,1);
+      s.mouth.scale.set(surprised?.72:1,surprised?1.2:.24,1);
       s.face.rotation.z=surprised?Math.sin((Number(time)||0)*21)*.045:0;
     }
     const jam=manualJam??((Number(time)||0)%25>17);
     for(const c of copiers){
       c.root.userData.expression=jam?'paper-jam':'calm';c.jamPaper.visible=jam;
       c.brows[0].rotation.z=jam?-.33:0;c.brows[1].rotation.z=jam?.33:0;
-      c.mouth.scale.y=jam?1.6:1;c.mouth.rotation.z=jam?-.13:0;
+      c.mouth.scale.y=jam?1.15:1;c.mouth.rotation.z=jam?0:Math.PI;
       c.led.material=mat(jam?'#c77b5a':'#7cc36b',{emissive:jam?'#a64429':'#5f956e',emissiveIntensity:.2});
     }
   }

@@ -194,6 +194,23 @@ test('pedestrians crossing the lens are hidden only during rendering; conversati
   f.player.dispose();
 });
 
+test('first-person night patrol cannot fill the lens and its flashlight restores after drawing',()=>{
+  const f=fixture();f.player.setCameraMode('first');
+  const guard=new THREE.Group(),body=new THREE.Group(),torch=new THREE.Group(),hiddenBand=new THREE.Group();
+  guard.add(body,torch,hiddenBand);guard.userData.body=body;guard.userData.renderOcclusionParts=[torch,hiddenBand];hiddenBand.visible=false;
+  guard.position.set(f.camera.position.x+.35,0,f.camera.position.z+.2);
+  f.world.cameraOccluders=[{model:guard,floor:1}];
+  const position=guard.position.clone();
+  f.player.withCameraOcclusion(()=>{
+    assert.equal(body.visible,false);assert.equal(torch.visible,false);assert.equal(guard.visible,true);
+    assert.deepEqual(guard.position.toArray(),position.toArray(),'rendering never changes patrol position');
+  });
+  assert.equal(body.visible,true);assert.equal(torch.visible,true);assert.equal(hiddenBand.visible,false);
+  guard.position.x+=2;
+  f.player.withCameraOcclusion(()=>assert.equal(body.visible,true,'a patrol at readable distance stays visible'));
+  f.player.dispose();
+});
+
 test('authored school spawns and all five bed compositions have real space behind the camera target', () => {
   const noop=()=>{};
   globalThis.document={createElement:()=>({width:0,height:0,getContext:()=>new Proxy({},{get:()=>noop,set:()=>true})})};

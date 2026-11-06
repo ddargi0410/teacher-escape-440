@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
-import {createWorld} from './world.js?v=20261106-cute1';
+import {createWorld} from './world.js?v=20261106-environment2';
 import {SoftwareRenderer} from './software-renderer.js?v=20261106-immersive1';
-import {createPlayer} from './player.js?v=20261106-cute1';
+import {createPlayer} from './player.js?v=20261106-environment2';
 import * as MissionData from './missions-data.js';
 import {createMissionUI} from './missions-ui.js';
 import {createMinigameRunner} from './minigames/runner.js?v=20261106-immersive1';
@@ -23,10 +23,10 @@ import {adjacentFloors,canUseStairs} from './stairs.js';
 import {getMissionBriefing} from './minigames/briefings.js';
 import {createHonors} from './honors.js?v=20261106-honors1';
 import {createHallOfFameView} from './hall-of-fame-view.js?v=20261106-immersive1';
-import {createCharacterPicker} from './character-picker.js?v=20261106-cute1';
+import {createCharacterPicker} from './character-picker.js?v=20261106-environment2';
 import {publishAnalyticsNickname} from './analytics-identity.js?v=20261106-nicknames1';
 
-import {readVisualTestRoute} from './visual-test.js?v=20261106-cute1';
+import {readVisualTestRoute} from './visual-test.js?v=20261106-environment2';
 
 const visualTest=readVisualTestRoute();
 const PRESENCE_ENDPOINT=visualTest.enabled?'':CONFIGURED_PRESENCE_ENDPOINT;
@@ -307,7 +307,14 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.hidden){persist();messenger.suspend();player?.setActive(false)}});
 function runVisualTestRoute(){
- if(!visualTest.enabled||!renderer||(!visualTest.mission&&visualTest.scene==='home'))return;
+ if(!visualTest.enabled||!renderer)return;
+ // Read-only diagnostics exist solely inside the explicit localhost QA route.
+ window.__visualEnvironment=()=>{
+  const textures=new Set(),patches=[];
+  scene.traverse(node=>{if(node.name==='window-sun-patch')patches.push(node);for(const material of Array.isArray(node.material)?node.material:[node.material])if(material)for(const key of ['map','normalMap','roughnessMap','alphaMap','emissiveMap'])if(material[key])textures.add(material[key]);});
+  return {shadows:renderer.shadowMap.enabled,toneMapping:renderer.toneMapping,colorSpace:renderer.outputColorSpace,sunPatches:patches.length,visibleSunPatches:patches.filter(p=>p.visible).length,textures:[...textures].map(t=>({name:t.name,width:t.image?.width||0,height:t.image?.height||0}))};
+ };
+ if(!visualTest.mission&&visualTest.scene==='home')return;
  state=freshState('화면확인 선생님');state.settings.relaxed=true;state.settings.quality=visualTest.quality;
  if(visualTest.mission){
   const mission=MISSIONS.find(item=>item.id===visualTest.mission);
@@ -317,7 +324,7 @@ function runVisualTestRoute(){
   renderWorld();openMission(mission.id);
  }else{
   start(false);
-  if(['classroom','research','office','copier','exterior'].includes(visualTest.scene)){
+  if(['classroom','research','office','copier','exterior','broadcast','window'].includes(visualTest.scene)){
    const view=world.getRoomView(visualTest.scene==='research'?'staff':visualTest.scene);
    if(!view)throw new Error('Missing local visual scene: '+visualTest.scene);
    changeFloor(view.floor);if(view.cameraMode)selectCameraMode(view.cameraMode,{announce:false});player.teleport(view.position,{lookYaw:view.lookYaw});

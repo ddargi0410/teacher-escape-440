@@ -36,6 +36,9 @@ export function createOvertimeWorld({root,floors,teacher,box,mesh,geo,mat}) {
   const aim=new THREE.Object3D();aim.position.set(0,0,5);torch.add(aim);spot.target=aim;
   const pool=mesh(guard,geo('CircleGeometry',.65,16),new THREE.MeshBasicMaterial({color:'#fff1b5',transparent:true,opacity:.23,depthWrite:false}),.4,.2,4.9,false);
   pool.name='flashlight-floor-pool';pool.rotation.x=-Math.PI/2;pool.scale.y=1.5;
+  // When the patrol walks directly through the lens, its equipment follows the
+  // body's temporary render-only hide; patrol position and timing remain intact.
+  guard.userData.renderOcclusionParts=[band,torch,pool];
   let patrol=0;
   function update(minutes,dt,{active=true,floor=null}={}){
     const overtime=Number.isFinite(minutes)?Math.max(0,minutes):0;

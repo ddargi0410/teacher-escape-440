@@ -79,7 +79,7 @@ test('eye-level play retains ceilings and window openings with cached camera bar
     world.root.updateMatrixWorld(true);
     const geometry=[];world.root.traverseVisible(o=>{if(o.isMesh)geometry.push(o);});
     const hits=ray.intersectObjects(geometry,false).filter(hit=>hit.point.z>5.5&&hit.point.z<6.1);
-    assert.ok(hits.length>0&&hits.every(hit=>hit.object.material.name==='school-window-view'),'ordinary window is filled by the shared village panorama, never a solid wall');
+    assert.ok(hits.length>0&&hits.every(hit=>hit.object.material.name==='school-window-glass'&&hit.object.material.transparent&&hit.object.material.opacity<.1&&!hit.object.material.map),'ordinary window is see-through glass, not an opaque photograph');
   }
   const nurse=world.root.getObjectByName('lake-infirmary');
   assert.equal(nurse.visible,false,'detailed first-floor refuge culls upstairs');
@@ -140,4 +140,44 @@ test('the closed school gate keeps the follow camera in the front yard',()=>{
     const view=world.getRoomView(kind);world.setFloor(view.floor);
     assert.equal(pointBlocked(view.position,world.colliders,.35),false,`${kind} inspection starts in a walkable aisle`);
   }
+});
+
+
+test('all school canvas textures stay within the 1024 pixel budget',()=>{
+  const world=createWorld(new THREE.Scene());
+  world.root.traverse(object=>{
+    for(const material of [object.material].flat().filter(Boolean))for(const key of ['map','emissiveMap']){
+      const image=material[key]?.image;if(!image)continue;
+      assert.ok(image.width<=1024&&image.height<=1024,`${material.name} ${key}: ${image.width}x${image.height}`);
+    }
+  });
+});
+
+test('transparent windows expose a three-dimensional Korean apartment neighborhood',()=>{
+  const world=createWorld(new THREE.Scene());world.setFloor(3);
+  const neighborhood=world.root.getObjectByName('korean-apartment-neighborhood');
+  assert.ok(neighborhood);assert.equal(neighborhood.children.length,7);
+  assert.ok(neighborhood.children.every(b=>b.userData.environmentOnly&&b.userData.floors>=10));
+  const views=[];world.root.traverse(o=>{if(o.name==='ordinary-window-glass')views.push(o);assert.notEqual(o.name,'ordinary-window-view');});
+  assert.equal(views.reduce((sum,v)=>sum+(v.userData.paneCount||1),0),34);
+  assert.equal(views.length,5,'coplanar window panes batch to one draw per floor');
+  const position=world.getRoomView('window').position;assert.equal(pointBlocked(position,world.colliders,.35),false);
+  const solid=[];world.root.updateMatrixWorld(true);world.root.traverseVisible(o=>{if(o.isMesh&&!o.material.transparent)solid.push(o);});
+  const ray=new THREE.Raycaster(new THREE.Vector3(3,9.65,6),new THREE.Vector3(0,0,1),0,80);
+  assert.ok(ray.intersectObjects(solid,false).some(hit=>hit.object.material.name.startsWith('apartment-')),'apartments exist beyond the school courtyard rather than on a window plane');
+});
+
+test('outdoor apartments become dark at night while their windows glow and sunlight vanishes',()=>{
+  const world=createWorld(new THREE.Scene());world.setFloor(3);
+  const facade=[];world.root.traverse(o=>{if(o.isMesh&&o.material.name==='apartment-glazed-balconies')facade.push(o.material);});
+  assert.ok(facade.length);
+  world.setDaylight({night:0,window:new THREE.Color('#ffffff')});const day=facade[0].color.clone();
+  assert.equal(facade[0].emissiveIntensity,0);
+  world.setDaylight({night:1,window:new THREE.Color('#2a3352')});
+  assert.ok(facade[0].color.r<day.r*.25);assert.ok(facade[0].emissiveIntensity>.5);
+  const patches=[];world.root.traverse(o=>{if(o.name==='window-sun-patch')patches.push(o);});
+  assert.ok(patches.every(p=>!p.visible&&p.material.opacity===0));
+  world.setQuality('low');world.setDaylight({night:0,window:new THREE.Color('#ffffff')});
+  assert.ok(patches.every(p=>!p.visible),'daylight cannot re-enable sunlight in low graphics');
+  world.setQuality('medium');assert.ok(patches.every(p=>p.visible));
 });

@@ -1,6 +1,6 @@
 // Local visual QA only. Public deployments must ignore every test parameter.
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
-const SCENES = new Set(['home', 'hub', 'ending', 'certificate', 'rest', 'classroom', 'research', 'office', 'copier', 'exterior']);
+const SCENES = new Set(['home', 'hub', 'ending', 'certificate', 'rest', 'classroom', 'research', 'office', 'copier', 'exterior', 'broadcast', 'window']);
 const DISABLED = Object.freeze({enabled:false,scene:'home',mission:null,renderer:'auto',bed:'bed-4',posture:'back',quality:'medium',clock:null});
 
 export function readVisualTestRoute(location = globalThis.location) {

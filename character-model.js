@@ -48,9 +48,26 @@ function mergeFixed(group){
   }
 }
 
-// Head geometry (model space, before body scale): a round head that rests
-// directly on the shoulders, with a low, friendly face.
-const HEAD_Y=1.56,HEAD={x:.46,y:.43,z:.42};
+// A variable hairline keeps every front-facing eye clear. The back reaches the
+// nape, while the front stops above the brows rather than covering the face.
+function openFaceHair(){
+  const key='open-face-hair';if(geometries.has(key))return geometries.get(key);
+  const positions=[],uvs=[],indices=[],columns=14,rows=8;
+  for(let row=0;row<=rows;row++)for(let column=0;column<=columns;column++){
+    const phi=column/columns*Math.PI*2,theta=row/rows*(1.55-.35*Math.sin(phi));
+    positions.push(-Math.cos(phi)*Math.sin(theta),Math.cos(theta),Math.sin(phi)*Math.sin(theta));
+    uvs.push(column/columns,1-row/rows);
+  }
+  for(let row=0;row<rows;row++)for(let col=0;col<columns;col++){
+    const a=row*(columns+1)+col,b=a+columns+1;
+    if(row)indices.push(a,b,a+1);indices.push(b,b+1,a+1);
+  }
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));geometry.setIndex(indices);geometry.computeVertexNormals();geometries.set(key,geometry);return geometry;
+}
+
+// A short neck overlaps both the sweater and the round head. The head keeps
+// this attachment point in every pose; bedding never moves it independently.
+const HEAD_Y=1.53,HEAD={x:.46,y:.43,z:.42};
 
 function buildBody(model,appearance){
   const old=model.getObjectByName('character-body');if(old)model.remove(old);
@@ -93,15 +110,17 @@ function buildBody(model,appearance){
     arms.push(arm);forearms.push(forearm);hands.push(hand);
   }
 
+  const neck=new THREE.Group();neck.name='character-neck';body.add(neck);
+  capsule(neck,appearance.skin,0,1.16,0,.115,.15,1,1);
   const head=new THREE.Group();head.name='character-head';head.position.y=HEAD_Y;body.add(head);
-  ellipsoid(head,appearance.skin,0,0,0,HEAD.x,HEAD.y,HEAD.z);
+  const face=ellipsoid(head,appearance.skin,0,0,0,HEAD.x,HEAD.y,HEAD.z);face.name='character-face';
   // Small rounded ears and a button nose share the skin material.
   for(const side of [-1,1])ellipsoid(head,appearance.skin,side*.45,-.04,-.02,.06,.09,.06);
   ellipsoid(head,appearance.skin,0,-.075,.41,.04,.03,.03);
   for(const side of [-1,1]){
     // Tall glossy eyes, set wide and low, with a white sparkle.
-    ellipsoid(head,ink,side*.155,-.005,.385,.05,.07,.03);
-    part(head,geo('CircleGeometry',.017,6),'#ffffff',side*.143,.025,.416);
+    ellipsoid(head,ink,side*.158,-.005,.387,.054,.075,.032);
+    part(head,geo('CircleGeometry',.017,6),'#ffffff',side*.145,.027,.421);
     // Rosy cheeks.
     ellipsoid(head,blush,side*.265,-.1,.325,.075,.045,.022);
   }
@@ -109,15 +128,15 @@ function buildBody(model,appearance){
 
   const hair=new THREE.Group();hair.name='hair-'+appearance.haircut;head.add(hair);
   // The cap covers the crown and back of the head; the fringe frames the face.
-  part(hair,geo('SphereGeometry',1,12,7,0,Math.PI*2,0,Math.PI*.6),appearance.hair,0,.02,-.03,[.485,.46,.455]);
-  if(appearance.haircut!=='sweep'){
-    ellipsoid(hair,appearance.hair,0,.25,.2,.4,.15,.18);
-    for(const side of [-1,1])ellipsoid(hair,appearance.hair,side*.34,.1,.16,.1,.12,.1);
+  part(hair,openFaceHair(),appearance.hair,0,.02,-.03,[.485,.46,.455]);
+  if(appearance.haircut!=='sweep'&&appearance.haircut!=='curly'){
+    // Short, rounded tufts frame an open forehead; no curtain of hair at eyes.
+    const tuft=ellipsoid(hair,appearance.hair,-.1,.25,.29,.24,.08,.085);tuft.rotation.z=-.14;
   }
   for(const side of [-1,1]){
     const brow=box(hair,appearance.hair,side*.155,.105,.392,.075,.018,.02);brow.rotation.z=-side*.12;
   }
-  if(appearance.haircut==='bob')for(const side of [-1,1])ellipsoid(hair,appearance.hair,side*.38,-.06,-.06,.15,.3,.3);
+  if(appearance.haircut==='bob')for(const side of [-1,1])ellipsoid(hair,appearance.hair,side*.4,-.07,-.1,.13,.29,.26);
   if(appearance.haircut==='ponytail'){
     ellipsoid(hair,appearance.hair,0,-.02,-.5,.18,.28,.14);
     ellipsoid(hair,appearance.top,0,.18,-.47,.11,.04,.06);
@@ -125,8 +144,7 @@ function buildBody(model,appearance){
   if(appearance.haircut==='bun')ellipsoid(hair,appearance.hair,0,.47,-.12,.18,.17,.17);
   if(appearance.haircut==='curly')for(const [x,y,z]of [[-.3,.24,0],[0,.38,.02],[.3,.24,0],[-.16,.3,.24],[.16,.3,.24]])ellipsoid(hair,appearance.hair,x,y,z,.18,.16,.15);
   if(appearance.haircut==='sweep'){
-    const fringe=ellipsoid(hair,appearance.hair,.09,.26,.21,.34,.14,.17);fringe.rotation.z=.3;
-    ellipsoid(hair,appearance.hair,-.34,.14,.12,.1,.17,.13);
+    const fringe=ellipsoid(hair,appearance.hair,.09,.285,.26,.3,.085,.11);fringe.rotation.z=.18;
   }
   if(appearance.haircut==='crop')hair.scale.set(1,.94,1);
   if(appearance.glasses){
@@ -156,7 +174,8 @@ function buildBody(model,appearance){
   mergeFixed(body);
   const joints=[...arms,...forearms,...legs,...shins,head];
   const footwear=shins.flatMap(shin=>shin.children.filter(child=>child.isMesh&&child.material===mat(shoe)));
-  Object.assign(model.userData,{appearance,body,head,arms,forearms,legs,shins,hands,
+  Object.assign(model.userData,{appearance,body,head,neck,hair,arms,forearms,legs,shins,hands,
+    faceShape:{...HEAD},eyeCenters:[[-.158,-.005,.387],[.158,-.005,.387]],
     footwear,
     headHeight:(appearance.haircut==='bun'?2.32:2.16)*appearance.height,
     baseLimbRotations:joints.map(joint=>({joint,x:joint.rotation.x,y:joint.rotation.y,z:joint.rotation.z})),

@@ -1,12 +1,13 @@
 import * as THREE from './vendor/three.module.js';
 import {createCrowd,animateCharacter} from './crowd.js?v=20261106-cute1';
-import {createSchoolDetails} from './school-details.js?v=20261106-cute1';
-import {createSchoolProps} from './school-props.js?v=20261106-cute1';
+import {createSchoolDetails} from './school-details.js?v=20261106-environment2';
+import {createSchoolProps} from './school-props.js?v=20261106-environment2';
 const roomFrontWallSegments=cx=>[-1,1].map(side=>({x:cx+side*2.625,w:2.75}));
-import {createTeacherModel,applyTeacherAppearance} from './character-model.js?v=20261106-cute1';
-import {createImmersiveMaterials} from './immersive-materials.js?v=20261106-cute1';
-import {createNurseRoom} from './nurse-room-world.js?v=20261106-cute1';
-import {createOvertimeWorld} from './overtime-world.js?v=20261106-cute1';
+import {createTeacherModel,applyTeacherAppearance} from './character-model.js?v=20261106-environment2';
+import {createImmersiveMaterials} from './immersive-materials.js?v=20261106-environment2';
+import {createApartmentNeighborhood} from './apartment-neighborhood.js?v=20261106-environment2';
+import {createNurseRoom} from './nurse-room-world.js?v=20261106-environment2';
+import {createOvertimeWorld} from './overtime-world.js?v=20261106-environment2';
 import {createHallOfFameWorld} from './hall-of-fame-world.js?v=20261106-cute1';
 
 // A small, entirely procedural school. No downloaded models or textures.
@@ -16,7 +17,8 @@ const COLORS = {
   paper: '#fff8ec', coral: '#e78968', yellow: '#f2c869', green: '#a7d1a1',
 };
 // Korean schools often colour-code each storey for wayfinding. The facade
-// band, corridor wainscot, pillars and room signs share the floor colour.
+// band, pillars and room signs share the floor colour. Interior lower wall
+// panels use the familiar pale-green school finish on every floor.
 const STUDENT_CHAIRS = ['#f2a03d', '#4f8fd6', '#7cc36b', '#e86f5a'];
 export const FLOOR_ACCENTS = Object.freeze({
   1: Object.freeze({paint: '#f6c445', dark: '#a8740c', name: '노랑'}),
@@ -128,6 +130,8 @@ export function createWorld(scene) {
   }
   const schoolDetails=createSchoolDetails({box,cyl,mesh,geo,mat,collide,surfaceMaterial:immersiveMaterials.material});
   const schoolProps=createSchoolProps({box,cyl,mesh,geo,mat});
+  const lowerPanel='#b9cdb7';
+  function wainscot(parent,x,y,z,w,h,d){const panel=box(parent,x,y,z,w,h,d,lowerPanel);panel.material=immersiveMaterials.material('paint',lowerPanel);return panel;}
 
   // Landscaped courtyard and school surroundings.
   box(exterior,0,-.8,3,58,1.25,54,'#8ca386');
@@ -152,18 +156,13 @@ export function createWorld(scene) {
   function bench(x,z,rot=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=rot;exterior.add(g);for(let j=0;j<3;j++)box(g,0,.65,-.36+j*.25,2.6,.13,.18,'#ab7955');for(let j=0;j<2;j++)box(g,0,1.1+j*.23,-.5,2.6,.16,.1,'#ab7955');for(const dx of [-.9,.9])box(g,dx,.3,0,.12,.6,.9,'#3f6fb0');}
   bench(-10,12);bench(10,12,Math.PI);plant(exterior,-13,0,11,1.5);plant(exterior,13,0,11,1.5);
   const hallOfFame=createHallOfFameWorld({parent:exterior,box,cyl,mesh,geo,mat,teacher,sign});
-  // Layered hills and a distant treeline give upstairs windows a horizon.
-  // Shared low-poly geometry and the exterior material batch keep this cheap.
-  function distantHill(x,y,z,sx,sy,sz,color){const shape=mesh(exterior,geo('IcosahedronGeometry',1,1),mat(color),x,y,z,false);shape.scale.set(sx,sy,sz);}
-  for(const hill of [
-    [-41,1,76,34,16,16,'#aac3d6'],[-5,2,84,39,21,17,'#aac3d6'],[36,0,79,35,18,18,'#aac3d6'],
-    [-37,-1,59,25,11,12,'#829e8a'],[-3,-1,64,30,14,13,'#829e8a'],[32,-1,61,27,12,13,'#829e8a']
-  ])distantHill(...hill);
-  for(let n=0;n<18;n++){
-    const x=-42+n*4.9,z=43+(n%3)*2.7,h=3.5+(n%4)*.5;
-    const trunk=mesh(exterior,geo('CylinderGeometry',.12,.18,h,6),mat('#82775e'),x,h/2-.35,z,false);
-    const canopy=mesh(exterior,geo('IcosahedronGeometry',1,0),mat(n%3?'#668b70':'#78977b'),x,h+.7,z,false);canopy.scale.set(2.4,2.2,2.1);
-  }
+  // Beyond the school gate is a real neighbourhood, not a flat mountain
+  // picture. Its ground and streets extend under the apartment footprints.
+  box(exterior,0,-.9,49,144,.6,112,'#91a489');
+  box(exterior,0,-.57,35,136,.04,7.5,'#858c92');
+  box(exterior,0,-.56,40.2,136,.04,2.8,'#d4d1c6');
+  box(exterior,0,-.57,75,136,.04,6.5,'#858c92');
+  const apartments=createApartmentNeighborhood({parent:exterior,box,mesh,geo});
   // Evening: a moon, a sprinkle of stars and four yard lamps that glow at dusk.
   const nightSky=new THREE.Group();nightSky.name='night-sky';nightSky.visible=false;exterior.add(nightSky);
   const moon=new THREE.Mesh(geo('SphereGeometry',3.2,16,10),new THREE.MeshBasicMaterial({color:'#fff6d8',fog:false,transparent:true,opacity:0}));
@@ -217,12 +216,12 @@ export function createWorld(scene) {
     const ceiling=box(cap,0,3.09,-1.05,28.55,.18,14.1,'#ecece2');
     ceiling.material=immersiveMaterials.material('ceiling');ceiling.name='interior-ceiling';
     const rear=box(shell,0,1.5,-7.95,28,3,.24,'#eeeae0');rear.material=immersiveMaterials.material('plaster');
-    box(shell,0,.5,-7.78,27.6,1,.04,accent.paint);
+    wainscot(shell,0,.5,-7.78,27.6,1,.04);
     for(const side of [-1,1]){
       const spans=floor===1?[{z:-2.5,d:11}]:[{z:-1.075,d:13.75}];
       for(const span of spans){
         const wall=box(cap,side*13.96,1.5,span.z,.23,3,span.d,'#eeeae0');wall.material=immersiveMaterials.material('plaster');
-        box(inside,side*13.81,.5,span.z,.06,1,span.d,accent.paint);
+        wainscot(inside,side*13.81,.5,span.z,.06,1,span.d);
       }
       if(floor===1)box(cap,side*13.96,2.8,4.4,.23,.4,2.8,'#eeeae0');
     }
@@ -232,6 +231,7 @@ export function createWorld(scene) {
     const facadeWindows=[-11.6,-8.25,-4.9,4.9,8.25,11.6];
     for(const side of [-1,1]){
       const low=box(front,side*8,.52,5.8,12,1.04,.24,accent.paint);low.material=immersiveMaterials.material('paint',accent.paint);
+      wainscot(front,side*8,.5,5.657,12,1,.026);
       const high=box(front,side*8,2.83,5.8,12,.34,.24,'#eeeae0');high.material=immersiveMaterials.material('plaster');
       for(const x of [side*2.7,side*6.57,side*9.925,side*13.7]){
         const pillar=box(front,x,1.85,5.8,.51,1.62,.24,'#eeeae0');pillar.material=immersiveMaterials.material('plaster');
@@ -242,7 +242,7 @@ export function createWorld(scene) {
       box(front,x,2.66,5.8,2.9,.085,.17,'#f2f3f4');
       for(const dx of [-1.4,0,1.4])box(front,x+dx,1.85,5.78,.065,1.62,.16,'#f2f3f4');
       box(front,x,1.58,5.78,2.84,.045,.13,'#f2f3f4');box(front,x+.07,1.79,5.67,.045,.25,.07,'#7a8983');
-      const view=mesh(front,geo('PlaneGeometry',2.8,1.62),immersiveMaterials.windowMaterial(),x,1.85,5.94,false);view.rotation.y=Math.PI;view.name='ordinary-window-view';
+      const glass=mesh(front,geo('PlaneGeometry',2.8,1.62),immersiveMaterials.windowMaterial(),x,1.85,5.8,false);glass.name='ordinary-window-glass';glass.receiveShadow=false;
     }
     if(floor===1){
       box(front,0,2.8,5.8,4,.4,.24,'#f4f1ea');
@@ -250,7 +250,8 @@ export function createWorld(scene) {
     }else{
       const centreLow=box(front,0,.52,5.8,4,1.04,.24,accent.paint);centreLow.material=immersiveMaterials.material('paint',accent.paint);box(front,0,2.83,5.8,4,.34,.24,'#eeeae0');
       for(const x of [-1.95,0,1.95])box(front,x,1.85,5.8,.07,1.62,.16,'#f2f3f4');
-      const view=mesh(front,geo('PlaneGeometry',3.9,1.62),immersiveMaterials.windowMaterial(),0,1.85,5.94,false);view.rotation.y=Math.PI;
+      wainscot(front,0,.5,5.657,4,1,.026);
+      const glass=mesh(front,geo('PlaneGeometry',3.9,1.62),immersiveMaterials.windowMaterial(),0,1.85,5.8,false);glass.name='ordinary-window-glass';glass.receiveShadow=false;
     }
     sign(front,String(floor)+'F',-13,2.08,5.98,.75,.44,'#ffffff',accent.dark);
     box(inside,0,.06,4.18,27.4,.09,3,'#d8d6d0');
@@ -298,7 +299,7 @@ export function createWorld(scene) {
       box(cutaway,cx,2.7,2.59,2.5,.6,.2,'#eeeae0');
       sign(cutaway,room.name,cx,2.55,2.71,2.3,.32,'#ffffff',accent.dark);
       plant(inside,cx+(side===0?-3.35:3.35),.15,1.1,.85);
-      if(room.kind!=='classroom')sign(cutaway,room.kind==='lobby'?'퇴근은 권리입니다':'배움은 즐겁게 · 퇴근은 빠르게',cx,2.3,-6.47,5.8,.55,'#3a5a8c','#fff1d0');
+      if(room.kind!=='classroom'&&room.kind!=='broadcast')sign(cutaway,room.kind==='lobby'?'퇴근은 권리입니다':'배움은 즐겁게 · 퇴근은 빠르게',cx,2.3,-6.47,5.8,.55,'#3a5a8c','#fff1d0');
       if(room.id){const item=quest(inside,room.id,cx,0,room.kind==='staff'?-2.2:-3,'#f5d27d',room.npc,side===0?'#d79d75':'#5aa9e6');item.y=base;item.floor=floor;interactables.push(item);}
       const left=cx-2.5,right=cx+2.5;
       if(['classroom','computer'].includes(room.kind)){
@@ -315,7 +316,7 @@ export function createWorld(scene) {
         for(const x of room.kind==='staff'?[]:[left,right]){
           desk(inside,x,0,-3.3,2.4,1.4,'#bd956b',colliders);monitor(inside,x,1.06,-3.45);chair(inside,x,0,-4.5,'#4f74d6',Math.PI);paperStack(inside,x+.8,1.05,-3.2,room.kind==='admin'?8:4);
         }
-        for(const x of room.kind==='office'?[cx-2.65]:[cx-2.65,cx+2.65]){box(inside,x,1,-5.95,2.3,2,.65,'#d9dde3');for(let j=0;j<4;j++){box(inside,x,.3+j*.45,-5.6,2.1,.36,.06,'#eef0f3');box(inside,x,.3+j*.45,-5.55,.25,.04,.05,'#8a929c');}collide(colliders,x,-5.95,2.3,.7);}
+        for(const x of room.kind==='office'?[cx-2.65]:[cx-2.65,cx+2.65]){if(room.kind!=='staff'){box(inside,x,1,-5.95,2.3,2,.65,'#d9dde3');for(let j=0;j<4;j++){box(inside,x,.3+j*.45,-5.6,2.1,.36,.06,'#eef0f3');box(inside,x,.3+j*.45,-5.55,.25,.04,.05,'#8a929c');}}collide(colliders,x,-5.95,2.3,.7);}
         if(room.kind==='office')sign(inside,'읽지 않은 쪽지 99+',cx,1.3,-6.35,3.1,.7,'#fff0d5','#b56d54');
       }else if(room.kind==='library'){
         for(const x of [left,right])for(const z of [-5.8,-1]){bookshelf(inside,x,0,z,1.7);collide(colliders,x,z,1.7,.8);}
@@ -333,7 +334,6 @@ export function createWorld(scene) {
         desk(inside,left,0,-3.5,2.6,1.4,'#4a4e69',colliders);monitor(inside,left,1.06,-3.8);
         for(let i=0;i<7;i++){box(inside,left-.9+i*.3,1.07,-3.1,.07,.03,.5,'#c8b9a2');box(inside,left-.9+i*.3,1.12,-3.1+(i%3)*.1,.14,.04,.12,'#e8c17c');}
         box(inside,right,1.15,-5,1.2,2.3,1,'#2b2f36');for(const yy of [.65,1.65]){const cone=cyl(inside,right,yy,-4.47,.37,.37,.06,'#8a929c',16);cone.rotation.x=Math.PI/2;}collide(colliders,right,-5,1.2,1);
-        cyl(inside,right,1.1,-1.2,.045,.045,2.2,'#3a3f4a');box(inside,right,2.2,-1.2,.28,.4,.28,'#c7ccd4');
         sign(inside,'ON AIR',cx,2.6,-6.46,2.7,.55,'#ffe2b0','#b36e58');
       }else if(room.kind==='cafeteria'){
         for(const x of [left,right]){
@@ -349,7 +349,7 @@ export function createWorld(scene) {
       }
       schoolProps.decorateRoom({parent:inside,room,cx,centerZ:-2,width:8,depth:9,colliders,collide});
     }
-    for(const side of [-1,1]){const wall=box(cutaway,side*12.4,1.5,2.59,2.8,3,.18,'#eeeae0');wall.material=immersiveMaterials.material('plaster');box(inside,side*12.4,.5,2.705,2.8,1,.035,accent.paint);collide(colliders,side*12.4,2.59,2.8,.18);}
+    for(const side of [-1,1]){const wall=box(cutaway,side*12.4,1.5,2.59,2.8,3,.18,'#eeeae0');wall.material=immersiveMaterials.material('plaster');wainscot(inside,side*12.4,.5,2.705,2.8,1,.035);collide(colliders,side*12.4,2.59,2.8,.18);}
     schoolDetails.decorateFloor({inside,front,cutaway,floor,rooms:ROOMS[floor],colliders,accent});
     schoolProps.decorateCorridor({parent:inside,floor,x:-12.2,z:2.9,ceiling:3});
     if(floor===1){
@@ -358,7 +358,7 @@ export function createWorld(scene) {
         const cx=side*20, learning=side<0, color=learning?'#f3dfb8':'#d6e9f5';
         const roomName=learning?'배움터':'보건실';
         if(!learning){
-          nurseRoom=createNurseRoom({inside,colliders,beds,interactables,cx,helpers:{box,cyl,ball,mesh,geo,mat,sign,badge,collide}});
+          nurseRoom=createNurseRoom({inside,colliders,beds,interactables,cx,helpers:{box,cyl,ball,mesh,geo,mat,sign,badge,collide,surfaceMaterial:immersiveMaterials.material}});
           root.add(nurseRoom.root);
           box(shell,cx,-.16,0,12.4,.3,16.5,COLORS.trim);
           collide(colliders,side*19.9,17.1,12.4,18.2);
@@ -441,6 +441,17 @@ export function createWorld(scene) {
   const fluorescent=[];
   for(const f of floors.values()){const lights=f.inside.getObjectByName(`overtime-lights-${[...floors.entries()].find(([,v])=>v===f)[0]}`);if(lights){lights.position.y=-.23;for(const fixture of lights.children){const lamp=fixture.getObjectByName('lamp');lamp.material=new THREE.MeshStandardMaterial({color:'#fff2bd',emissive:'#fff2bd',emissiveIntensity:.65,roughness:.85});fluorescent.push({fixture,lamp});}}}
 
+  // Exterior surfaces need their own tint while indoor fluorescent light stays
+  // neutral. Shared interior materials must never be darkened with the yard.
+  const exteriorTints=new Map();
+  exterior.traverse(node=>{
+    if(!node.isMesh||Array.isArray(node.material)||!node.material.isMeshStandardMaterial)return;
+    let ancestor=node;while(ancestor&&ancestor!==apartments.root)ancestor=ancestor.parent;if(ancestor===apartments.root)return;
+    const original=node.material;
+    if(!exteriorTints.has(original))exteriorTints.set(original,{material:original.clone(),day:original.color.clone()});
+    node.material=exteriorTints.get(original).material;
+  });
+
   // Merge fixed scenery by material. The detailed school stays inexpensive to
   // draw, while NPCs, quest markers, lift sprites, car and gate remain movable.
   world.updateMatrixWorld(true);
@@ -453,7 +464,7 @@ export function createWorld(scene) {
     const batches=new Map(),inverse=new THREE.Matrix4().copy(parent.matrixWorld).invert();
     function visit(node){
       if(moving.has(node))return;
-      if(node.isMesh&&!Array.isArray(node.material)&&!node.material.transparent){
+      if(node.isMesh&&!Array.isArray(node.material)&&(!node.material.transparent||node.material.name==='school-window-glass')){
         const key=node.material.uuid;
         if(!batches.has(key))batches.set(key,{material:node.material,parts:[],sources:[]});
         const g=node.geometry.index?node.geometry.toNonIndexed():node.geometry.clone();
@@ -474,7 +485,11 @@ export function createWorld(scene) {
         merged.setAttribute(key,new THREE.BufferAttribute(array,size));
       }
       merged.computeBoundingSphere();
-      const combined=new THREE.Mesh(merged,material);combined.castShadow=true;combined.receiveShadow=true;parent.add(combined);
+      const combined=new THREE.Mesh(merged,material);combined.castShadow=!material.transparent;combined.receiveShadow=!material.transparent;
+      // Window panes are coplanar within each facade: one transparent batch is
+      // correctly sorted and avoids thirty extra draw calls on school PCs.
+      if(material.name==='school-window-glass'){combined.name='ordinary-window-glass';combined.userData.paneCount=sources.length;}
+      parent.add(combined);
       for(const source of sources)source.parent?.remove(source);
       parts.forEach(g=>g.dispose());
     }
@@ -538,6 +553,8 @@ export function createWorld(scene) {
     setQuality(value){quality=['low','medium','high'].includes(value)?value:'medium';schoolDetails.setQuality?.(quality);},
     notifyMessage:schoolProps.notifyMessage,
     getRoomView(kind){
+      if(kind==='window')return {floor:3,position:{x:-8.9,y:8,z:4.25},lookYaw:Math.PI,cameraMode:'first'};
+      if(kind==='broadcast')return {floor:2,position:{x:7.5,y:4,z:2.2},lookYaw:0,cameraMode:'first'};
       if(kind==='exterior')return {floor:1,position:{x:0,y:0,z:12.5},lookYaw:0};
       if(kind==='staff')return {floor:5,position:{x:9.6,y:16,z:0},lookYaw:.7,cameraMode:'first'};
       if(kind==='copier')return {floor:4,position:{x:-5.4,y:12,z:1.5},lookYaw:-1,cameraMode:'first'};
@@ -560,7 +577,9 @@ export function createWorld(scene) {
     /** Sky-dependent surfaces: window views, the infirmary lake, moon, stars and yard lamps. */
     setDaylight({golden=0,night=0,window}={}){
       daylightState.golden=golden;daylightState.night=night;
-      if(window?.isColor){immersiveMaterials.setWindowTint(window);nurseRoom?.setSkyTint?.(window);}
+      if(window?.isColor)nurseRoom?.setSkyTint?.(window);
+      apartments.setDaylight({night,window});schoolDetails.setDaylight({night});
+      for(const {material,day} of exteriorTints.values()){material.color.copy(day);if(window?.isColor)material.color.multiply(window);}
       const dark=Math.max(0,Math.min(1,(night-.35)/.5));
       nightSky.visible=dark>0;moon.material.opacity=dark;nightSky.getObjectByName('stars').material.opacity=dark*.9;
       const glow=Math.max(0,Math.min(1,(night-.15)/.4));
