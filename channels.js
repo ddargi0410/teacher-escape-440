@@ -76,9 +76,9 @@ export function createChannels({presence,endpoint,getNickname,onChange,onBeforeS
     })();
     return request.promise;
   }
-  async function join(id,epoch){
+  async function join(id,epoch,automatic=false){
     const from=selected;selected=id;loading=true;connected=false;error='';report();
-    try{await onBeforeSwitch?.({from,to:id});}catch{error='채널 이동을 준비하지 못했어요.';loading=false;report();return false;}
+    try{await onBeforeSwitch?.({from,to:id,automatic});}catch{error='채널 이동을 준비하지 못했어요.';loading=false;report();return false;}
     if(epoch!==operation||!running||disposed)return false;
     const success=await presence.connect({room:PUBLIC_CHANNELS[id-1].room,nickname:getNickname?.()||'퇴근 동료'});
     if(epoch!==operation||!running||disposed)return false;
@@ -93,7 +93,7 @@ export function createChannels({presence,endpoint,getNickname,onChange,onBeforeS
     for(const channel of PUBLIC_CHANNELS){
       if(epoch!==operation||!running||disposed)return false;
       if(channel.id!==1&&directoryKnown&&now()-refreshedAt<STALE_MS&&channelRows[channel.id-1].count>=CAPACITY)continue;
-      const joined=await join(channel.id,epoch);
+      const joined=await join(channel.id,epoch,true);
       if(epoch!==operation||!running||disposed)return false;
       if(joined){loading=false;report();void refresh();return true;}
       if(current.state!=='full'){

@@ -1,4 +1,4 @@
-import {schoolTime, overtimeLabel, overtimeMinutes} from './school-clock.js';
+import {schoolTime, overtimeLabel, overtimeMinutes, actualPlaySeconds, departureState} from './school-clock.js?v=20261108-stay1';
 
 function elapsedLabel(seconds) {
   const value = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -51,6 +51,7 @@ function roundRect(ctx, x, y, width, height, radius, color) {
 
 /** Download one high-resolution PNG, generated entirely on the current device. */
 export async function downloadCertificate(state, missions) {
+  state = departureState(state);
   if (document.fonts?.ready) await document.fonts.ready;
   const canvas = document.createElement('canvas');
   canvas.width = 1600;
@@ -105,7 +106,7 @@ export async function downloadCertificate(state, missions) {
   ctx.fillText(overtimeLabel(state), 849, 780);
   ctx.fillStyle = '#53645b';
   ctx.font = `500 24px ${face}`;
-  ctx.fillText(`실제 플레이 시간  ${elapsedLabel(state.elapsed)}`, 100, 870);
+  ctx.fillText(`실제 플레이 시간  ${elapsedLabel(actualPlaySeconds(state))}`, 100, 870);
   ctx.fillText('챙겨 가는 노하우  10장 / 10장', 817, 870);
   ctx.fillStyle = '#143b34';
   ctx.font = `800 34px ${face}`;

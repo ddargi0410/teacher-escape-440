@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {certificateTextLines,downloadCertificate} from '../certificate.js';
 import {MISSIONS} from '../missions-data.js';
+import {freezeDeparture,advanceSchoolClock} from '../school-clock.js';
 
 function context(){
   const records=[];
@@ -36,7 +37,9 @@ test('downloaded certificate centers both approval labels inside the badge witho
   globalThis.document={fonts:{ready:Promise.resolve()},createElement:type=>type==='canvas'?canvas:link,body:{appendChild(){}}};
   globalThis.setTimeout=()=>0;
   try{
-    const state={name:'화면확인 선생님',elapsed:1110,penalty:5,completed:[1,2,3,4,5,6,7,8,9,10]};
+    const state={name:'화면확인 선생님',elapsed:1110,playElapsed:1230,penalty:5,finished:true,completed:[1,2,3,4,5,6,7,8,9,10]};
+    freezeDeparture(state);advanceSchoolClock(state,900,{resting:true});
+    const before=JSON.stringify(state);
     await downloadCertificate(state,MISSIONS);
     for(const label of ['퇴근 승인','10 / 10 MISSIONS CLEARED']){
       const line=ctx.records.find(record=>record.text===label);
@@ -45,6 +48,9 @@ test('downloaded certificate centers both approval labels inside the badge witho
     }
     assert.ok(ctx.records.some(row=>row.text==='화면확인 선생님'));
     assert.ok(ctx.records.some(row=>row.text==='16:42'));
+    assert.ok(ctx.records.some(row=>row.text==='2분'));
+    assert.ok(ctx.records.some(row=>row.text==='실제 플레이 시간  20분 30초'));
+    assert.equal(JSON.stringify(state),before,'export preserves both current clocks and the fixed departure record');
     assert.equal(link.clicked,true);assert.equal(canvas.width,1600);assert.equal(canvas.height,2100);
     assert.ok(!ctx.records.some(row=>row.text.includes('…')),'all complete card content is retained');
     URL.revokeObjectURL(link.href);

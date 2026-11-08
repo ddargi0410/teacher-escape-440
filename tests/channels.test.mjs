@@ -4,7 +4,7 @@ import {createChannels,PUBLIC_CHANNELS,sanitizeChannels} from '../channels.js';
 
 const flush=async()=>{for(let i=0;i<16;i++)await Promise.resolve();};
 const directory=(overrides={})=>({channels:PUBLIC_CHANNELS.map(c=>({...c,count:0,occupiedBeds:0,freeBeds:5,...overrides[c.id]})),serverTime:100000,capacity:30});
-function fixture({connect,fetch}={}){
+function fixture({connect,fetch,beforeSwitch}={}){
   let clock=0,status={state:'offline',connected:false,count:0,room:'',wanted:false},api;
   const requests=[],joins=[],before=[],changes=[],doc={hidden:false};
   const presence={
@@ -14,7 +14,7 @@ function fixture({connect,fetch}={}){
       status={...status,state:response.ok?'online':response.state||'reconnecting',connected:response.ok,count:response.ok?response.count||1:0,message:response.message||'',nickname:options.nickname};api.handlePresenceStatus(status);return response.ok;},
     disconnect(){status={...status,wanted:false,connected:false,count:0,state:'offline'};api?.handlePresenceStatus(status);},
   };
-  api=createChannels({presence,endpoint:'https://relay.example/api/presence',getNickname:()=> '자동 별명',onBeforeSwitch:x=>before.push(x),onChange:x=>changes.push(x),
+  api=createChannels({presence,endpoint:'https://relay.example/api/presence',getNickname:()=> '자동 별명',onBeforeSwitch:x=>{before.push(x);beforeSwitch?.(x);},onChange:x=>changes.push(x),
     runtime:{document:doc,now:()=>clock,fetch:(url,options)=>{requests.push({url,options});return fetch?fetch(url,options,requests.length):Promise.resolve({ok:true,json:async()=>directory()});}}});
   return {api,presence,requests,joins,before,changes,doc,setStatus(next){status={...status,...next};api.handlePresenceStatus(status);},async advance(ms,visible=true){clock+=ms;api.update(ms/1000,{visible});await flush();}};
 }
@@ -47,7 +47,7 @@ test('all full channels stop after a bounded pass and remain selectable later',a
 test('manual channel switch preserves nickname and refuses known full channels without leaving',async t=>{
   const f=fixture({fetch:async()=>({ok:true,json:async()=>directory({3:{count:30,occupiedBeds:5,freeBeds:0}})})});t.after(()=>f.api.dispose());await f.api.start();
   assert.equal(await f.api.select(2),true);assert.equal(f.api.getSnapshot().selected,2);
-  assert.deepEqual(f.before.at(-1),{from:1,to:2});assert.equal(f.joins.at(-1).nickname,'자동 별명');
+  assert.deepEqual(f.before.at(-1),{from:1,to:2,automatic:false});assert.equal(f.joins.at(-1).nickname,'자동 별명');
   assert.equal(await f.api.select(3),false);assert.equal(f.joins.length,2);assert.equal(f.api.getSnapshot().selected,2);assert.equal(f.api.getSnapshot().connected,true);
   assert.match(f.api.getSnapshot().error,/채널 3/);
 });
@@ -125,4 +125,15 @@ test('solo channel chooser changes expired totals to unknown without an automati
   assert.equal(f.api.getSnapshot().directoryKnown,false);assert.equal(f.api.getSnapshot().channels[0].count,null);
   assert(f.changes.length>knownReports);assert.equal(f.changes.at(-1).directoryKnown,false);
   assert.equal(f.requests.length,1);assert.equal(f.joins.length,0);
+});
+
+
+test('automatic fallback preserves rest while a manual channel change may close the bed',async t=>{
+  let resting=true;
+  const f=fixture({connect:async({room})=>room==='TEACHERS'?{ok:false,state:'full'}:{ok:true},beforeSwitch:({automatic})=>{if(!automatic)resting=false;}});
+  t.after(()=>f.api.dispose());
+  assert.equal(await f.api.start(),true);assert.equal(resting,true);
+  assert.deepEqual(f.before.map(x=>x.automatic),[true,true]);
+  assert.equal(await f.api.select(3),true);assert.equal(resting,false);
+  assert.equal(f.before.at(-1).automatic,false);
 });

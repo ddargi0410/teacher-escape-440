@@ -9,15 +9,15 @@ import {chooseNPCLine,getKnowledgeDetails,getArcadeData} from './minigames/conte
 import {createWorldFeedback} from './world-feedback.js';
 import {createSchoolMessenger} from './messenger.js';
 import {createLearningRoom} from './learning-room.js';
-import {createRestRoom} from './rest-room.js?v=20261106-cute1';
+import {createRestRoom} from './rest-room.js?v=20261108-stay1';
 import {createPresence} from './presence.js?v=20261106-cute1';
-import {createChannels} from './channels.js';
+import {createChannels} from './channels.js?v=20261108-stay1';
 import {createChannelUI} from './channels-ui.js?v=20261104-nickname2';
 import {PRESENCE_ENDPOINT as CONFIGURED_PRESENCE_ENDPOINT} from './presence-config.js';
-import {freshState,loadGame as loadSavedGame,saveGame as saveSavedGame,storageAvailable} from './save.js?v=20261106-immersive1';
+import {freshState,loadGame as loadSavedGame,saveGame as saveSavedGame,storageAvailable} from './save.js?v=20261108-stay1';
 import {AudioManager} from './audio.js';
-import {downloadCertificate,copyText} from './certificate.js?v=20261106-visual-export1';
-import {schoolTime,schoolMinutes,overtimeMinutes,overtimeLabel} from './school-clock.js';
+import {downloadCertificate,copyText} from './certificate.js?v=20261108-stay1';
+import {schoolTime,schoolMinutes,overtimeMinutes,overtimeLabel,advanceSchoolClock,actualPlaySeconds,freezeDeparture,departureState} from './school-clock.js?v=20261108-stay1';
 import {daylight,lightingFor} from './daylight.js?v=20261106-cute1';
 import {adjacentFloors,canUseStairs} from './stairs.js';
 import {getMissionBriefing} from './minigames/briefings.js';
@@ -47,17 +47,17 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let sun,ambient,feedback,greetingFeedbackTimer;
 let encounter=null,npcSpeechClock=0,lastSpokenNPC=null;
 const previousNPCLines=new Map();
-let honors,hallOfFame,characterPicker=null;
+let honors,hallOfFame,characterPicker=null,certificateReturnPoint=null;
 let presence,channels,restingBed=null,restView='shoulder',wantsChannelRest=false,pendingDestination=null;
 const channelUI=createChannelUI({container:$('#channels-overlay'),onSelect:selectChannel,onClose:()=>{wantsChannelRest=false;player?.setActive(mode==='play'&&!busy());},onRefresh:()=>channels?.refresh(),onSolo:()=>{channels?.stop();channelUI.close();},onReconnect:reconnectChannels});
 const learning=createLearningRoom({container:$('#learning-overlay'),onClose:()=>{player?.setActive(mode==='play'&&overlay.hidden);},onLearned:()=>{state.beginnerLearned=true;$('#learning-button').textContent='🌱 배움터 ✓';persist();toast('기초 체험 완료 · 이제 미션에서 써먹어 봐요.')}});
-const rest=createRestRoom({audio,getBed:id=>world?.getBed(id),onView:(bed,view)=>{player?.setRestView?.(view);},onResetView:()=>{player?.resetRestLook?.();},onEnter:(bed,posture)=>{clearEncounter();messenger.suspend();restView=player.cameraMode;player.setCameraMode('shoulder');player.setActive(false);player.teleport(bed.bedPose,{preserveCamera:true});world.setRestPose(teacher,bed.id,posture);restingBed=bed;honors?.sync();},onPosture:(bed,posture)=>{world.setRestPose(teacher,bed.id,posture);},onLeave:bed=>{world?.clearRestPose(teacher);restingBed=null;honors?.sync();if(player){player.endRestCamera?.();player.teleport(bed.exitPoint);player.setCameraMode(restView);player.setActive(mode==='play'&&overlay.hidden);}}});
+const rest=createRestRoom({audio,getSchoolTime:()=>schoolTime(state),getBed:id=>world?.getBed(id),onView:(bed,view)=>{player?.setRestView?.(view);},onResetView:()=>{player?.resetRestLook?.();},onEnter:(bed,posture)=>{clearEncounter();messenger.suspend();restView=player.cameraMode;player.setCameraMode('shoulder');player.setActive(false);player.teleport(bed.bedPose,{preserveCamera:true});world.setRestPose(teacher,bed.id,posture);restingBed=bed;updateClock();honors?.sync();},onPosture:(bed,posture)=>{world.setRestPose(teacher,bed.id,posture);},onLeave:bed=>{world?.clearRestPose(teacher);restingBed=null;updateClock();honors?.sync();if(player){player.endRestCamera?.();player.teleport(bed.exitPoint);player.setCameraMode(restView);player.setActive(mode==='play'&&overlay.hidden);}}});
 const messenger=createSchoolMessenger({getState:()=>state,onLocate:id=>{if(!busy())jumpToMission(id)},onSound:()=>{audio.play('notify');world?.notifyMessage?.();},onArchiveChange:open=>player?.setActive(!open&&!busy()),onHistoryChange:count=>{$('#messenger-count').textContent=String(count)}});
 const arcade=createMinigameRunner({container:$('#minigame-overlay'),onSuccess:recordSuccess,onFailure:missionFailure,onDraft:text=>{state.bossDraft=text;persist();},onClose:finishMissionView});
 function missionFailure(id,payload){state.penalty=Math.min(360,state.penalty+5);persist();audio.play('error');updateHUD();}
 function recordSuccess(id,payload){
  if(!state.completed.includes(id)){state.completed.push(id);state.completed.sort((a,b)=>a-b);world.setCompleted(state.completed);audio.play('success');messenger.notifyMissionSuccess(id);}
- if(id===10){if(typeof payload?.prompt==='string')state.bossDraft=payload.prompt;state.finished=true;}
+ if(id===10){if(typeof payload?.prompt==='string')state.bossDraft=payload.prompt;state.finished=true;freezeDeparture(state);}
  persist();updateHUD();
  if(id===10)honors?.finish();else honors?.sync(true);
 }
@@ -67,8 +67,8 @@ function onCrowdEvent(event){
  if(event.type==='complaint'){feedback.speak(()=>world.getCharacterAnchor(event.actor),event.text);audio.play('notify');return;}
  if(event.type==='message'){if(tutorialTime<=0)messenger.request();return;}
  encounter={...event,remaining:event.duration};feedback.speak(()=>world.getCharacterAnchor(event.actor),event.text);
- if(event.type==='principal'){state.penalty=Math.min(360,state.penalty+1);persist();updateHUD();audio.play('notify');}
- else{document.body.classList.add('stumbling');audio.play('error');}
+ if(event.type==='principal'&&!state.finished){state.penalty=Math.min(360,state.penalty+1);persist();updateHUD();audio.play('notify');}
+ else if(event.type!=='principal'){document.body.classList.add('stumbling');audio.play('error');}
  player.setActive(false);
 }
 function toast(message){$('#toast').textContent=message;$('#toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),4500)}
@@ -95,7 +95,7 @@ function showPanel(kind,html,wide=false){
 }
 function closePanel(){characterPicker?.dispose();characterPicker=null;overlay.hidden=true;overlay.innerHTML='';overlayKind='';player?.setActive(mode==='play'&&!missions.isOpen());if(lastFocus instanceof HTMLElement&&lastFocus.isConnected)lastFocus.focus()}
 const closeButton='<button class="close-button" data-close aria-label="닫기">×</button>';
-function guide(){showPanel('guide',`${closeButton}<div class="eyebrow">HOW TO GO HOME</div><h2 id="panel-title">업무는 10개.<br>퇴근은 한 번이면 충분합니다.</h2><p>5층 학교를 걸으며 빛나는 업무 표식에 다가가세요. 미션 1–9는 원하는 순서로, 10번은 마지막에 열립니다. 각 미션을 끝내면 노하우 카드가 가방에 쌓입니다.</p><div class="controls-table"><kbd>W A S D</kbd><span>걷기 · Shift를 누르면 빠르게</span><kbd>드래그 · 휠</kbd><span>시선 돌리기 · 휠로 거리 조절 · 방향키로도 회전 가능</span><kbd>E</kbd><span>가까운 NPC · 중앙계단 살펴보기</span><kbd>F · G</kbd><span>복도 방해꾼에게 한마디 · 호루라기</span><kbd>🌱 · ✚ · ♧</kbd><span>선택 배움터 · 침대 5개 보건실 · 채널 바꾸기</span><kbd>H · J · M</kbd><span>무료 힌트 · 노하우 가방 · 학교 지도</span><kbd>0 · Esc</kbd><span>어깨높이/내려다보기/1인칭 · 일시정지와 설정</span><kbd>태블릿</kbd><span>왼쪽 조이스틱으로 이동 · 화면 드래그로 시선 · 조사 버튼</span></div><div class="notice">길 찾기가 어려우면 <strong>지도에서 목적지를 선택해 안내받기</strong>할 수 있어요. 오후 4시에 시작하며 학교 시계는 실제 플레이 시간의 2배로 흘러요. 실제 20분이면 목표 시각인 4시 40분입니다. 오답은 게임 시계를 5분 앞으로 보내요. 목표는 4시 40분 이전! 16:40을 넘겨도 게임오버 없이 야근이 시작돼요. 창밖이 어두워지고 복도 불이 차례로 꺼지며 경비 선생님이 순찰합니다. 미션 10개를 끝내면 바로 퇴근하고, 증명서에 퇴근 시각과 야근 시간이 남습니다. 시계는 최대 22:00까지 표시됩니다.</div><div class="actions"><button class="primary" data-close>이제 알겠어요 ↗</button></div>`)}
+function guide(){showPanel('guide',`${closeButton}<div class="eyebrow">HOW TO GO HOME</div><h2 id="panel-title">업무는 10개.<br>퇴근은 한 번이면 충분합니다.</h2><p>5층 학교를 걸으며 빛나는 업무 표식에 다가가세요. 미션 1–9는 원하는 순서로, 10번은 마지막에 열립니다. 각 미션을 끝내면 노하우 카드가 가방에 쌓입니다.</p><div class="controls-table"><kbd>W A S D</kbd><span>걷기 · Shift를 누르면 빠르게</span><kbd>드래그 · 휠</kbd><span>시선 돌리기 · 휠로 거리 조절 · 방향키로도 회전 가능</span><kbd>E</kbd><span>가까운 NPC · 중앙계단 살펴보기</span><kbd>F · G</kbd><span>복도 방해꾼에게 한마디 · 호루라기</span><kbd>🌱 · ✚ · ♧</kbd><span>선택 배움터 · 침대 5개 보건실 · 채널 바꾸기</span><kbd>H · J · M</kbd><span>무료 힌트 · 노하우 가방 · 학교 지도</span><kbd>0 · Esc</kbd><span>어깨높이/내려다보기/1인칭 · 일시정지와 설정</span><kbd>태블릿</kbd><span>왼쪽 조이스틱으로 이동 · 화면 드래그로 시선 · 조사 버튼</span></div><div class="notice">길 찾기가 어려우면 <strong>지도에서 목적지를 선택해 안내받기</strong>할 수 있어요. 오후 4시에 시작하며 학교 시계는 실제 플레이 시간의 2배로 흘러요. 계속 활동하면 실제 20분에 목표 시각인 4시 40분이 됩니다. 보건실에 누우면 시계가 평소의 ¼ 속도로 흐르고, 일어나면 원래 속도로 돌아와요. 오답은 게임 시계를 5분 앞으로 보내요. 목표는 4시 40분 이전! 16:40을 넘겨도 게임오버 없이 야근이 시작돼요. 창밖이 어두워지고 복도 불이 차례로 꺼지며 경비 선생님이 순찰합니다. 미션 10개를 끝내면 바로 퇴근하고, 증명서에 퇴근 시각과 야근 시간이 남습니다. 증명서를 받은 뒤에도 학교에 남아 놀거나 보건실에서 쉴 수 있어요. 완료 기록은 그대로 유지됩니다. 시계는 최대 22:00까지 표시됩니다.</div><div class="actions"><button class="primary" data-close>이제 알겠어요 ↗</button></div>`)}
 function newGame(){showPanel('new',`${closeButton}<div class="eyebrow">EMPLOYEE CHECK-IN</div><h2 id="panel-title">오늘도 출근하셨군요.</h2><p>가상의 퇴근초등학교에 오신 것을 환영합니다.<br>오후 4시부터 시작해요. 10개 업무를 끝내면 곧바로 퇴근!<br>다른 동료에게 보이고 퇴근 증명서에도 넣을 닉네임을 적어 주세요.</p><label for="teacher-name">오늘의 퇴근 도전자</label><input id="teacher-name" type="text" maxlength="24" autocomplete="off" placeholder="예: 정시퇴근 선생님" value="${esc(state.name==='퇴근희망 교사'?'':state.name)}"><div id="start-character-picker"></div><div class="option-row"><label for="start-relaxed">느긋하게 배우기<small>급식실에서 60초가 지나도 연습을 이어갑니다.</small></label><input type="checkbox" id="start-relaxed" ${state.settings.relaxed?'checked':''}></div><div class="notice">게임을 시작하면 채널에 자동 입장해요. 입력한 닉네임과 캐릭터 위치가 같은 채널의 동료에게 보여요. 입력한 닉네임과 방문 기록은 90일간 보관하며 공개 방문 통계에는 인원수만 표시해요. 오늘의 명예의 전당 1위가 되면 닉네임과 퇴근·휴식 기록이 동상에 공개돼요. 순위를 위해 완료한 미션 번호와 플레이 시간·오답 가산 시간·휴식 상태를 서버에 보내요. 답안과 프롬프트는 이 브라우저에만 저장해요. 새 게임은 이전 기록을 교체합니다.</div><div class="actions"><button class="primary" id="confirm-start">출근 도장 찍기 →</button></div>`);
  characterPicker=createCharacterPicker({container:$('#start-character-picker'),value:state.avatarId});
  $('#confirm-start').onclick=()=>{const name=$('#teacher-name').value;const relaxed=$('#start-relaxed').checked;const avatarId=characterPicker.getValue();const settings=state.settings;state=freshState(name);state.avatarId=avatarId;state.settings={...settings,relaxed};persist();closePanel();start(false);opening()};
@@ -108,7 +108,7 @@ function opening(){
 }
 function start(resume=true){
  honors?.stopRun();
- pendingDestination=null;
+ pendingDestination=null;certificateReturnPoint=null;
  if(resume)state=loadGame()||state;
  try{publishAnalyticsNickname(state.name);}catch{}
  rest.close();learning.close();channelUI.close();channels?.stop();messenger.reset({clearHistory:!resume});if(resume&&state.completed.includes(5)&&!state.finished)messenger.notifyMissionSuccess(5);
@@ -182,11 +182,11 @@ async function selectChannel(id){
 
 function cardMarkup(m){return `<article class="knowledge-card"><div class="card-top"><span>KNOW-HOW ${String(m.id).padStart(2,'0')}</span><span>✓ 결재 완료</span></div><h3>${esc(m.card.title.replace(/^\d+\s*·\s*/,''))}</h3><p>${esc(m.card.body)}</p>${`<details class="knowledge-details"><summary>문항·정답·해설 펼치기</summary>${getKnowledgeDetails(m).map(x=>`<p><strong>${esc(x.question)}</strong>${x.answer?`<br>정답: ${esc(x.answer)}`:''}<br>${esc(x.explanation)}</p>`).join('')}</details>`}</article>`}
 function showKnowledge(id){const m=MISSIONS.find(m=>m.id===id);showPanel('card',`${closeButton}<div class="eyebrow">KNOW-HOW CARD</div><h2 id="panel-title">이미 훌륭하게 처리한 업무예요.</h2>${cardMarkup(m)}<div class="actions"><button class="primary" data-close>다음 업무로 →</button></div>`)}
-function bag(){showPanel('bag',`${closeButton}<div class="eyebrow">MY KNOW-HOW · ${state.completed.length} / 10</div><h2 id="panel-title">퇴근길에 챙겨 갈 것들.</h2><p>어디서나 다시 보는 바이브 코딩 노하우. 수업자료 실습에서도 꺼내 쓰세요.</p><div class="bag-grid">${MISSIONS.map(m=>state.completed.includes(m.id)?cardMarkup(m):`<div class="empty-card">${String(m.id).padStart(2,'0')} · ${esc(m.room)}<br><br>이 업무를 마치면 카드가 열립니다.</div>`).join('')}</div>${state.bossDraft?'<div class="actions"><button class="secondary" id="bag-copy">내 프롬프트 복사하기 ↗</button></div>':''}`,true);if($('#bag-copy'))$('#bag-copy').onclick=copyPrompt}
+function bag(){showPanel('bag',`${closeButton}<div class="eyebrow">MY KNOW-HOW · ${state.completed.length} / 10</div><h2 id="panel-title">퇴근길에 챙겨 갈 것들.</h2><p>어디서나 다시 보는 바이브 코딩 노하우. 수업자료 실습에서도 꺼내 쓰세요.</p>${state.finished?'<div class="actions"><button class="primary" id="bag-certificate">퇴근 증명서 다시 보기</button></div>':''}<div class="bag-grid">${MISSIONS.map(m=>state.completed.includes(m.id)?cardMarkup(m):`<div class="empty-card">${String(m.id).padStart(2,'0')} · ${esc(m.room)}<br><br>이 업무를 마치면 카드가 열립니다.</div>`).join('')}</div>${state.bossDraft?'<div class="actions"><button class="secondary" id="bag-copy">내 프롬프트 복사하기 ↗</button></div>':''}`,true);if($('#bag-copy'))$('#bag-copy').onclick=copyPrompt;if($('#bag-certificate'))$('#bag-certificate').onclick=showCertificate}
 function hint(){if(learning.isOpen()||rest.isOpen())return;if(arcade.isOpen()){arcade.hint();return}if(missions.isOpen()){missions.hint();return}if(mode!=='play')return;const next=nearest?.missionId?MISSIONS.find(m=>m.id===nearest.missionId):MISSIONS.find(m=>!state.completed.includes(m.id)&&m.floor===state.floor)||MISSIONS.find(m=>!state.completed.includes(m.id));if(next)toast(`${next.room}: ${next.hint}`)}
-function pause(){if(mode!=='play'||missions.isOpen()||arcade.isOpen()||learning.isOpen()||rest.isOpen())return;showPanel('pause',`${closeButton}<div class="eyebrow">COFFEE BREAK</div><h2 id="panel-title">잠깐 쉬어도 퇴근은 옵니다.</h2><p>쉬는 동안 플레이 시간도 멈춥니다. 완료한 업무는 자동 저장돼요.</p><div class="option-row"><label for="camera-mode">카메라 시점<small>어깨높이로 걷거나 학교를 내려다볼 수 있어요.</small></label><select id="camera-mode"><option value="shoulder">어깨높이 · 몰입형</option><option value="overview">내려다보기 · 기존 시점</option><option value="first">1인칭 · 내 눈높이</option></select></div><div class="option-row"><label for="quality">그래픽 품질<small>학교 PC에서 느리면 '저'를 선택하세요.</small></label><select id="quality"><option value="low">저 · 가볍게</option><option value="medium">중 · 균형</option><option value="high">고 · 선명하게</option></select></div><div class="option-row"><label for="relaxed">느긋하게 배우기<small>급식실에서 60초가 지나도 연습을 이어갑니다.</small></label><input id="relaxed" type="checkbox" ${state.settings.relaxed?'checked':''}></div><div class="option-row"><label for="sound-check">효과음<small>직접 만든 짧은 전자음만 사용합니다.</small></label><input id="sound-check" type="checkbox" ${state.settings.sound?'checked':''}></div><div class="actions"><button class="primary" data-close>다시 걸어가기 ↗</button><button class="secondary" id="pause-character">캐릭터 바꾸기</button><button class="secondary" id="pause-guide">조작법</button><button class="secondary" id="pause-home">저장하고 첫 화면</button></div>`);
+function pause(){if(mode!=='play'||missions.isOpen()||arcade.isOpen()||learning.isOpen()||rest.isOpen())return;showPanel('pause',`${closeButton}<div class="eyebrow">COFFEE BREAK</div><h2 id="panel-title">잠깐 쉬어도 퇴근은 옵니다.</h2><p>이 메뉴에서는 시간이 멈춰요. 보건실에 누우면 학교 시계가 평소의 ¼ 속도로 흐릅니다. 완료한 업무는 자동 저장돼요.</p><div class="option-row"><label for="camera-mode">카메라 시점<small>어깨높이로 걷거나 학교를 내려다볼 수 있어요.</small></label><select id="camera-mode"><option value="shoulder">어깨높이 · 몰입형</option><option value="overview">내려다보기 · 기존 시점</option><option value="first">1인칭 · 내 눈높이</option></select></div><div class="option-row"><label for="quality">그래픽 품질<small>학교 PC에서 느리면 '저'를 선택하세요.</small></label><select id="quality"><option value="low">저 · 가볍게</option><option value="medium">중 · 균형</option><option value="high">고 · 선명하게</option></select></div><div class="option-row"><label for="relaxed">느긋하게 배우기<small>급식실에서 60초가 지나도 연습을 이어갑니다.</small></label><input id="relaxed" type="checkbox" ${state.settings.relaxed?'checked':''}></div><div class="option-row"><label for="sound-check">효과음<small>직접 만든 짧은 전자음만 사용합니다.</small></label><input id="sound-check" type="checkbox" ${state.settings.sound?'checked':''}></div><div class="actions"><button class="primary" data-close>다시 걸어가기 ↗</button><button class="secondary" id="pause-character">캐릭터 바꾸기</button><button class="secondary" id="pause-guide">조작법</button>${state.finished?'<button class="secondary" id="review-certificate">퇴근 증명서 다시 보기</button>':''}<button class="secondary" id="pause-home">저장하고 첫 화면</button></div>`);
  $('#camera-mode').value=player.cameraMode;$('#camera-mode').onchange=e=>selectCameraMode(e.target.value);
- $('#quality').value=state.settings.quality;$('#quality').onchange=e=>{state.settings.quality=e.target.value;applyQuality();persist()};$('#relaxed').onchange=e=>{state.settings.relaxed=e.target.checked;persist()};$('#sound-check').onchange=e=>{state.settings.sound=e.target.checked;audio.setEnabled(state.settings.sound);updateSound();persist()};$('#pause-home').onclick=home;$('#pause-guide').onclick=guide;$('#pause-character').onclick=chooseCharacter;
+ $('#quality').value=state.settings.quality;$('#quality').onchange=e=>{state.settings.quality=e.target.value;applyQuality();persist()};$('#relaxed').onchange=e=>{state.settings.relaxed=e.target.checked;persist()};$('#sound-check').onchange=e=>{state.settings.sound=e.target.checked;audio.setEnabled(state.settings.sound);updateSound();persist()};$('#pause-home').onclick=home;$('#pause-guide').onclick=guide;$('#pause-character').onclick=chooseCharacter;if($('#review-certificate'))$('#review-certificate').onclick=showCertificate;
 }
 function chooseCharacter(){
  showPanel('character',`${closeButton}<div class="eyebrow">MY TEACHER</div><h2 id="panel-title">오늘의 나를 골라 보세요.</h2><p>진행 중인 업무와 기록은 그대로 이어져요.</p><div id="change-character-picker"></div><div class="actions"><button class="primary" id="confirm-character">이 선생님으로 걸어가기 ↗</button></div>`);
@@ -204,26 +204,46 @@ function toggleView(){if(busy())return;const modes=['shoulder','overview','first
 function updateClock(){
  $('#departure').textContent=departure();
  const overtime=overtimeMinutes(state);
- $('.clock-panel').classList.toggle('overtime',overtime>0);
- $('#clock-status').textContent=overtime>0?`야근 ${overtimeLabel(state)} · 끝내면 바로 퇴근`:'목표 16:40 · 끝내면 바로 퇴근';
+ $('.clock-panel').classList.toggle('overtime',!state.finished&&overtime>0);
+ $('#clock-status').textContent=rest.isOpen()?(state.finished?'퇴근 완료 · 휴식 중 · ¼ 속도':'보건실 휴식 · 시계 ¼ 속도'):state.finished?'퇴근 완료 · 자유시간':overtime>0?`야근 ${overtimeLabel(state)} · 끝내면 바로 퇴근`:'목표 16:40 · 끝내면 바로 퇴근';
 }
 function updateHUD(){
- $('#playtime').textContent=time(state.elapsed);
+ $('#playtime').textContent=time(actualPlaySeconds(state));
  $('#learning-button').textContent=state.beginnerLearned?'🌱 배움터 ✓':'🌱 배움터';
  $('#floor-label').textContent=state.floor+'F';$('#location-title').textContent=floorNames[state.floor];$('#progress-label').textContent=`${state.completed.length} / 10`;
  $('#progress-stamps').innerHTML=MISSIONS.map(m=>`<span class="stamp ${m.id===10?'boss':''} ${state.completed.includes(m.id)?'done':''}" title="${esc(m.title)}"></span>`).join('');
  $('#progress-caption').textContent=state.completed.length===9?'교문 앞 최종 업무가 열렸습니다.':state.completed.length===10?'모든 업무가 결재되었습니다.':'도장 10개를 모으면 교문이 열립니다.';
- $('#objective').textContent=state.completed.length===9?'1층 교문 앞에서 마지막 결재를 받으세요.':'먹이사슬 자료 만들기 · 표식에서 E';updateClock();$('#bag-count').textContent=state.completed.length;
+ $('#objective').textContent=state.finished?'업무 끝! 학교를 둘러보거나 보건실에서 쉬어요.':state.completed.length===9?'1층 교문 앞에서 마지막 결재를 받으세요.':'먹이사슬 자료 만들기 · 표식에서 E';updateClock();$('#bag-count').textContent=state.completed.length;
  $('#floor-buttons').innerHTML=[5,4,3,2,1].map(f=>`<button class="${state.floor===f?'active':''}" data-rail-floor="${f}" aria-label="${f}층 지도">${f}<em>F</em></button>`).join('');$$('[data-rail-floor]').forEach(b=>b.onclick=()=>{if(busy())return;showMap()});
 }
 function updateSound(){$$('.sound-toggle').forEach(b=>{b.querySelector('span').textContent=state.settings.sound?'ON':'OFF';b.setAttribute('aria-label',state.settings.sound?'소리 끄기':'소리 켜기')})}
 function applyQuality(){const quality=state.settings.quality;if(visualTest.enabled)document.body.dataset.quality=quality;world?.setQuality?.(quality);renderer.setPixelRatio(renderer.isSoftware?(quality==='low'?.65:quality==='high'?1:.85):Math.min(devicePixelRatio,quality==='low'?1:quality==='high'?2:1.35));renderer.shadowMap.enabled=quality!=='low'&&!renderer.isSoftware;sun.shadow.mapSize.set(quality==='high'?2048:1024,quality==='high'?2048:1024);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}renderer.setSize(innerWidth,innerHeight);scene.traverse(o=>{if(o.material)o.material.needsUpdate=true})}
 async function copyPrompt(){const ok=await copyText(state.bossDraft);toast(ok?'프롬프트를 복사했습니다. AI 대화창에 붙여 넣고 실습을 시작하세요.':'복사가 제한되었습니다. 아래 프롬프트를 길게 눌러 복사해 주세요.')}
-function beginEnding(){rest.close();learning.close();channelUI.close();channels?.stop();messenger.reset();clearEncounter();arcade.close();missions.close();closePanel();mode='ending';$('#social-bar').hidden=true;endingTime=0;$('#hud').hidden=true;$('#ending-caption').hidden=false;world.setFloor(null);world.openGate();world.car.position.set(7,0,22);world.car.rotation.y=Math.PI/2;teacher.visible=false;player.setActive(false);audio.play('ending');persist()}
-function showCertificate(){mode='certificate';$('#ending-caption').hidden=true;$('#hud').hidden=true;player.setActive(false);
- showPanel('certificate',`<div class="certificate-header"><div class="seal">↗</div><div class="eyebrow" style="justify-content:center;margin-top:20px">OFFICIALLY OFF DUTY</div><h2 id="panel-title">퇴근 증명서</h2><p><strong>${esc(state.name.endsWith('선생님')?state.name:state.name+' 선생님')}</strong>,<br>업무 10건을 모두 처리하셨습니다.<br>이제 당신의 저녁으로 돌아가세요.</p></div><div class="departure-record ${overtimeMinutes(state)>0?'worked-late':'on-time'}"><div><small>퇴근 시각</small><strong>${departure()}</strong></div><div><small>야근 시간 · 16:40 기준</small><strong>${overtimeLabel(state)}</strong><span>${overtimeMinutes(state)>0?'경비 선생님도 퇴근을 응원합니다.':'정시 퇴근 성공! 오늘의 저녁을 지켰습니다.'}</span></div></div><div class="end-stats"><div><small>실제 플레이</small><strong>${time(state.elapsed)}</strong></div><div><small>모은 노하우</small><strong>10 / 10</strong></div></div><p class="notice">${esc(MissionData.STORY?.ending?.[0]||'오늘 배운 내용을 내일의 수업으로. 마지막 단계는 저장하고 퇴근하기입니다.')}</p><div class="actions"><button class="primary" id="download-certificate">퇴근 증명서 이미지 저장 ↓</button><button class="secondary" id="copy-final">내 프롬프트 복사 ↗</button></div><label for="final-prompt">실습에 바로 쓰는 나의 프롬프트</label><textarea id="final-prompt" readonly>${esc(state.bossDraft)}</textarea><p>아래 프롬프트는 내가 작성한 요청문입니다. 실제 교육자료 생성·실행·내용 검증은 이어지는 실습에서 진행해 주세요.</p><div class="bag-grid">${MISSIONS.map(cardMarkup).join('')}</div><div class="actions"><button class="secondary" id="end-home">첫 화면으로</button><button class="secondary" id="end-replay">다시 도전하기</button></div>`,true);
- $('#download-certificate').onclick=async()=>{try{await downloadCertificate(state,MISSIONS);toast('퇴근 증명서를 PNG 이미지로 저장했습니다.')}catch{toast('이미지 저장이 제한됩니다. 현재 화면을 캡처해 주세요.')}};$('#copy-final').onclick=copyPrompt;$('#end-home').onclick=home;$('#end-replay').onclick=newGame;
+function beginEnding(){freezeDeparture(state);certificateReturnPoint=null;rest.close();learning.close();channelUI.close();channels?.stop();messenger.reset();clearEncounter();arcade.close();missions.close();closePanel();mode='ending';$('#social-bar').hidden=true;endingTime=0;$('#hud').hidden=true;$('#ending-caption').hidden=false;world.setFloor(null);world.openGate();world.car.position.set(7,0,22);world.car.rotation.y=Math.PI/2;teacher.visible=false;player.setActive(false);audio.play('ending');persist()}
+function showCertificate(){
+ freezeDeparture(state);
+ if(mode==='play'){rest.close();certificateReturnPoint={floor:state.floor,position:{...player.position},yaw:player.yaw};}
+ const record=departureState(state);persist();
+ mode='certificate';$('#social-bar').hidden=true;messenger.suspend();$('#ending-caption').hidden=true;$('#hud').hidden=true;player.setActive(false);
+ showPanel('certificate',`<div class="certificate-header"><div class="seal">↗</div><div class="eyebrow" style="justify-content:center;margin-top:20px">OFFICIALLY OFF DUTY</div><h2 id="panel-title">퇴근 증명서</h2><p><strong>${esc(state.name.endsWith('선생님')?state.name:state.name+' 선생님')}</strong>,<br>업무 10건을 모두 처리하셨습니다.<br>이제 당신의 저녁을 즐기세요. 더 머물러도 좋아요.</p></div><div class="departure-record ${overtimeMinutes(record)>0?'worked-late':'on-time'}"><div><small>퇴근 시각</small><strong>${schoolTime(record)}</strong></div><div><small>야근 시간 · 16:40 기준</small><strong>${overtimeLabel(record)}</strong><span>${overtimeMinutes(record)>0?'경비 선생님도 퇴근을 응원합니다.':'정시 퇴근 성공! 오늘의 저녁을 지켰습니다.'}</span></div></div><div class="actions certificate-stay-actions"><button class="primary" id="end-stay">학교에 남아 놀기 ↗</button><button class="secondary" id="end-rest">✚ 보건실에서 쉬기</button></div><p class="notice">퇴근 시각과 야근 기록은 확정됐어요. 더 놀거나 쉬어도 이 증명서는 바뀌지 않아요.</p><div class="end-stats"><div><small>실제 플레이</small><strong>${time(actualPlaySeconds(record))}</strong></div><div><small>모은 노하우</small><strong>10 / 10</strong></div></div><p class="notice">${esc(MissionData.STORY?.ending?.[0]||'오늘 배운 내용을 내일의 수업으로. 마지막 단계는 저장하고 퇴근하기입니다.')}</p><div class="actions"><button class="primary" id="download-certificate">퇴근 증명서 이미지 저장 ↓</button><button class="secondary" id="copy-final">내 프롬프트 복사 ↗</button></div><label for="final-prompt">실습에 바로 쓰는 나의 프롬프트</label><textarea id="final-prompt" readonly>${esc(state.bossDraft)}</textarea><p>아래 프롬프트는 내가 작성한 요청문입니다. 실제 교육자료 생성·실행·내용 검증은 이어지는 실습에서 진행해 주세요.</p><div class="bag-grid">${MISSIONS.map(cardMarkup).join('')}</div><div class="actions"><button class="secondary" id="end-home">첫 화면으로</button><button class="secondary" id="end-replay">다시 도전하기</button></div>`,true);
+ $('#download-certificate').onclick=async()=>{try{await downloadCertificate(record,MISSIONS);toast('퇴근 증명서를 PNG 이미지로 저장했습니다.')}catch{toast('이미지 저장이 제한됩니다. 현재 화면을 캡처해 주세요.')}};$('#copy-final').onclick=copyPrompt;$('#end-home').onclick=home;$('#end-replay').onclick=newGame;$('#end-stay').onclick=()=>stayAtSchool();$('#end-rest').onclick=()=>stayAtSchool({nurseRoom:true});
 }
+function stayAtSchool({nurseRoom=false}={}){
+ if(!state.finished)return;
+ freezeDeparture(state);
+ const returnPoint=certificateReturnPoint;certificateReturnPoint=null;
+ pendingDestination=null;activeMission=null;tutorialTime=0;clearEncounter();
+ mode='play';closePanel();$('#home').hidden=true;$('#ending-caption').hidden=true;$('#tutorial').hidden=true;$('#hud').hidden=false;
+ document.body.classList.add('playing');teacher.visible=true;
+ state.floor=nurseRoom?1:returnPoint?.floor||1;world.setFloor(state.floor);world.setCompleted(state.completed);world.openGate();
+ player.setCameraMode(state.settings.cameraMode||'shoulder');player.setFloor(state.floor);
+ if(returnPoint&&!nurseRoom)player.teleport(returnPoint.position,{lookYaw:returnPoint.yaw});
+ player.resetCamera();player.setActive(true);updateHUD();persist();
+ onChannelChange(channels.getSnapshot());void channels.start();
+ if(nurseRoom){travelToRoom('nurse-room');lieDown('bed-1');}
+ else toast('업무 끝! 자유롭게 둘러보세요. 증명서는 노하우 가방이나 일시정지 메뉴에서 다시 볼 수 있어요.');
+}
+
 function init(){
  try{renderer=visualTest.renderer==='software'?new SoftwareRenderer({canvas}):new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});}catch(error){try{renderer=new SoftwareRenderer({canvas});console.info('WebGL unavailable: using Canvas 3D compatibility renderer.')}catch(fallbackError){$('#boot-error').hidden=false;$('#boot-error').innerHTML='<h2>3D 화면을 열 수 없어요.</h2><p>Chrome·Edge·웨일에서 하드웨어 가속을 켜고 다시 실행해 주세요. 이 게임은 WebGL을 사용하는 3D 게임입니다.</p>';console.error(error,fallbackError);return}}
  document.body.dataset.renderer=renderer.isSoftware?'software':'webgl';canvas.dataset.renderer=document.body.dataset.renderer;
@@ -239,7 +259,7 @@ function init(){
  teacher=world.createTeacher('#d9bc75',{avatarId:state.avatarId});scene.add(teacher);teacher.visible=false;
  player=createPlayer({camera,canvas,model:teacher,world,onMove:()=>{}});player.setActive(false);world.setFloor(null);applyQuality();updateSound();$('#continue-game').hidden=!loadGame();
  presence=createPresence({scene,world,camera,endpoint:PRESENCE_ENDPOINT,getLocal:()=>({x:player.position.x,y:restingBed?teacher.position.y:player.position.y,z:player.position.z,yaw:teacher.rotation.y,floor:state.floor,action:rest.isOpen()?'rest':learning.isOpen()?'learn':activeMission?'mission':player.moving?'walk':'idle',bedId:restingBed?.id,avatarId:state.avatarId,restPosture:rest.getPosture()}),onStatus:onPresenceStatus,onGreetingSent:greetingSent,onGreeting:({nickname,text})=>{if(!busy())toast(`${nickname}: ${text}`)}});
- channels=createChannels({presence,endpoint:PRESENCE_ENDPOINT,getNickname:()=>state.name,onChange:onChannelChange,onBeforeSwitch:()=>{if(rest.isOpen())rest.close();}});
+ channels=createChannels({presence,endpoint:PRESENCE_ENDPOINT,getNickname:()=>state.name,onChange:onChannelChange,onBeforeSwitch:({automatic})=>{if(rest.isOpen()&&!automatic)rest.close();}});
  window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();persist();toast('그래픽 연결이 잠시 끊겼어요. 새로고침하면 저장한 진행으로 이어 할 수 있습니다.')});
  requestAnimationFrame(loop);
@@ -265,7 +285,7 @@ function loop(ms){requestAnimationFrame(loop);if(visualTest.enabled)document.bod
   const active=!busy();player.setActive(active);player.update(dt,active);
   if(restingBed)player.updateRestCamera(restingBed,dt);
   world.updateCrowd(dt,{position:player.position,floor:state.floor,enabled:active,onEvent:onCrowdEvent});
-  if(active&&!encounter){npcSpeechClock-=elapsedDt;const near=world.interactables.find(i=>i.missionId&&Math.hypot(player.position.x-i.x,player.position.z-i.z)<2.6);if(near&&(lastSpokenNPC!==near.missionId||npcSpeechClock<=0)){lastSpokenNPC=near.missionId;npcSpeechClock=14;const line=chooseNPCLine(near.missionId,Math.random,previousNPCLines.get(near.missionId));previousNPCLines.set(near.missionId,line);feedback.speak(()=>world.getNPCAnchor(near.missionId),line);}}if(!document.hidden&&overlay.hidden&&!rest.isOpen()&&!learning.isOpen()&&!channelUI.isOpen()&&!messenger.isArchiveOpen()&&(!arcade.isOpen()||arcade.isPlaying())){state.elapsed+=elapsedDt;$('#playtime').textContent=time(state.elapsed);updateClock();saveClock+=dt;if(saveClock>4){persist();saveClock=0}}
+  if(active&&!encounter){npcSpeechClock-=elapsedDt;const near=world.interactables.find(i=>i.missionId&&Math.hypot(player.position.x-i.x,player.position.z-i.z)<2.6);if(near&&(lastSpokenNPC!==near.missionId||npcSpeechClock<=0)){lastSpokenNPC=near.missionId;npcSpeechClock=14;const line=chooseNPCLine(near.missionId,Math.random,previousNPCLines.get(near.missionId));previousNPCLines.set(near.missionId,line);feedback.speak(()=>world.getNPCAnchor(near.missionId),line);}}if(!document.hidden&&overlay.hidden&&!learning.isOpen()&&!channelUI.isOpen()&&!messenger.isArchiveOpen()&&(!arcade.isOpen()||arcade.isPlaying())){advanceSchoolClock(state,elapsedDt,{resting:rest.isOpen()});$('#playtime').textContent=time(actualPlaySeconds(state));updateClock();saveClock+=elapsedDt;if(saveClock>4){persist();saveClock=0}}
   if(tutorialTime>0&&active){tutorialTime-=elapsedDt;$('#tutorial-time').textContent=Math.ceil(tutorialTime)+'초';if(tutorialTime<20){$('#tutorial-title').textContent='화면을 드래그해 둘러보세요';$('#tutorial-text').textContent='빛나는 업무 표식에 가까이 가서 E를 눌러 보세요.'}if(tutorialTime<10){$('#tutorial-title').textContent='길을 잃으면 M · 힌트는 H';$('#tutorial-text').textContent='지도에서 바로 이동할 수 있어요. 모은 카드는 J로 다시 봅니다.'}if(tutorialTime<=0)$('#tutorial').hidden=true}updateInteraction();
  }else if(mode==='ending'){
   if(camera.fov!==42){camera.fov=42;camera.updateProjectionMatrix();}
@@ -309,6 +329,7 @@ window.addEventListener('pagehide',persist);document.addEventListener('visibilit
 function runVisualTestRoute(){
  if(!visualTest.enabled||!renderer)return;
  // Read-only diagnostics exist solely inside the explicit localhost QA route.
+ window.__visualSession=()=>({mode,elapsed:state.elapsed,playElapsed:actualPlaySeconds(state),penalty:state.penalty,finished:state.finished,completed:[...state.completed],floor:state.floor,resting:rest.isOpen(),position:{...player.position},departureRecord:state.departureRecord?{...state.departureRecord}:null,schoolMinutes:schoolMinutes(state),departureMinutes:schoolMinutes(departureState(state))});
  window.__visualEnvironment=()=>{
   const textures=new Set(),patches=[];
   scene.traverse(node=>{if(node.name==='window-sun-patch')patches.push(node);for(const material of Array.isArray(node.material)?node.material:[node.material])if(material)for(const key of ['map','normalMap','roughnessMap','alphaMap','emissiveMap'])if(material[key])textures.add(material[key]);});
@@ -332,14 +353,14 @@ function runVisualTestRoute(){
    travelToRoom('nurse-room');lieDown(visualTest.bed);
    if(visualTest.posture==='side')document.querySelector('[data-rest-pose="side"]')?.click();
   }else if(visualTest.scene==='ending'||visualTest.scene==='certificate'){
-   state.completed=Array.from({length:10},(_,index)=>index+1);state.finished=true;state.elapsed=1110;state.penalty=5;
+   state.completed=Array.from({length:10},(_,index)=>index+1);state.finished=true;state.elapsed=1110;state.playElapsed=1110;state.penalty=5;
    state.bossDraft='초등학교 5학년이 생물 카드를 놓고 먹이사슬 화살표를 연결하는 웹자료를 만들어 줘. 글씨는 크게, 틀리면 이유를 보여 주고 HTML 파일 하나로 만들어 줘.';
    world.setCompleted(state.completed);beginEnding();
    if(visualTest.scene==='certificate'){camera.position.set(31,15,37);camera.lookAt(8,2,20);renderWorld();showCertificate();}
   }
  }
  if(visualTest.clock!==null&&visualTest.clock!==undefined&&mode!=='home'){
-  state.elapsed=Math.max(0,(visualTest.clock-16*60)*60/2);updateClock();
+  state.elapsed=Math.max(0,(visualTest.clock-16*60)*60/2);state.playElapsed=state.elapsed;updateClock();
   const sky=daylight(visualTest.clock);goldenAmount=sky.golden;nightAmount=sky.night;
  }
  document.body.dataset.gameMode=mode;

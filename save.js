@@ -18,10 +18,12 @@ export function freshState(name = '퇴근희망 교사') {
     avatarId: normalizeAvatarId(),
     completed: [],
     elapsed: 0,
+    playElapsed: 0,
     penalty: 0,
     floor: 1,
     bossDraft: '',
     finished: false,
+    departureRecord: null,
     honorsRunId: null,
     beginnerLearned: false,
     settings: { quality: 'medium', sound: false, relaxed: false, cameraMode: 'shoulder' }
@@ -38,11 +40,26 @@ function normalize(value) {
   const firstNineDone = Array.from({ length: 9 }, (_, i) => i + 1).every(id => completed.includes(id));
   state.completed = completed.filter(id => id !== 10 || firstNineDone).sort((a, b) => a - b);
   state.elapsed = number(value.elapsed, 0, 0, 604800);
+  state.playElapsed = Math.max(state.elapsed, number(value.playElapsed, state.elapsed, 0, 604800));
   state.penalty = number(value.penalty, 0, 0, 360);
   state.floor = Math.round(number(value.floor, 1, 1, 5));
   state.bossDraft = typeof value.bossDraft === 'string' ? value.bossDraft : '';
   state.beginnerLearned = value.beginnerLearned === true;
   state.finished = value.finished === true && state.completed.length === 10;
+  if (state.finished) {
+    // Completed saves made before free roaming have no snapshot. Their current
+    // timing is already the departure record, so capture it during migration.
+    const candidate = value.departureRecord;
+    const record = candidate && !Array.isArray(candidate) && ['elapsed', 'playElapsed', 'penalty'].every(key =>
+      typeof candidate[key] === 'number' && Number.isFinite(candidate[key]) && candidate[key] >= 0)
+      ? candidate : state;
+    const elapsed = number(record.elapsed, state.elapsed, 0, state.elapsed);
+    state.departureRecord = Object.freeze({
+      elapsed,
+      playElapsed: Math.max(elapsed, number(record.playElapsed, state.playElapsed, 0, state.playElapsed)),
+      penalty: number(record.penalty, state.penalty, 0, state.penalty)
+    });
+  }
   state.honorsRunId = typeof value.honorsRunId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.honorsRunId) ? value.honorsRunId.toLowerCase() : null;
   const settings = value.settings || {};
   state.settings = {

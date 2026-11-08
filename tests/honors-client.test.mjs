@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {createHonors,HONORS_HEARTBEAT_MS,HONORS_REFRESH_MS,honorsDate} from '../honors.js';
 import {freshState,saveGame,loadGame} from '../save.js';
+import {freezeDeparture} from '../school-clock.js';
 import {ANALYTICS_STORAGE_KEY} from '../analytics.js';
 
 const NOW=Date.parse('2026-11-06T03:00:00Z');
@@ -117,7 +118,7 @@ test('saved run identity survives resume, new games start unassigned and old mal
 
 test('actual mission success hook calls finish only for mission10 and does not report on resume',()=>{
  const source=readFileSync(new URL('../game.js',import.meta.url),'utf8');const from=source.indexOf('function recordSuccess('),to=source.indexOf('\nfunction ',from+1);
- const calls=[],state=freshState('기록');const context={state,world:{setCompleted(){}},audio:{play(){}},messenger:{notifyMissionSuccess(){}},persist(){},updateHUD(){},honors:{finish:()=>calls.push('finish'),sync:()=>calls.push('sync')}};
+ const calls=[],state=freshState('기록');const context={state,freezeDeparture,world:{setCompleted(){}},audio:{play(){}},messenger:{notifyMissionSuccess(){}},persist(){},updateHUD(){},honors:{finish:()=>calls.push('finish'),sync:()=>calls.push('sync')}};
  vm.createContext(context);vm.runInContext(source.slice(from,to),context);context.recordSuccess(1,{});assert.deepEqual(calls,['sync']);context.recordSuccess(10,{});assert.deepEqual(calls,['sync','finish']);
  const start=source.slice(source.indexOf('function start('),source.indexOf('\nfunction home('));assert.ok(!start.includes('.finish('));assert.match(start,/if\(state.finished\)showCertificate\(\);\s*else \{honors\?\.startRun\(\)/);
 });

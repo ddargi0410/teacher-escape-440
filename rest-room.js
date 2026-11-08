@@ -1,11 +1,12 @@
 /** Rest ambience: synthesized nature sounds and the supplied local piano recording. */
-export function createRestRoom({audio, getBed, onEnter, onLeave, onPosture, onView, onResetView}) {
+export function createRestRoom({audio, getBed, onEnter, onLeave, onPosture, onView, onResetView, getSchoolTime = () => '--:--'}) {
   const strip=document.createElement('section');
   strip.className='rest-room';strip.hidden=true;
   strip.setAttribute('aria-label','보건실 휴식');
-  strip.innerHTML=`<div class="rest-room-heading"><span class="rest-room-symbol" aria-hidden="true">☁</span><div><small>보건실 · 호수가 보이는 쉼터</small><h2>오늘도 버텼다.</h2><p>창밖을 보고, 천천히 숨을 쉬어요.</p></div><span class="rest-room-clock" aria-label="쉬고 있는 시간">00:00</span></div><div class="rest-room-controls"><div class="rest-room-sounds" role="group" aria-label="휴식 소리"><button type="button" data-rest-sound="forest" aria-pressed="true">♧ 숲소리</button><button type="button" data-rest-sound="music" aria-pressed="false">♫ 잔잔한 음악</button><button type="button" data-rest-sound="moktak" aria-pressed="false">◎ 목탁</button><button type="button" data-rest-sound="silent" aria-pressed="false">♪ 무음</button></div><button type="button" class="rest-room-leave">일어나기 ↗</button></div><div class="rest-room-poses" role="group" aria-label="눕는 자세와 시선"><span>편한 자세</span><button type="button" data-rest-pose="back" aria-pressed="true">☁ 바로 눕기</button><button type="button" data-rest-pose="side" aria-pressed="false">☾ 옆으로 눕기</button><button type="button" class="rest-room-eyes" data-rest-view aria-pressed="false" title="누운 내 눈높이에서 둘러보기">👀 내 눈으로</button></div><span class="rest-room-status" role="status" aria-live="polite">숲소리로 쉬는 중</span><p class="rest-room-look"><span>↔ 화면을 드래그하면 누운 채로 360° 둘러볼 수 있어요 · 방향키 · 휠로 거리</span><button type="button" class="rest-room-reset-view">↺ 시선 처음으로</button></p>`;
+  strip.innerHTML=`<div class="rest-room-heading"><span class="rest-room-symbol" aria-hidden="true">☁</span><div><small>보건실 · 학교 시계 <b class="rest-school-time">--:--</b> · ¼ 속도</small><h2>오늘도 버텼다.</h2><p>쉬는 동안 학교 시계는 ¼ 속도로 흘러요.</p></div><span class="rest-room-clock" aria-label="쉬고 있는 시간">00:00</span></div><div class="rest-room-controls"><div class="rest-room-sounds" role="group" aria-label="휴식 소리"><button type="button" data-rest-sound="forest" aria-pressed="true">♧ 숲소리</button><button type="button" data-rest-sound="music" aria-pressed="false">♫ 잔잔한 음악</button><button type="button" data-rest-sound="moktak" aria-pressed="false">◎ 목탁</button><button type="button" data-rest-sound="silent" aria-pressed="false">♪ 무음</button></div><button type="button" class="rest-room-leave">일어나기 ↗</button></div><div class="rest-room-poses" role="group" aria-label="눕는 자세와 시선"><span>편한 자세</span><button type="button" data-rest-pose="back" aria-pressed="true">☁ 바로 눕기</button><button type="button" data-rest-pose="side" aria-pressed="false">☾ 옆으로 눕기</button><button type="button" class="rest-room-eyes" data-rest-view aria-pressed="false" title="누운 내 눈높이에서 둘러보기">👀 내 눈으로</button></div><span class="rest-room-status" role="status" aria-live="polite">숲소리로 쉬는 중</span><p class="rest-room-look"><span>↔ 화면을 드래그하면 누운 채로 360° 둘러볼 수 있어요 · 방향키 · 휠로 거리</span><button type="button" class="rest-room-reset-view">↺ 시선 처음으로</button></p>`;
   document.body.append(strip);
   const clock=strip.querySelector('.rest-room-clock');
+  const schoolClock=strip.querySelector('.rest-school-time');
   const status=strip.querySelector('.rest-room-status');
   const soundButtons=[...strip.querySelectorAll('[data-rest-sound]')];
   const leaveButton=strip.querySelector('.rest-room-leave');
@@ -155,7 +156,7 @@ export function createRestRoom({audio, getBed, onEnter, onLeave, onPosture, onVi
     open(bedId){
       if(disposed||bed)return false;
       const target=getBed?.(bedId);if(!target?.bedPose||!target?.exitPoint)return false;
-      bed=target;elapsed=0;clock.textContent='00:00';refreshButtons();
+      bed=target;elapsed=0;clock.textContent='00:00';schoolClock.textContent=getSchoolTime();refreshButtons();
       strip.hidden=false;document.body.classList.add('resting');
       onEnter?.(bed,posture);onView?.(bed,view);void startAudio();return true;
     },
@@ -163,6 +164,7 @@ export function createRestRoom({audio, getBed, onEnter, onLeave, onPosture, onVi
     update(dt){
       if(!bed||disposed||document.hidden)return;
       const step=Number.isFinite(dt)?Math.max(0,Math.min(dt,1)):0;
+      schoolClock.textContent=getSchoolTime();
       elapsed+=step;clock.textContent=`${String(Math.floor(elapsed/60)).padStart(2,'0')}:${String(Math.floor(elapsed%60)).padStart(2,'0')}`;
       if(!master||starting||selected==='silent')return;
       if(audio.context?.state!=='running')return;

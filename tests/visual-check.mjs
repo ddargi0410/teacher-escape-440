@@ -22,9 +22,10 @@ const root=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const outDir=process.env.VISUAL_OUTPUT?path.resolve(root,process.env.VISUAL_OUTPUT):path.join(root,'screenshots');
 const viewports=[{name:'laptop-1366x820',width:1366,height:820},{name:'tablet-1024x768',width:1024,height:768}];
 const focus=process.env.VISUAL_FOCUS==='environment';
+const stayFocus=process.env.VISUAL_FOCUS==='stay';
 const extraScenes=[['classroom','교실 칠판·교탁·사물함·창문'],['research','학년 연구실 책상과 생활 소품'],['office','교무실 업무 공간과 가구'],['copier','복사기와 주변 서류·용지'],['exterior','학교 외벽·창틀·입구와 주변 풍경'],['broadcast','방송실 모니터·카메라·방송 장비'],['window','투명 유리창 너머 한국식 아파트와 실제 바깥 공간']];
 const mime={'.html':'text/html;charset=utf-8','.js':'text/javascript;charset=utf-8','.mjs':'text/javascript;charset=utf-8','.css':'text/css;charset=utf-8','.json':'application/json','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg','.svg':'image/svg+xml','.mp3':'audio/mpeg','.woff2':'font/woff2'};
-const report={scope:focus?'environment-focus':'full',startedAt:new Date().toISOString(),browser:'Chromium',launchArgs:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'],renderer:null,preflight:{},scenes:[],errors:[]};
+const report={scope:focus?'environment-focus':stayFocus?'postgame-focus':'full',startedAt:new Date().toISOString(),browser:'Chromium',launchArgs:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'],renderer:null,preflight:{},scenes:[],behavior:[],errors:[]};
 let browser,server;
 const fail=(message,details={})=>{report.errors.push({message,...details});console.error(message);};
 
@@ -132,6 +133,71 @@ async function go(page,base,query=''){
   await page.waitForFunction(()=>document.body.dataset.renderer==='webgl'||document.body.dataset.renderer==='software');
   await settle(page);
 }
+const session=page=>page.evaluate(()=>window.__visualSession());
+async function checkClockRate(page,viewport,label,rate){
+  const before=await session(page);await page.waitForTimeout(2000);const after=await session(page);
+  const realSeconds=after.playElapsed-before.playElapsed,clockSeconds=after.elapsed-before.elapsed;
+  assert(realSeconds>.25,`${label}: actual play timer did not advance`);
+  assert(Math.abs(clockSeconds-realSeconds*rate)<1e-6,`${label}: school-clock rate ${clockSeconds/realSeconds}, expected ${rate}`);
+  report.behavior.push({viewport:viewport.name,check:label,realSeconds,clockSeconds,rate,passed:true});
+  return after;
+}
+async function checkHiddenRest(page,viewport){
+  // Simulate the browser visibility event while retaining the real render loop.
+  // Only this isolated localhost test document is modified; no game hook writes state.
+  await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));});
+  try{
+    const before=await session(page);await page.waitForTimeout(1000);const after=await session(page);
+    assert.equal(after.elapsed,before.elapsed,'Hidden infirmary must pause the school clock');
+    assert.equal(after.playElapsed,before.playElapsed,'Hidden infirmary must pause actual play time');
+    report.behavior.push({viewport:viewport.name,check:'hidden-infirmary-pauses-clock',passed:true});
+  }finally{await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));});}
+}
+async function checkPostgame(page,viewport){
+  const certificate=await session(page);
+  const recordText=await page.locator('.departure-record').innerText();
+  assert(certificate.finished&&certificate.completed.length===10,'Certificate fixture must contain all completed missions');
+  assert(certificate.departureRecord,'Certificate must freeze the completed run');
+  await page.locator('#end-stay').evaluate(e=>e.scrollIntoView({block:'center'}));
+  await capture(page,viewport,'certificate-choices','증명서 저장·학교에 남기·보건실에서 쉬기 선택');
+  await page.locator('#end-stay').click();
+  await page.waitForFunction(()=>window.__visualSession?.().mode==='play');await settle(page);
+  let current=await session(page);
+  assert.equal(current.floor,1,'Stay in school should return to the first floor');
+  assert(current.finished&&current.completed.length===10,'Staying must retain all completed missions');
+  assert(await page.locator('#hud').isVisible(),'Staying must restore the HUD');
+  await capture(page,viewport,'after-certificate-hub','퇴근 기록을 유지한 채 학교에 돌아온 캐릭터와 자유시간 HUD');
+  const position=current.position;
+  await page.keyboard.down('w');await page.waitForTimeout(1500);await page.keyboard.up('w');
+  current=await session(page);
+  assert(Math.hypot(current.position.x-position.x,current.position.z-position.z)>.02,'Post-certificate player cannot walk');
+  await checkClockRate(page,viewport,'postgame-normal-clock',1);
+  await page.locator('#nurse-button').click();await page.keyboard.press('e');
+  await page.waitForFunction(()=>window.__visualSession?.().resting===true);
+  await checkClockRate(page,viewport,'postgame-infirmary-quarter-speed',.25);
+  await checkHiddenRest(page,viewport);
+  await capture(page,viewport,'after-certificate-rest','퇴근 후 다시 누운 보건실과 천천히 흐르는 시계');
+  assert.deepEqual((await session(page)).departureRecord,certificate.departureRecord,'Resting must not change departure record');
+  await page.locator('.rest-room-leave').click();await page.locator('#pause-button').click();
+  const paused=await session(page);await page.waitForTimeout(1000);const stillPaused=await session(page);
+  assert.equal(stillPaused.elapsed,paused.elapsed,'Pause menu must pause the school clock');
+  assert.equal(stillPaused.playElapsed,paused.playElapsed,'Pause menu must pause actual play time');
+  report.behavior.push({viewport:viewport.name,check:'pause-menu-stops-clock',passed:true});
+  await page.locator('#review-certificate').click();
+  await page.getByRole('heading',{name:'퇴근 증명서',exact:true}).waitFor();
+  assert.equal(await page.locator('.departure-record').innerText(),recordText,'Reopened certificate changed its departure/overtime labels');
+  assert.deepEqual((await session(page)).departureRecord,certificate.departureRecord,'Reopened certificate changed completed-run timing');
+  await capture(page,viewport,'certificate-revisited','자유시간 뒤 다시 연 증명서: 처음 퇴근 시각과 야근 시간 유지');
+  await page.locator('#end-rest').click();await page.waitForFunction(()=>window.__visualSession?.().resting===true);
+  current=await session(page);
+  assert.equal(current.mode,'play','Direct certificate-to-rest must stay in free-roam mode');
+  assert(current.finished&&current.completed.length===10,'Direct rest must not restart missions');
+  assert.deepEqual(current.departureRecord,certificate.departureRecord,'Direct rest changed departure record');
+  await page.locator('.rest-room-leave').click();await page.locator('#bag-button').click();
+  await page.locator('#bag-certificate').click();
+  assert.equal(await page.locator('.departure-record').innerText(),recordText,'Certificate reopened from the bag changed its departure labels');
+  report.behavior.push({viewport:viewport.name,check:'certificate-revisit-and-direct-rest',passed:true});
+}
 async function runViewport(base,viewport){
   await mkdir(path.join(outDir,viewport.name),{recursive:true});
   for(const name of await readdir(path.join(outDir,viewport.name)))if(name.endsWith('.png'))await unlink(path.join(outDir,viewport.name,name));
@@ -145,7 +211,7 @@ async function runViewport(base,viewport){
   page.on('console',message=>{if(message.type()==='error')fail(`Console error: ${message.text()}`,{viewport:viewport.name,url:page.url()});});
   page.on('pageerror',error=>fail(`Page error: ${error.message}`,{viewport:viewport.name,url:page.url()}));
   try{
-    if(!focus){
+    if(!focus&&!stayFocus){
     await go(page,base);await capture(page,viewport,'01-home','시작 화면과 학교 전경');
     await page.locator('#start').click();await page.locator('#teacher-name').fill('화면검사 선생님');
     await page.locator('.character-choice').filter({has:page.locator('input[value="sunny"]')}).click();
@@ -177,6 +243,7 @@ async function runViewport(base,viewport){
       await page.waitForTimeout(900);
       await capture(page,viewport,`rest-${posture}`,`보건실 ${posture==='back'?'바로':'옆으로'} 눕기·침대·화분·호수`);
       if(posture==='back'){
+        if(!focus)await checkClockRate(page,viewport,'unfinished-infirmary-quarter-speed',.25);
         // Use the real drag control: a half-turn is independent of slow software-GPU FPS.
         await page.mouse.move(viewport.width*.5,viewport.height*.38);await page.mouse.down();await page.mouse.move(viewport.width*.5-Math.PI/.005,viewport.height*.38,{steps:12});await page.mouse.up();await page.waitForTimeout(1200);
         await capture(page,viewport,'rest-reverse','누운 채 반대쪽으로 돌아본 머리·목·어깨 연결');
@@ -184,6 +251,7 @@ async function runViewport(base,viewport){
         await capture(page,viewport,'rest-eyes','베개 눈높이에서 본 보건실 천장·창문·옆 침대');
       }
     }
+    if(!stayFocus){
     for(const [scene,description] of extraScenes){await go(page,base,`&scene=${scene}`);if(scene==='copier'){await page.mouse.move(viewport.width*.5,viewport.height*.42);await page.mouse.down();await page.mouse.move(viewport.width*.5,viewport.height*.55,{steps:5});await page.mouse.up();}await capture(page,viewport,`room-${scene}`,description);}
     for(const scene of ['window','exterior']){
       await go(page,base,`&scene=${scene}&clock=17:40`);await page.waitForTimeout(900);
@@ -193,6 +261,7 @@ async function runViewport(base,viewport){
       await page.goto(`${base}/tests/character-visual-fixture.html?test=1&view=${angle}${report.renderer==='software'?'&renderer=software':''}`,{waitUntil:'networkidle'});
       await page.waitForFunction(()=>document.body.dataset.fixtureReady==='true');
       await capture(page,viewport,`characters-${angle}`,angle==='front'?'여섯 실제 3D 캐릭터 정면: 눈과 앞머리 확인':'여섯 실제 3D 캐릭터 45°: 얼굴·귀·목·옆머리 확인');
+    }
     }
     if(!focus){
     await go(page,base,'&scene=ending');await page.waitForTimeout(800);
@@ -208,6 +277,7 @@ async function runViewport(base,viewport){
     const exportColours=new Set();for(let i=0;i<certificatePng.data.length;i+=400){const d=certificatePng.data;exportColours.add((d[i]>>3)*1024+(d[i+1]>>3)*32+(d[i+2]>>3));}
     assert(exportColours.size>8,'certificate PNG is a blank or single-colour image');
     report.scenes.push({viewport:viewport.name,name:'certificate-export',description:'실제 저장 버튼으로 내려받은 퇴근 증명서 PNG',path:`screenshots/${viewport.name}/certificate-export.png`,width:certificatePng.width,height:certificatePng.height});
+    await checkPostgame(page,viewport);
     }
   }catch(error){fail(`${viewport.name}: ${error.stack||error}`);await page.screenshot({path:path.join(outDir,viewport.name,'FAILURE.png')}).catch(()=>{});}
   finally{await context.close().catch(()=>{});}
@@ -215,6 +285,11 @@ async function runViewport(base,viewport){
 
 try{
   await mkdir(outDir,{recursive:true});const base=await startServer();
+  if(process.platform==='linux'){
+    const {stdout}=await promisify(execFile)('fc-list',[':lang=ko','family']);
+    assert(stdout.trim(),'Korean font unavailable: install a Korean font (for example Nanum Gothic or Noto Sans CJK) and run fc-cache before visual QA.');
+    report.koreanFonts=[...new Set(stdout.trim().split('\n'))];
+  }
   browser=await chromium.launch(await browserOptions());report.browserVersion=browser.version();
   const probe=await browser.newPage();
   report.preflight=await probe.evaluate(()=>{const canvas=document.createElement('canvas');const gl=canvas.getContext('webgl2')||canvas.getContext('webgl');const ext=gl?.getExtension('WEBGL_debug_renderer_info');return {webgl:!!gl,renderer:ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):null};});
@@ -225,7 +300,7 @@ try{
 }catch(error){fail(`Browser visual check could not finish: ${error.stack||error}`);}
 finally{
   await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));
-  report.finishedAt=new Date().toISOString();report.expectedCaptures=viewports.length*((focus?8:38)+extraScenes.length);report.passed=report.errors.length===0&&report.scenes.length===report.expectedCaptures;
+  report.finishedAt=new Date().toISOString();report.expectedCaptures=viewports.length*(focus?8+extraScenes.length:stayFocus?11:42+extraScenes.length);report.passed=report.errors.length===0&&report.scenes.length===report.expectedCaptures;
   await mkdir(outDir,{recursive:true});await writeFile(path.join(outDir,'visual-report.json'),JSON.stringify(report,null,2)+'\n');
   console.log(`Visual check ${report.passed?'PASS':'FAIL'}: ${report.scenes.length} captures, ${report.errors.length} errors. See screenshots/visual-report.json.`);
   if(!report.passed)process.exitCode=1;

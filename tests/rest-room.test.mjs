@@ -23,7 +23,7 @@ function context(){
     createGain:()=>node('gain'),createOscillator:()=>node('oscillator'),createBufferSource:()=>node('buffer-source'),createBiquadFilter:()=>node('filter'),
     createBuffer:(channels,length,sampleRate)=>({sampleRate,getChannelData:()=>new Float32Array(length)})};
 }
-function fixture({defer=false}={}){
+function fixture({defer=false,getSchoolTime}={}){
   const doc=createDocument();doc.body=doc.createElement('body');const events=new Map();
   const media=[],createElement=doc.createElement.bind(doc);
   doc.createElement=tag=>{
@@ -44,7 +44,7 @@ function fixture({defer=false}={}){
   const pending=defer?new Promise(r=>{resolve=r;}):Promise.resolve(true);
   const audio={context:ctx,enabled:false,master:{kind:'effects-master'},unlock(){unlocks++;return pending;}};
   const entered=[],left=[],poses=[];const bed={id:'bed-1',bedPose:{x:1,y:.8,z:2},exitPoint:{x:3,y:0,z:2}};
-  const rest=createRestRoom({audio,getBed:id=>id==='bed-1'?bed:null,onEnter:b=>entered.push(b),onLeave:b=>left.push(b),onPosture:(b,pose)=>poses.push({bed:b.id,pose})});
+  const rest=createRestRoom({audio,getSchoolTime,getBed:id=>id==='bed-1'?bed:null,onEnter:b=>entered.push(b),onLeave:b=>left.push(b),onPosture:(b,pose)=>poses.push({bed:b.id,pose})});
   const strip=doc.body.querySelector('.rest-room');
   return {rest,doc,ctx,audio,bed,entered,left,poses,strip,events,resolve,media,get unlocks(){return unlocks;},
     sound:value=>strip.querySelector(`[data-rest-sound="${value}"]`).click(),
@@ -134,4 +134,14 @@ test('back and side choices notify the world without restarting the rest session
   assert.equal(f.rest.getPosture(),'side');assert.deepEqual(f.poses,[{bed:'bed-1',pose:'side'}]);
   assert.equal(f.strip.querySelector('.rest-room-clock').textContent,'00:01');assert.equal(f.entered.length,1);
   f.strip.querySelector('[data-rest-pose="back"]').click();assert.equal(f.rest.getPosture(),'back');assert.equal(f.poses.length,2);f.rest.dispose();
+});
+
+
+test('rest tray shows the school time independently of its real rest stopwatch',()=>{
+  let school='16:39';const f=fixture({getSchoolTime:()=>school});f.rest.open('bed-1');
+  assert.equal(f.strip.querySelector('.rest-school-time').textContent,'16:39');
+  school='16:40';f.rest.update(1);
+  assert.equal(f.strip.querySelector('.rest-school-time').textContent,'16:40');
+  assert.equal(f.strip.querySelector('.rest-room-clock').textContent,'00:01');
+  f.rest.dispose();
 });
