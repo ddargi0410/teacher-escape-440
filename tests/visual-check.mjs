@@ -20,12 +20,16 @@ import {PNG} from 'pngjs';
 
 const root=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const outDir=process.env.VISUAL_OUTPUT?path.resolve(root,process.env.VISUAL_OUTPUT):path.join(root,'screenshots');
-const viewports=[{name:'laptop-1366x820',width:1366,height:820},{name:'tablet-1024x768',width:1024,height:768}];
+// VISUAL_VIEWPORT=laptop or tablet runs one size (slow machines can split the run in two).
+const viewports=[{name:'laptop-1366x820',width:1366,height:820},{name:'tablet-1024x768',width:1024,height:768}].filter(viewport=>!process.env.VISUAL_VIEWPORT||viewport.name.startsWith(process.env.VISUAL_VIEWPORT));
+const reportName=process.env.VISUAL_VIEWPORT?`visual-report-${process.env.VISUAL_VIEWPORT}.json`:'visual-report.json';
 const focus=process.env.VISUAL_FOCUS==='environment';
 const stayFocus=process.env.VISUAL_FOCUS==='stay';
+const yardFocus=process.env.VISUAL_FOCUS==='yard';
+const YARD_CAPTURES=10;
 const extraScenes=[['classroom','교실 칠판·교탁·사물함·창문'],['research','학년 연구실 책상과 생활 소품'],['office','교무실 업무 공간과 가구'],['copier','복사기와 주변 서류·용지'],['exterior','학교 외벽·창틀·입구와 주변 풍경'],['broadcast','방송실 모니터·카메라·방송 장비'],['window','투명 유리창 너머 한국식 아파트와 실제 바깥 공간']];
 const mime={'.html':'text/html;charset=utf-8','.js':'text/javascript;charset=utf-8','.mjs':'text/javascript;charset=utf-8','.css':'text/css;charset=utf-8','.json':'application/json','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg','.svg':'image/svg+xml','.mp3':'audio/mpeg','.woff2':'font/woff2'};
-const report={scope:focus?'environment-focus':stayFocus?'postgame-focus':'full',startedAt:new Date().toISOString(),browser:'Chromium',launchArgs:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'],renderer:null,preflight:{},scenes:[],behavior:[],errors:[]};
+const report={scope:focus?'environment-focus':stayFocus?'postgame-focus':yardFocus?'yard-focus':'full',startedAt:new Date().toISOString(),browser:'Chromium',launchArgs:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'],renderer:null,preflight:{},scenes:[],behavior:[],errors:[]};
 let browser,server;
 const fail=(message,details={})=>{report.errors.push({message,...details});console.error(message);};
 
@@ -198,6 +202,39 @@ async function checkPostgame(page,viewport){
   assert.equal(await page.locator('.departure-record').innerText(),recordText,'Certificate reopened from the bag changed its departure labels');
   report.behavior.push({viewport:viewport.name,check:'certificate-revisit-and-direct-rest',passed:true});
 }
+async function checkYard(page,base,viewport){
+  await go(page,base,'&scene=yard-gate');await page.waitForTimeout(500);
+  await capture(page,viewport,'yard-gate','1층 앞마당 동쪽의 ‘운동장 가는 길’ 아치와 화살표');
+  await go(page,base,'&scene=yard');await page.waitForFunction(()=>window.__visualYardReady===true);await page.waitForTimeout(500);
+  let current=await session(page);
+  assert.equal(current.zone,'yard','Yard scene must place the player in the playground zone');
+  await capture(page,viewport,'yard-arrival','중앙현관 밖 운동장 도착: 마사토·트랙·골대·구령대·스탠드');
+  await page.keyboard.press('Space');
+  const jumped=await page.waitForFunction(()=>window.__visualSession?.().jumping===true,null,{timeout:1500}).then(()=>true,()=>false);
+  assert(jumped,'Space must make the teacher jump');
+  await page.waitForFunction(()=>window.__visualSession?.().jumping===false,null,{timeout:15000});
+  report.behavior.push({viewport:viewport.name,check:'space-jump',passed:true});
+  // Walk back toward the school: the central entrance returns to the school plaza.
+  await page.keyboard.down('s');
+  const returned=await page.waitForFunction(()=>window.__visualSession?.().zone==='school',null,{timeout:20000}).then(()=>true,()=>false);
+  await page.keyboard.up('s');
+  assert(returned,'Walking into the central entrance must return to the school');
+  current=await session(page);
+  assert(current.position.x>8&&current.position.x<14&&Math.abs(current.position.z-13.5)<1.5,`Returning from the yard must place the player at the plaza arch: ${JSON.stringify(current.position)}`);
+  report.behavior.push({viewport:viewport.name,check:'yard-entrance-returns-to-school',passed:true});
+  await go(page,base,'&scene=yard-school');await page.waitForFunction(()=>window.__visualYardReady===true);await page.waitForTimeout(500);
+  await capture(page,viewport,'yard-school-side','운동장에서 본 학교 외벽·중앙현관·수돗가·느티나무');
+  await go(page,base,'&scene=yard&clock=17:40');await page.waitForFunction(()=>window.__visualYardReady===true);await page.waitForTimeout(900);
+  await capture(page,viewport,'yard-night','밤 운동장: 조명탑·달·별, 느티나무 꼬마전구');
+  for(const [scene,label,panel] of [['faucet','수돗가 스테인리스 수도꼭지와 시멘트 개수대','오늘의 퀴즈 문제와 세 가지 보기'],['farm','생태 밭 입구·나무 울타리·팻말과 커피나무들','내 커피나무 성장 단계와 나무 찾기'],['zelkova','느티나무·벤치와 매달린 쪽지','쪽지 읽기·반응 버튼']]){
+    await go(page,base,`&scene=${scene}`);await page.waitForFunction(()=>window.__visualYardReady===true);await page.waitForTimeout(500);
+    await capture(page,viewport,scene,label);
+    await page.keyboard.press('e');await page.locator('#app-overlay:not([hidden]) .panel').waitFor();await page.waitForTimeout(300);
+    const heading=await page.locator('#panel-title').innerText();
+    assert(heading.trim(),`${scene}: panel opened without a heading`);
+    await capture(page,viewport,`${scene}-panel`,panel);
+  }
+}
 async function runViewport(base,viewport){
   await mkdir(path.join(outDir,viewport.name),{recursive:true});
   for(const name of await readdir(path.join(outDir,viewport.name)))if(name.endsWith('.png'))await unlink(path.join(outDir,viewport.name,name));
@@ -211,13 +248,14 @@ async function runViewport(base,viewport){
   page.on('console',message=>{if(message.type()==='error')fail(`Console error: ${message.text()}`,{viewport:viewport.name,url:page.url()});});
   page.on('pageerror',error=>fail(`Page error: ${error.message}`,{viewport:viewport.name,url:page.url()}));
   try{
+    if(yardFocus){await checkYard(page,base,viewport);return;}
     if(!focus&&!stayFocus){
     await go(page,base);await capture(page,viewport,'01-home','시작 화면과 학교 전경');
-    await page.locator('#start').click();await page.locator('#teacher-name').fill('화면검사 선생님');
+    await page.locator('#start').click();await page.locator('#teacher-name').fill('화면검사 선생님');await page.locator('#teacher-code').fill('1234');
     await page.locator('.character-choice').filter({has:page.locator('input[value="sunny"]')}).click();
     assert(await page.locator('.character-choice input[value="sunny"]').isChecked(),'selected character radio did not update');
-    await capture(page,viewport,'02-check-in','닉네임 입력과 여섯 캐릭터 선택');
-    await page.locator('#confirm-start').click();await page.locator('#begin-walking').click();
+    await capture(page,viewport,'02-check-in','닉네임·출근 코드 입력과 여섯 캐릭터 선택');
+    await page.locator('#confirm-start').click();await page.locator('#begin-walking').click({timeout:10000});
     await capture(page,viewport,'03-first-floor','1층 허브의 플레이어와 가까운 3인칭 시점');
     await page.keyboard.down('w');await page.waitForTimeout(2000);await page.keyboard.up('w');
     await capture(page,viewport,'04-walk','W로 2초 이동한 뒤의 건물·플레이어·HUD');
@@ -263,6 +301,7 @@ async function runViewport(base,viewport){
       await capture(page,viewport,`characters-${angle}`,angle==='front'?'여섯 실제 3D 캐릭터 정면: 눈과 앞머리 확인':'여섯 실제 3D 캐릭터 45°: 얼굴·귀·목·옆머리 확인');
     }
     }
+    if(!focus&&!stayFocus)await checkYard(page,base,viewport);
     if(!focus){
     await go(page,base,'&scene=ending');await page.waitForTimeout(800);
     await capture(page,viewport,'ending','실제 퇴근 엔딩 장면');
@@ -300,8 +339,8 @@ try{
 }catch(error){fail(`Browser visual check could not finish: ${error.stack||error}`);}
 finally{
   await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));
-  report.finishedAt=new Date().toISOString();report.expectedCaptures=viewports.length*(focus?8+extraScenes.length:stayFocus?11:42+extraScenes.length);report.passed=report.errors.length===0&&report.scenes.length===report.expectedCaptures;
-  await mkdir(outDir,{recursive:true});await writeFile(path.join(outDir,'visual-report.json'),JSON.stringify(report,null,2)+'\n');
-  console.log(`Visual check ${report.passed?'PASS':'FAIL'}: ${report.scenes.length} captures, ${report.errors.length} errors. See screenshots/visual-report.json.`);
+  report.finishedAt=new Date().toISOString();report.expectedCaptures=viewports.length*(yardFocus?YARD_CAPTURES:focus?8+extraScenes.length:stayFocus?11:42+YARD_CAPTURES+extraScenes.length);report.passed=report.errors.length===0&&report.scenes.length===report.expectedCaptures;
+  await mkdir(outDir,{recursive:true});await writeFile(path.join(outDir,reportName),JSON.stringify(report,null,2)+'\n');
+  console.log(`Visual check ${report.passed?'PASS':'FAIL'}: ${report.scenes.length} captures, ${report.errors.length} errors. See ${path.relative(root,path.join(outDir,reportName))}.`);
   if(!report.passed)process.exitCode=1;
 }

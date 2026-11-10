@@ -37,7 +37,7 @@ function harness(){
     audio:{play:noop},persist:()=>calls.saves++,closePanel:()=>calls.closes++,toast:noop,
     routeViaStairs:destination=>{calls.stairs.push({...destination});return false;},
     createSchoolMessenger:settings=>{options=settings;return {};},
-    busy:()=>context.isBusy
+    busy:()=>context.isBusy,exitYardSilently:noop
   };
   vm.createContext(context);
   vm.runInContext(['changeFloor','travelToMission','jumpToMission'].map(functionSource).join('\n')+'\n'+messengerSource,context);

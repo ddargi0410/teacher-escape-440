@@ -51,6 +51,10 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   let stickPointer = null;
   let currentFloor = 5;
   let disposed = false;
+  // A small hop: Space on keyboards, the jump button on tablets.
+  const JUMP = Object.freeze({ velocity: 5.4, gravity: 17 });
+  let hop = 0;
+  let hopVelocity = 0;
 
   const listen = (target, name, handler, options) => {
     if (!target) return;
@@ -193,30 +197,32 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
   function updateCamera(dt, snap = false) {
     focusStarted = false;
     restingCameraId = null;
+    // The eyes rise with a jump; the shoulder camera follows more gently.
+    const baseY = position.y + hop * (firstPerson ? 1 : .55);
     const fov = firstPerson ? 68 : cameraMode==='overview' ? OVERVIEW_CAMERA.fov : WALK_CAMERA.fov;
     if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
     if (firstPerson) {
-      desiredCamera.set(position.x, position.y + 1.66, position.z);
+      desiredCamera.set(position.x, baseY + 1.66, position.z);
       lookTarget.set(
         position.x - Math.sin(orbitYaw) * Math.cos(firstPitch),
-        position.y + 1.66 + Math.sin(firstPitch),
+        baseY + 1.66 + Math.sin(firstPitch),
         position.z - Math.cos(orbitYaw) * Math.cos(firstPitch)
       );
     } else if(cameraMode==='overview') {
-      lookTarget.set(position.x,position.y+OVERVIEW_CAMERA.targetHeight,position.z);
+      lookTarget.set(position.x,baseY+OVERVIEW_CAMERA.targetHeight,position.z);
       desiredCamera.set(
         position.x+Math.sin(orbitYaw)*Math.cos(elevation)*cameraDistance,
-        position.y+OVERVIEW_CAMERA.targetHeight+Math.sin(elevation)*cameraDistance,
+        baseY+OVERVIEW_CAMERA.targetHeight+Math.sin(elevation)*cameraDistance,
         position.z+Math.cos(orbitYaw)*Math.cos(elevation)*cameraDistance
       );
     } else {
       const distance = cameraDistance;
       const rightX = Math.cos(orbitYaw), rightZ = -Math.sin(orbitYaw);
-      cameraOrigin.set(position.x, position.y + WALK_CAMERA.targetHeight, position.z);
-      lookTarget.set(position.x + rightX * .28, position.y + WALK_CAMERA.targetHeight, position.z + rightZ * .28);
+      cameraOrigin.set(position.x, baseY + WALK_CAMERA.targetHeight, position.z);
+      lookTarget.set(position.x + rightX * .28, baseY + WALK_CAMERA.targetHeight, position.z + rightZ * .28);
       desiredCamera.set(
         position.x + rightX * WALK_CAMERA.shoulder + Math.sin(orbitYaw) * Math.cos(elevation) * distance,
-        position.y + WALK_CAMERA.targetHeight + Math.sin(elevation) * distance,
+        baseY + WALK_CAMERA.targetHeight + Math.sin(elevation) * distance,
         position.z + rightZ * WALK_CAMERA.shoulder + Math.cos(orbitYaw) * Math.cos(elevation) * distance
       );
       keepCameraClear(cameraOrigin, desiredCamera, getCameraColliders(), desiredCamera);
@@ -334,6 +340,7 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
 
   function teleport(point, { preserveCamera = false, lookYaw } = {}) {
     clearInput();
+    hop = 0; hopVelocity = 0;
     if (Number.isFinite(lookYaw)) orbitYaw = lookYaw;
     position.set(Number(point.x) || 0, Number(point.y) || 0, Number(point.z) || 0);
     model?.position.copy(position);
@@ -372,6 +379,11 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
     const nextZ = THREE.MathUtils.clamp(position.z + dz, bounds.minZ + 0.35, bounds.maxZ - 0.35);
     if (!blocked(position.x, nextZ)) position.z = nextZ;
     moving = Math.hypot(position.x - previousX, position.z - previousZ) > 0.0001;
+    if (hop > 0 || hopVelocity > 0) {
+      hopVelocity -= JUMP.gravity * dt;
+      hop = Math.max(0, hop + hopVelocity * dt);
+      if (hop === 0) hopVelocity = 0;
+    }
     if (moving) {
       moved = true;
       teacherYaw = Math.atan2(position.x - previousX, position.z - previousZ);
@@ -380,15 +392,17 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
     }
     if (model) {
       model.position.copy(position);
+      model.position.y += hop;
       const delta = Math.atan2(Math.sin(teacherYaw - model.rotation.y), Math.cos(teacherYaw - model.rotation.y));
       model.rotation.y += delta * Math.min(1, dt * 14);
       const legs = model.userData?.legs;
+      const airborne = hop > 0.02;
       if (Array.isArray(legs)) legs.forEach((leg, index) => {
-        if (leg?.rotation) leg.rotation.x = moving ? Math.sin(gait + index * Math.PI) * 0.45 : 0;
+        if (leg?.rotation) leg.rotation.x = airborne ? (index ? .35 : -.25) : moving ? Math.sin(gait + index * Math.PI) * 0.45 : 0;
       });
       const arms=model.userData?.arms;
       if(Array.isArray(arms)) arms.forEach((arm,index)=>{
-        if(arm?.rotation)arm.rotation.x=moving?-Math.sin(gait+index*Math.PI)*0.35:0;
+        if(arm?.rotation)arm.rotation.x=airborne?-1.1:moving?-Math.sin(gait+index*Math.PI)*0.35:0;
       });
     }
     updateCamera(dt);
@@ -398,6 +412,8 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
     const wasEnabled = enabled;
     enabled = !!value;
     if (enabled) return;
+    // Opening a panel mid-jump lands the teacher instead of freezing in the air.
+    if (hop > 0 || hopVelocity > 0) { hop = 0; hopVelocity = 0; if (model && !model.userData?.restingBed) model.position.y = position.y; }
     // Lying down keeps its own look input; only walking input is released.
     if (restingCameraId) { if (wasEnabled || stickPointer !== null) { resetStick(); moving = false; } return; }
     if (wasEnabled || keys.size || drag || stickPointer !== null) clearInput();
@@ -479,6 +495,15 @@ export function createPlayer({ camera, canvas, model, world, onMove }) {
     },
     teleport,
     update,
+    /** Starts a hop when standing on the ground. Returns false while busy or airborne. */
+    jump() {
+      if (disposed || !enabled || restingCameraId || document.hidden || hop > 0 || hopVelocity > 0) return false;
+      hopVelocity = JUMP.velocity;
+      hop = 0.0001;
+      return true;
+    },
+    get airborne() { return hop > 0; },
+    get height() { return hop; },
     setActive,
     setView,
     setCameraMode,
