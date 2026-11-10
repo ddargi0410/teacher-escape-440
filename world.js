@@ -9,6 +9,7 @@ import {createApartmentNeighborhood} from './apartment-neighborhood.js?v=2026110
 import {createNurseRoom} from './nurse-room-world.js?v=20261106-environment2';
 import {createOvertimeWorld} from './overtime-world.js?v=20261106-environment2';
 import {createHallOfFameWorld} from './hall-of-fame-world.js?v=20261106-cute1';
+import {createPlayground} from './playground-world.js?v=20261110-yard1';
 
 // A small, entirely procedural school. No downloaded models or textures.
 const COLORS = {
@@ -47,7 +48,7 @@ export function createWorld(scene) {
   const materials = new Map(), geometries = new Map();
   const immersiveMaterials=createImmersiveMaterials();
   let nurseRoom=null;
-  let currentFloor = null, completed = new Set(), gateOpen = false, gateAngle = 0,cameraMode='shoulder',quality='medium';
+  let currentFloor = null, completed = new Set(), gateOpen = false, gateAngle = 0,cameraMode='shoulder',quality='medium',zone='school';
   const viewPosition={x:Infinity,y:Infinity,z:Infinity};
   const daylightState={golden:0,night:0};
 
@@ -202,6 +203,15 @@ export function createWorld(scene) {
   box(car,0,1.18,.84,1.46,.48,.025,'#9cc3dd');box(car,0,1.18,-1.13,1.46,.48,.025,'#9cc3dd');
   for(const side of [-1,1]){box(car,side*.84,1.18,-.15,.035,.47,1.65,'#a8cbe6');for(const zz of [-1.12,1.15]){const wh=cyl(car,side*.96,.4,zz,.36,.36,.2,'#33363b',12);wh.rotation.z=Math.PI/2;}}
   box(car,0,.65,1.87,1.15,.2,.03,'#ece7c3');box(car,0,.65,-1.87,1.1,.13,.03,'#c56c59');sign(car,'퇴 근',0,.43,1.9,.65,.2,'#2f3e5c','#f1e8cf');
+
+  // East side of the front yard: the way out to the playground zone.
+  for(const z of [12.15,14.85])box(exterior,13.45,1.4,z,.3,2.8,.3,'#2c956c');
+  box(exterior,13.45,2.95,13.5,.32,.42,3.02,'#2c956c');
+  const yardSign=sign(exterior,'운동장 가는 길 →',13.27,2.95,13.5,2.9,.4,'#ffffff','#2c956c');yardSign.rotation.y=-Math.PI/2;
+  const yardSignBack=sign(exterior,'← 운동장',13.63,2.95,13.5,2.9,.4,'#ffffff','#2c956c');yardSignBack.rotation.y=Math.PI/2;
+  for(const x of [3.6,6.1,8.6,11.1]){
+    const chevron=mesh(exterior,geo('CircleGeometry',.42,3),mat('#2c956c'),x,.13,13.55,false);chevron.rotation.x=-Math.PI/2;chevron.rotation.z=-Math.PI/2;chevron.name='yard-path-arrow';
+  }
 
   // The five floors have independent interior geometry and collision data.
   for(let floor=1;floor<=5;floor++){
@@ -429,6 +439,10 @@ export function createWorld(scene) {
   const aerial=cyl(roof,10,1.1,4,.035,.035,2.2,'#e6dbc1',6);box(roof,10,2,4,1.1,.06,.06,'#e6dbc1');
 
   const crowd=createCrowd({floors,questObjects,teacher,mesh,geo,mat});
+  // The playground is its own zone, drawn only while the teacher is outside.
+  const playground=createPlayground({parent:world,helpers:{box,cyl,mesh,geo,mat,ball,sign,badge},surfaces:immersiveMaterials});
+  for(const z of [12.15,14.85])collide(floors.get(1).colliders,13.45,z,.32,.32);
+  floors.get(1).interactables.push({id:'yard-gate',kind:'yard-gate',x:12.75,y:0,z:13.5,label:'운동장 가는 길 · 수돗가·생태 밭·느티나무',floor:1});
   for(const actor of crowd.actors){
     if(actor.kind==='npc'&&actor.missionId!==10){
       const center=actor.route[0].x;for(const point of actor.route)point.x=center+(point.x-center)*.65;
@@ -505,14 +519,16 @@ export function createWorld(scene) {
   }
   function setFloor(floor) {
     currentFloor=Number.isInteger(floor)&&floor>=1&&floor<=5?floor:null;
-    roof.visible=cameraMode!=='overview'||currentFloor===null;
+    const yard=zone==='yard'&&currentFloor===1;
+    exterior.visible=!yard;playground.setVisible(yard);
+    roof.visible=!yard&&(cameraMode!=='overview'||currentFloor===null);
     for(const q of animated){q.number.position.y=q.base+(cameraMode==='overview'?3.23:2.68);q.number.scale.set(cameraMode==='overview'?.75:.46,cameraMode==='overview'?.75:.46,1);q.crystal.visible=cameraMode==='overview'&&!q.done;}
-    if(nurseRoom?.root)nurseRoom.root.visible=currentFloor===null||currentFloor===1;
+    if(nurseRoom?.root)nurseRoom.root.visible=!yard&&(currentFloor===null||currentFloor===1);
     nurseRoom?.setCameraMode?.(cameraMode);updateNurseBackdrop();schoolDetails.setCameraMode(cameraMode);
     // Ground-floor monuments need no draw calls while exploring upper floors.
-    for(const statue of Object.values(hallOfFame.statues))statue.visible=currentFloor===null||currentFloor===1;
+    for(const statue of Object.values(hallOfFame.statues))statue.visible=!yard&&(currentFloor===null||currentFloor===1);
     for(const [n,f] of floors){
-      f.root.visible=cameraMode!=='overview'||currentFloor===null||n<=currentFloor;
+      f.root.visible=!yard&&(cameraMode!=='overview'||currentFloor===null||n<=currentFloor);
       f.inside.visible=currentFloor===n;
       f.front.visible=cameraMode!=='overview'||currentFloor!==n;
       f.cap.visible=cameraMode!=='overview'||currentFloor!==n;
@@ -549,6 +565,13 @@ export function createWorld(scene) {
     root:world, car, specialRooms,
     dimensions:Object.freeze({classroom:{width:8,depth:9},corridorWidth:3,ceilingHeight:3}),
     setCameraMode(mode){cameraMode=['shoulder','first','overview'].includes(mode)?mode:'shoulder';setFloor(currentFloor);},
+    playground,
+    get zone(){return zone==='yard'&&currentFloor===1?'yard':'school';},
+    /** 'yard' shows only the playground; 'school' restores the building. */
+    setZone(value){zone=value==='yard'?'yard':'school';setFloor(zone==='yard'?1:currentFloor);return api;},
+    /** Walking under the east arch of the front yard. */
+    wantsYard(p){return zone==='school'&&currentFloor===1&&!!p&&p.x>12.75&&p.z>12.35&&p.z<14.65;},
+    updateYard(dt,time,position){playground.update(dt,time,position);},
     setViewPosition(position){viewPosition.x=position.x;viewPosition.y=position.y;viewPosition.z=position.z;updateNurseBackdrop();},
     setQuality(value){quality=['low','medium','high'].includes(value)?value:'medium';schoolDetails.setQuality?.(quality);},
     notifyMessage:schoolProps.notifyMessage,
@@ -578,7 +601,7 @@ export function createWorld(scene) {
     setDaylight({golden=0,night=0,window}={}){
       daylightState.golden=golden;daylightState.night=night;
       if(window?.isColor)nurseRoom?.setSkyTint?.(window);
-      apartments.setDaylight({night,window});schoolDetails.setDaylight({night});
+      apartments.setDaylight({night,window});schoolDetails.setDaylight({night});playground.setDaylight({night,window});
       for(const {material,day} of exteriorTints.values()){material.color.copy(day);if(window?.isColor)material.color.multiply(window);}
       const dark=Math.max(0,Math.min(1,(night-.35)/.5));
       nightSky.visible=dark>0;moon.material.opacity=dark;nightSky.getObjectByName('stars').material.opacity=dark*.9;
@@ -588,6 +611,7 @@ export function createWorld(scene) {
     get daylight(){return {...daylightState};},
     /** True when the camera stands in the open air of the school yard. */
     isOutdoors(p){
+      if(zone==='yard'&&currentFloor===1)return true;
       if(!p||currentFloor!==1||cameraMode==='overview')return false;
       if(p.y>3.4)return true;
       if(Math.abs(p.x)>26.2||p.z<-8.1)return true;
@@ -599,13 +623,14 @@ export function createWorld(scene) {
     get floor(){return currentFloor;},
     get colliders(){
       if(currentFloor===null)return [];
+      if(zone==='yard'&&currentFloor===1)return playground.colliders;
       const list=currentFloor===1?[...floors.get(1).colliders,...hallOfFame.colliders]:floors.get(currentFloor).colliders;
       if(currentFloor===1&&!gateOpen)return [...list,{x:0,z:16,w:26.6,d:.25}];
       return list;
     },
-    get cameraColliders(){return currentFloor===1&&!gateOpen?closedGateCameraEnvelope:cameraEnvelopes.get(currentFloor)||[];},
-    get interactables(){return currentFloor===null?[]:floors.get(currentFloor).interactables;},
-    get bounds(){return currentFloor===1?{minX:-25.7,maxX:25.7,minZ:-7.7,maxZ:26}:{minX:-13.6,maxX:13.6,minZ:-7.7,maxZ:5.55};},
+    get cameraColliders(){if(zone==='yard'&&currentFloor===1)return playground.cameraColliders;return currentFloor===1&&!gateOpen?closedGateCameraEnvelope:cameraEnvelopes.get(currentFloor)||[];},
+    get interactables(){if(currentFloor===null)return [];if(zone==='yard'&&currentFloor===1)return playground.interactables;return floors.get(currentFloor).interactables;},
+    get bounds(){if(zone==='yard'&&currentFloor===1)return playground.bounds;return currentFloor===1?{minX:-25.7,maxX:25.7,minZ:-7.7,maxZ:26}:{minX:-13.6,maxX:13.6,minZ:-7.7,maxZ:5.55};},
     // The first-floor entrance canopy spans x=-3.6..3.6; start beside it.
     spawn(floor){return {x:floor===1?-5:0,y:(floor-1)*4,z:4.65};},
     createTeacher(color='#e6bf83',identity={}){const holder=new THREE.Group();return teacher(holder,0,0,0,color,false,identity);},

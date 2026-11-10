@@ -21,6 +21,7 @@ export function freshState(name = '퇴근희망 교사') {
     playElapsed: 0,
     penalty: 0,
     floor: 1,
+    zone: 'school',
     bossDraft: '',
     finished: false,
     departureRecord: null,
@@ -43,6 +44,8 @@ function normalize(value) {
   state.playElapsed = Math.max(state.elapsed, number(value.playElapsed, state.elapsed, 0, 604800));
   state.penalty = number(value.penalty, 0, 0, 360);
   state.floor = Math.round(number(value.floor, 1, 1, 5));
+  // The playground is reached from the first floor only.
+  state.zone = value.zone === 'yard' && state.floor === 1 ? 'yard' : 'school';
   state.bossDraft = typeof value.bossDraft === 'string' ? value.bossDraft : '';
   state.beginnerLearned = value.beginnerLearned === true;
   state.finished = value.finished === true && state.completed.length === 10;

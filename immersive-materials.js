@@ -11,7 +11,9 @@ export function createImmersiveMaterials(){
     const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
     const c=canvas.getContext('2d');
     let seed=74291;const random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
-    const bases={plaster:'#eeeae0',ceiling:'#e7e5dc',terrazzo:'#dcdbd7',wood:'#bd966e',paint:'#b9cdb7'};
+    const bases={plaster:'#eeeae0',ceiling:'#e7e5dc',terrazzo:'#dcdbd7',wood:'#bd966e',paint:'#b9cdb7',sand:'#d8c29a',soil:'#7a5a40',concrete:'#c9c6bf',rubber:'#d9775a'};
+    // Outdoor grounds for the playground: 마사토 grains, garden soil, cement and safety mats.
+    const grains={sand:['#c4ab7f','#e8d6b3','#b49a6f','#f0e2c4'],soil:['#5f432e','#8d6a4c','#4c3424','#9b7a58'],concrete:['#b5b2ab','#dddad3','#a9a69f','#d2cfc8'],rubber:['#c4614a','#ea8d6d','#b8553f','#f0a283']};
     c.fillStyle=tint||bases[kind]||bases.plaster;c.fillRect(0,0,256,256);
     if(kind==='wood'){
       for(let n=0;n<190;n++){
@@ -25,6 +27,12 @@ export function createImmersiveMaterials(){
         const offset=row%2?64:0;
         for(let x=offset;x<256;x+=128){c.beginPath();c.moveTo(x,y);c.lineTo(x,y+32);c.stroke();}
       }
+    }else if(grains[kind]){
+      for(let n=0;n<4200;n++){
+        const x=random()*256,y=random()*256,size=kind==='soil'?.8+random()*2.6:.5+random()*1.7;
+        c.fillStyle=grains[kind][n%4];c.globalAlpha=kind==='concrete'?.55:.8;c.fillRect(x,y,size,size*(.6+random()*.8));
+      }
+      c.globalAlpha=1;
     }else{
       for(let n=0;n<(kind==='terrazzo'?2200:3300);n++){
         const x=random()*256,y=random()*256;
@@ -38,7 +46,7 @@ export function createImmersiveMaterials(){
       }
     }
     const map=new THREE.CanvasTexture(canvas);map.name='school-'+kind;map.colorSpace=THREE.SRGBColorSpace;
-    map.wrapS=map.wrapT=THREE.RepeatWrapping;map.name='school-'+key;const repeat=kind==='ceiling'?8:kind==='wood'?3:4;map.repeat.set(repeat,repeat);
+    map.wrapS=map.wrapT=THREE.RepeatWrapping;map.name='school-'+key;const repeat=kind==='ceiling'?8:kind==='wood'?3:grains[kind]?16:4;map.repeat.set(repeat,repeat);
     const result=new THREE.MeshStandardMaterial({color:'#ffffff',map,roughness:kind==='wood'?.73:.93,metalness:0});
     result.name='school-'+key;cache.set(key,result);return result;
   }

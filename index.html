@@ -13,19 +13,20 @@
 <link rel="stylesheet" href="./hall-of-fame.css?v=20261106-honors1">
 <link rel="stylesheet" href="./character-picker.css?v=20261106-immersive1">
 <link rel="stylesheet" href="./immersive.css?v=20261106-immersive1">
+<link rel="stylesheet" href="./yard.css?v=20261110-yard1">
 </head>
 <body>
 <canvas id="world" aria-label="노을 진 퇴근초등학교 3D 탐험 화면"></canvas>
 <div class="scene-shade" aria-hidden="true"></div>
 <main id="home">
  <header class="topbar"><a class="brand" href="./"><span class="brand-icon">↗</span><span>AFTER SCHOOL<br><small>교사를 위한 작은 탈출</small></span></a><div class="top-actions"><button class="text-button" id="home-guide">게임 안내 <span>↗</span></button><button class="sound-toggle" aria-label="소리 켜기">♫ <span>OFF</span></button></div></header>
- <section class="hero"><div class="hero-copy"><div class="eyebrow"><i></i> TEACHERS ONLY · VIBE CODING ADVENTURE</div><p class="hero-kicker">4시 40분의 기적</p><h1>수업은 끝났다.<br>이제 <em>퇴근</em>을<br>배울 시간.</h1><p class="hero-description">“선생님, 퇴근 전에 잠깐만요.”<br>오늘도 그 한마디에 교문이 잠겼다.<br><strong>바이브 코딩으로 10개의 업무를 끝내고 탈출하라!</strong></p><div class="hero-buttons"><button id="start" class="primary large">출근… 아니, 게임 시작 <span>↗</span></button><button id="continue-game" class="secondary" hidden>이어서 퇴근하기</button></div><div class="play-meta"><span>◷ 약 15–20분</span><span>⌘ PC · 태블릿</span><span>♧ 코딩 몰라도 OK</span></div></div>
+ <section class="hero"><div class="hero-copy"><div class="eyebrow"><i></i> TEACHERS ONLY · VIBE CODING ADVENTURE</div><p class="hero-kicker">4시 40분의 기적</p><h1>수업은 끝났다.<br>이제 <em>퇴근</em>을<br>배울 시간.</h1><p class="hero-description">“선생님, 퇴근 전에 잠깐만요.”<br>오늘도 그 한마디에 교문이 잠겼다.<br><strong>바이브 코딩으로 10개의 업무를 끝내고 탈출하라!</strong></p><div class="hero-buttons"><button id="start" class="primary large">출근… 아니, 게임 시작 <span>↗</span></button><button id="continue-game" class="secondary" hidden>이어서 퇴근하기</button><button id="remote-continue" class="secondary">출근 코드로 이어하기</button></div><div class="play-meta"><span>◷ 약 15–20분</span><span>⌘ PC · 태블릿</span><span>♧ 코딩 몰라도 OK</span></div></div>
  <div class="scene-caption"><span class="status-dot"></span> 퇴근초등학교 <small>5층 · 오늘도 정상 근무 중</small></div>
  <div class="message-slip"><span class="slip-pin"></span><small>교내 메신저 · 16:00</small><p>선생님, 간단한 거예요.<br><b>오늘 중으로만 부탁드려요 ^^</b></p><span>읽음 1 · 답장할 기력 0</span></div>
  <div class="scene-orbit">실시간 3D 학교 <span>✦</span> 선생님들의 퇴근을 응원합니다</div>
  </section>
  <footer class="home-footer"><div><b>10</b><span>가지 미션<br><strong>업무를 끝내면 지식이 남는다</strong></span></div><div><b>05</b><span>층의 학교<br><strong>교실부터 최종 보스 교문까지</strong></span></div><div><b>∞</b><span>번의 재도전<br><strong>틀려도 괜찮아요. 야근만 늘어요.</strong></span></div><p>오늘의 학습 목표<br><strong>AI에게 잘 부탁하고, 제대로 확인하기.</strong></p></footer>
- <div class="analytics-notice"><nav class="analytics-links" aria-label="방문 기록 메뉴"><a href="https://teacher-escape-presence.hodumandu.chatgpt.site/stats" target="_blank" rel="noopener">방문 통계 ↗</a><a class="developer-link" href="https://teacher-escape-presence.hodumandu.chatgpt.site/admin" target="_blank" rel="noopener">개발자용 ↗</a></nav><span>닉네임·방문 기록은 90일간 보관해요. 오늘의 명예의 전당 1위 닉네임과 기록은 공개돼요.</span></div>
+ <div class="analytics-notice"><nav class="analytics-links" aria-label="방문 기록 메뉴"><a href="https://teacher-escape-presence.hodumandu.chatgpt.site/stats" target="_blank" rel="noopener">방문 통계 ↗</a><a class="developer-link" href="https://teacher-escape-presence.hodumandu.chatgpt.site/admin" target="_blank" rel="noopener">개발자용 ↗</a></nav><span>닉네임·방문 기록은 90일간 보관해요. 오늘의 명예의 전당 1위 닉네임과 기록은 공개돼요. 운동장 커피나무·쪽지는 마지막 출근 후 1년간 보관하고, 일시정지 메뉴의 ‘내 운동장 기록 지우기’로 직접 지울 수 있어요.</span></div>
 </main>
 <section id="hud" hidden aria-label="게임 상태">
  <div class="hud-top"><div class="location-panel"><span class="eyebrow">AFTER SCHOOL · <b id="floor-label">5F</b></span><h2 id="location-title">퇴근초등학교</h2><p id="objective">빛나는 업무 표식을 찾아가세요.</p></div><div class="progress-panel"><div><span>퇴근 결재</span><b id="progress-label">0 / 10</b></div><div id="progress-stamps"></div><small id="progress-caption">아직 퇴근할 수 없습니다.</small></div><div class="clock-panel"><span>현재 시각 <small id="clock-status">목표 16:40 · 끝내면 바로 퇴근</small></span><strong id="departure" title="학교 시계는 평소 실제 시간의 2배, 보건실에 누우면 평소의 ¼ 속도로 흐릅니다.">16:00</strong><div><span class="playtime-label">플레이 <b id="playtime">00:00</b></span><button id="pause-button" aria-label="일시정지">Ⅱ</button></div></div></div>
@@ -34,18 +35,18 @@
  <div id="interaction" hidden><span class="interact-icon">✦</span><div><small id="interact-kind">업무 접수</small><b id="interact-label"></b></div><button id="interact-button"><kbd>E</kbd> 살펴보기</button></div>
  <div class="hud-bottom"><div class="hud-tools"><button id="bag-button">▣ <span>노하우 가방</span> <kbd>J</kbd><b id="bag-count">0</b></button><button id="hint-button">✧ <span>힌트</span> <kbd>H</kbd></button></div><button id="view-button" class="view-button" title="어깨높이 · 내려다보기 · 1인칭 / 0 키로 전환">시점 · 어깨높이</button><div class="keyboard-guide"><span><kbd>WASD</kbd> 걷기</span><span>드래그 · 시선 / 휠 · 거리</span><span><kbd>0</kbd> 시점</span><span><kbd>Shift</kbd> 빠르게</span></div><button class="sound-toggle" aria-label="소리 켜기">♫ <span>OFF</span></button></div>
  <div id="corridor-tools"><button id="talk-button">💬 한마디 <kbd>F</kbd></button><button id="whistle-button"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="vertical-align:middle"><path d="M14 6h7v6h-6a6 6 0 1 1-6-6h2v4h3V6Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="9" cy="12" r="2" fill="currentColor"/></svg> 호루라기 <kbd>G</kbd></button></div>
- <div id="campus-tools"><button id="messenger-button" aria-label="받은 쪽지 보관함">✉ 보관함 <b id="messenger-count">0</b></button><button id="learning-button">🌱 배움터</button><button id="nurse-button">✚ 보건실</button><button id="together-button">♧ <span id="social-connect-label">채널</span></button></div>
+ <div id="campus-tools"><button id="messenger-button" aria-label="받은 쪽지 보관함">✉ 보관함 <b id="messenger-count">0</b></button><button id="learning-button">🌱 배움터</button><button id="nurse-button">✚ 보건실</button><button id="yard-button">🏃 운동장</button><button id="together-button">♧ <span id="social-connect-label">채널</span></button></div>
 
- <div id="touch-controls"><div id="joystick" aria-label="이동 조이스틱"><span id="joystick-knob"></span></div><div class="touch-guide">왼쪽 이동 · 화면 드래그로 시선</div><button id="touch-interact" aria-label="가까운 대상 조사">E<br>조사</button></div>
+ <div id="touch-controls"><div id="joystick" aria-label="이동 조이스틱"><span id="joystick-knob"></span></div><div class="touch-guide">왼쪽 이동 · 화면 드래그로 시선</div><button id="touch-interact" aria-label="가까운 대상 조사">E<br>조사</button><button id="touch-jump" aria-label="점프">점프<br>⤒</button></div>
 </section>
 <div id="social-bar" hidden><span id="social-feedback" role="status" aria-live="polite" aria-atomic="true" hidden></span><span class="social-identity"><strong id="social-nickname"></strong><span id="social-status">채널 연결 중…</span></span><button id="social-channel-button" aria-label="다른 채널로 이동">채널 이동 ↗</button><button data-greet="wave" title="인사하기" aria-label="동료에게 인사하기">👋</button><button data-greet="cheer" title="응원하기" aria-label="동료 응원하기">🙌</button><button data-greet="thanks" title="고마워요" aria-label="동료에게 감사하기">💚</button></div>
 <div id="toast" role="status" aria-live="polite"></div>
-<div id="app-overlay" class="overlay" hidden></div><div id="mission-overlay" class="overlay" hidden></div>
+<div id="zone-fade" aria-hidden="true"></div><div id="app-overlay" class="overlay" hidden></div><div id="mission-overlay" class="overlay" hidden></div>
 <div id="learning-overlay" hidden></div><div id="channels-overlay" hidden></div>
 <div id="minigame-overlay" role="region" aria-label="미니게임" hidden></div>
 <div id="ending-caption" hidden><span>업무 종료.</span><h2>선생님도, 하교합니다.</h2><p>내일의 일은 내일의 나에게.</p></div>
 <div id="boot-error" hidden role="alert"></div>
 <noscript><div class="noscript">이 게임을 실행하려면 브라우저의 JavaScript를 켜 주세요.</div></noscript>
-<script type="module" src="./game.js?v=20261108-stay1"></script>
+<script type="module" src="./game.js?v=20261110-yard1"></script>
 <script type="module" src="./analytics-entry.js?v=20261106-nicknames1"></script>
 </body></html>

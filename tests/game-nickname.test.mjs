@@ -41,7 +41,7 @@ function setup(){
     player:{setView:noop,setCameraMode:noop,resetCamera:noop,setFloor:noop},teacher:{visible:false},
     applyQuality:noop,audio:{setEnabled:noop},updateSound:noop,updateHUD:noop,persist:noop,
     loadGame:()=>saved,storageAvailable:()=>true,toast:noop,showCertificate:noop,
-    publishAnalyticsNickname:identity.publish
+    publishAnalyticsNickname:identity.publish,resumeYard:noop
   };
   vm.createContext(context);
   vm.runInContext(functionSource('start')+'\n'+functionSource('onChannelChange')+'\n'+channelsSource,context);

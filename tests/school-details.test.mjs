@@ -26,6 +26,8 @@ test('school detail surfaces are shared, opaque and supported by the software re
   world.root.traverse(object=>{
     if(!object.isMesh)return;
     assert.equal(object.isInstancedMesh,undefined);
+    // The playground has its own checks (tests/playground.test.mjs): it needs see-through goal nets and fences.
+    for(let node=object;node;node=node.parent)if(node.name==='운동장')return;
     const texture=object.material.map;
     if(texture?.name){
       const existing=textures.get(texture.name);

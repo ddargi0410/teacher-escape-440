@@ -1,0 +1,55 @@
+<!-- 개발자용(/admin) 화면에 넣는 ‘운동장 신고함’. 같은 출처에서 기존 관리자 세션 쿠키로 동작합니다. -->
+<section id="community-reports" aria-labelledby="community-reports-title">
+  <style>
+    #community-reports{font-family:system-ui,"Noto Sans KR",sans-serif;max-width:860px;margin:24px auto;padding:20px;border-radius:16px;background:#fffdf5;color:#243e39;box-shadow:0 6px 24px #233d3518}
+    #community-reports h2{margin:0 0 4px;font-size:20px}
+    #community-reports p{margin:0 0 14px;color:#65736d;font-size:13px}
+    #community-reports h3{font-size:15px;margin:18px 0 8px}
+    #community-reports ul{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+    #community-reports li{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;background:#f4f6ec}
+    #community-reports li.hidden-item{background:#fde8e1}
+    #community-reports li span{overflow-wrap:anywhere}
+    #community-reports small{display:block;color:#65736d}
+    #community-reports button{border:1px solid #c2ceb5;background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;margin-left:4px}
+    #community-reports button.danger{border-color:#e3a08c;color:#9b3a22}
+  </style>
+  <h2 id="community-reports-title">운동장 신고함</h2>
+  <p>신고가 3번 모이면 자동으로 숨겨져요. 확인 후 숨김을 풀거나 삭제하세요.</p>
+  <button type="button" id="community-reports-refresh">새로고침</button>
+  <h3>느티나무 쪽지</h3><ul id="community-report-notes"></ul>
+  <h3>커피나무 이름표</h3><ul id="community-report-trees"></ul>
+  <script type="module">
+    const base = '/api/community/admin';
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+    const call = async (path, method = 'GET') => {
+      const response = await fetch(base + path, {method, credentials: 'include', headers: {'Content-Type': 'application/json'}});
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || '요청에 실패했어요.');
+      return body;
+    };
+    const row = (item, kind) => {
+      const text = kind === 'notes' ? item.text : `${item.name}`;
+      const who = kind === 'notes' ? item.author : item.owner;
+      const hide = kind === 'notes' ? 'hide' : 'hide-name', unhide = kind === 'notes' ? 'unhide' : 'unhide-name';
+      return `<li class="${item.hidden ? 'hidden-item' : ''}"><span>${esc(text)}<small>${esc(who)} · 신고 ${item.reports}번${item.hidden ? ' · 숨김' : ''}</small></span><span>
+        <button data-kind="${kind}" data-id="${esc(item.id)}" data-action="${item.hidden ? unhide : hide}">${item.hidden ? '숨김 해제' : '숨기기'}</button>
+        <button class="danger" data-kind="${kind}" data-id="${esc(item.id)}" data-action="delete">삭제</button></span></li>`;
+    };
+    async function load() {
+      try {
+        const {notes, trees} = await call('/reports');
+        document.querySelector('#community-report-notes').innerHTML = notes.map(n => row(n, 'notes')).join('') || '<li>신고된 쪽지가 없어요.</li>';
+        document.querySelector('#community-report-trees').innerHTML = trees.map(t => row(t, 'trees')).join('') || '<li>신고된 이름표가 없어요.</li>';
+      } catch (error) { document.querySelector('#community-report-notes').innerHTML = `<li>${esc(error.message)}</li>`; }
+    }
+    document.querySelector('#community-reports').addEventListener('click', async event => {
+      const button = event.target.closest('button[data-action]'); if (!button) return;
+      if (button.dataset.action === 'delete' && !confirm('삭제하면 되돌릴 수 없어요. 삭제할까요?')) return;
+      button.disabled = true;
+      try { await call(`/${button.dataset.kind}/${encodeURIComponent(button.dataset.id)}/${button.dataset.action}`, 'POST'); await load(); }
+      catch (error) { alert(error.message); button.disabled = false; }
+    });
+    document.querySelector('#community-reports-refresh').onclick = load;
+    load();
+  </script>
+</section>

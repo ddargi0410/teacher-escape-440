@@ -205,6 +205,8 @@ export function createSchoolMessenger({getState,onLocate,onSound,onArchiveChange
       if(disposed||id!==5||history.list().some(entry=>entry.subject===COMPUTER_SUCCESS_NOTE.subject))return false;
       return scheduler.enqueue('computer-success',COMPUTER_SUCCESS_NOTE);
     },
+    /** One-off note from elsewhere in the school (the playground's gifts and water hearts). */
+    notify(key,copy){if(disposed)return false;return scheduler.enqueue(key,copy);},
     suspend(){allowed=false;hide();},
     reset({clearHistory=false}={}){
       if(disposed)return;
